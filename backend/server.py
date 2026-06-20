@@ -64,6 +64,7 @@ class UserLogin(BaseModel):
 class Customer(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str  # Multi-tenant isolation
     name: str
     phone: str
     email: Optional[str] = None
@@ -96,6 +97,7 @@ class DeviceCreate(BaseModel):
 class Repair(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str  # Multi-tenant isolation
     ticket_number: str
     customer_id: str
     customer_name: str
@@ -147,6 +149,7 @@ class RepairUpdate(BaseModel):
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str  # Multi-tenant isolation
     name: str
     code: str
     quantity: int
@@ -283,7 +286,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @api_router.post("/customers", response_model=Customer)
 async def create_customer(customer: CustomerCreate, current_user: dict = Depends(get_current_user)):
-    customer_obj = Customer(**customer.model_dump())
+    tenant_id = current_user['tenant_id']
+    customer_obj = Customer(**customer.model_dump(), tenant_id=tenant_id)
     doc = customer_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     
@@ -292,7 +296,8 @@ async def create_customer(customer: CustomerCreate, current_user: dict = Depends
 
 @api_router.get("/customers", response_model=List[Customer])
 async def get_customers(current_user: dict = Depends(get_current_user)):
-    customers = await db.customers.find({}, {"_id": 0}).to_list(1000)
+    tenant_id = current_user['tenant_id']
+    customers = await db.customers.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
     for c in customers:
         if isinstance(c.get('created_at'), str):
             c['created_at'] = datetime.fromisoformat(c['created_at'])
@@ -300,7 +305,8 @@ async def get_customers(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/customers/{customer_id}", response_model=Customer)
 async def get_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
-    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    tenant_id = current_user['tenant_id']
+    customer = await db.customers.find_one({"id": customer_id, "tenant_id": tenant_id}, {"_id": 0})
     if not customer:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if isinstance(customer.get('created_at'), str):
@@ -309,31 +315,37 @@ async def get_customer(customer_id: str, current_user: dict = Depends(get_curren
 
 @api_router.put("/customers/{customer_id}", response_model=Customer)
 async def update_customer(customer_id: str, customer_update: CustomerCreate, current_user: dict = Depends(get_current_user)):
+    tenant_id = current_user['tenant_id']
     update_data = customer_update.model_dump()
-    result = await db.customers.update_one({"id": customer_id}, {"$set": update_data})
+    result = await db.customers.update_one({"id": customer_id, "tenant_id": tenant_id}, {"$set": update_data})
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     
-    updated = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    updated = await db.customers.find_one({"id": customer_id, "tenant_id": tenant_id}, {"_id": 0})
     if isinstance(updated.get('created_at'), str):
         updated['created_at'] = datetime.fromisoformat(updated['created_at'])
     return Customer(**updated)
 
 @api_router.delete("/customers/{customer_id}")
 async def delete_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
-    result = await db.customers.delete_one({"id": customer_id})
+    tenant_id = current_user['tenant_id']
+    result = await db.customers.delete_one({"id": customer_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return {"message": "Cliente eliminado"}
 
 @api_router.post("/repairs", response_model=Repair)
 async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_current_user)):
-    count = await db.repairs.count_documents({})
+    tenant_id = current_user['tenant_id']
+    
+    # Count only repairs for this tenant
+    count = await db.repairs.count_documents({"tenant_id": tenant_id})
     ticket_number = f"REP-{count + 1:05d}"
     
     repair_dict = repair.model_dump()
     repair_dict['ticket_number'] = ticket_number
+    repair_dict['tenant_id'] = tenant_id
     repair_obj = Repair(**repair_dict)
     
     doc = repair_obj.model_dump()
@@ -346,7 +358,8 @@ async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_c
 
 @api_router.get("/repairs", response_model=List[Repair])
 async def get_repairs(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {}
+    tenant_id = current_user['tenant_id']
+    query = {"tenant_id": tenant_id}
     if status:
         query['status'] = status
     
@@ -364,7 +377,8 @@ async def get_repairs(status: Optional[str] = None, current_user: dict = Depends
 
 @api_router.get("/repairs/{repair_id}", response_model=Repair)
 async def get_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
-    repair = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    tenant_id = current_user['tenant_id']
+    repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
@@ -381,10 +395,11 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
 
 @api_router.patch("/repairs/{repair_id}", response_model=Repair)
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
+    tenant_id = current_user['tenant_id']
     update_data = {k: v for k, v in repair_update.model_dump().items() if v is not None}
     
     # Get the repair before update to check status change
-    current_repair = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    current_repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not current_repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
@@ -400,12 +415,12 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     if 'estimated_delivery' in update_data and update_data['estimated_delivery']:
         update_data['estimated_delivery'] = update_data['estimated_delivery'].isoformat()
     
-    result = await db.repairs.update_one({"id": repair_id}, {"$set": update_data})
+    result = await db.repairs.update_one({"id": repair_id, "tenant_id": tenant_id}, {"$set": update_data})
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
-    updated = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    updated = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if isinstance(updated.get('received_date'), str):
         updated['received_date'] = datetime.fromisoformat(updated['received_date'])
     if updated.get('estimated_delivery') and isinstance(updated['estimated_delivery'], str):
@@ -417,8 +432,8 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     
     # Send email notification if status changed to completed
     if old_status != 'completed' and new_status == 'completed':
-        # Get customer info
-        customer = await db.customers.find_one({"id": updated['customer_id']}, {"_id": 0})
+        # Get customer info (with tenant check)
+        customer = await db.customers.find_one({"id": updated['customer_id'], "tenant_id": tenant_id}, {"_id": 0})
         if customer and customer.get('email'):
             try:
                 email_result = await send_repair_ready_notification(
@@ -438,7 +453,8 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
 
 @api_router.delete("/repairs/{repair_id}")
 async def delete_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
-    result = await db.repairs.delete_one({"id": repair_id})
+    tenant_id = current_user['tenant_id']
+    result = await db.repairs.delete_one({"id": repair_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     return {"message": "Orden eliminada"}
@@ -446,13 +462,15 @@ async def delete_repair(repair_id: str, current_user: dict = Depends(get_current
 @api_router.get("/repairs/{repair_id}/delivery-pdf")
 async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depends(get_current_user)):
     """Generate and download delivery order PDF"""
-    # Get repair data
-    repair = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    tenant_id = current_user['tenant_id']
+    
+    # Get repair data (with tenant check)
+    repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
-    # Get customer data
-    customer = await db.customers.find_one({"id": repair['customer_id']}, {"_id": 0})
+    # Get customer data (with tenant check)
+    customer = await db.customers.find_one({"id": repair['customer_id'], "tenant_id": tenant_id}, {"_id": 0})
     if not customer:
         customer = {
             'name': repair.get('customer_name', ''),
@@ -481,7 +499,8 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
 
 @api_router.post("/inventory", response_model=InventoryItem)
 async def create_inventory_item(item: InventoryCreate, current_user: dict = Depends(get_current_user)):
-    item_obj = InventoryItem(**item.model_dump())
+    tenant_id = current_user['tenant_id']
+    item_obj = InventoryItem(**item.model_dump(), tenant_id=tenant_id)
     doc = item_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
@@ -491,7 +510,8 @@ async def create_inventory_item(item: InventoryCreate, current_user: dict = Depe
 
 @api_router.get("/inventory", response_model=List[InventoryItem])
 async def get_inventory(current_user: dict = Depends(get_current_user)):
-    items = await db.inventory.find({}, {"_id": 0}).to_list(1000)
+    tenant_id = current_user['tenant_id']
+    items = await db.inventory.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
     for item in items:
         if isinstance(item.get('created_at'), str):
             item['created_at'] = datetime.fromisoformat(item['created_at'])
@@ -501,7 +521,8 @@ async def get_inventory(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/inventory/{item_id}", response_model=InventoryItem)
 async def get_inventory_item(item_id: str, current_user: dict = Depends(get_current_user)):
-    item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    tenant_id = current_user['tenant_id']
+    item = await db.inventory.find_one({"id": item_id, "tenant_id": tenant_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     if isinstance(item.get('created_at'), str):
@@ -512,15 +533,16 @@ async def get_inventory_item(item_id: str, current_user: dict = Depends(get_curr
 
 @api_router.patch("/inventory/{item_id}", response_model=InventoryItem)
 async def update_inventory_item(item_id: str, item_update: InventoryUpdate, current_user: dict = Depends(get_current_user)):
+    tenant_id = current_user['tenant_id']
     update_data = {k: v for k, v in item_update.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.inventory.update_one({"id": item_id}, {"$set": update_data})
+    result = await db.inventory.update_one({"id": item_id, "tenant_id": tenant_id}, {"$set": update_data})
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     
-    updated = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    updated = await db.inventory.find_one({"id": item_id, "tenant_id": tenant_id}, {"_id": 0})
     if isinstance(updated.get('created_at'), str):
         updated['created_at'] = datetime.fromisoformat(updated['created_at'])
     if isinstance(updated.get('updated_at'), str):
@@ -529,29 +551,35 @@ async def update_inventory_item(item_id: str, item_update: InventoryUpdate, curr
 
 @api_router.delete("/inventory/{item_id}")
 async def delete_inventory_item(item_id: str, current_user: dict = Depends(get_current_user)):
-    result = await db.inventory.delete_one({"id": item_id})
+    tenant_id = current_user['tenant_id']
+    result = await db.inventory.delete_one({"id": item_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     return {"message": "Artículo eliminado"}
 
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
-    total_repairs = await db.repairs.count_documents({})
-    active_repairs = await db.repairs.count_documents({"status": {"$nin": ["delivered", "cancelled"]}})
+    tenant_id = current_user['tenant_id']
+    
+    total_repairs = await db.repairs.count_documents({"tenant_id": tenant_id})
+    active_repairs = await db.repairs.count_documents({"tenant_id": tenant_id, "status": {"$nin": ["delivered", "cancelled"]}})
     
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     completed_today = await db.repairs.count_documents({
+        "tenant_id": tenant_id,
         "status": "completed",
         "completed_date": {"$gte": today_start.isoformat()}
     })
     
-    pending_delivery = await db.repairs.count_documents({"status": "completed"})
+    pending_delivery = await db.repairs.count_documents({"tenant_id": tenant_id, "status": "completed"})
     
     low_stock_items = await db.inventory.count_documents({
+        "tenant_id": tenant_id,
         "$expr": {"$lte": ["$quantity", "$min_stock"]}
     })
     
     status_pipeline = [
+        {"$match": {"tenant_id": tenant_id}},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}}
     ]
     status_results = await db.repairs.aggregate(status_pipeline).to_list(100)
@@ -559,7 +587,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     
     week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     weekly_pipeline = [
-        {"$match": {"received_date": {"$gte": week_ago.isoformat()}}},
+        {"$match": {"tenant_id": tenant_id, "received_date": {"$gte": week_ago.isoformat()}}},
         {"$group": {
             "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": {"$toDate": "$received_date"}}},
             "count": {"$sum": 1}
