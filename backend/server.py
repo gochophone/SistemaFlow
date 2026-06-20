@@ -97,6 +97,7 @@ class Repair(BaseModel):
     unlock_type: Optional[str] = None
     unlock_password: Optional[str] = None
     unlock_pattern: Optional[str] = None
+    device_photos: Optional[List[str]] = None
     received_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     estimated_delivery: Optional[datetime] = None
     completed_date: Optional[datetime] = None
@@ -118,6 +119,7 @@ class RepairCreate(BaseModel):
     unlock_type: Optional[str] = None
     unlock_password: Optional[str] = None
     unlock_pattern: Optional[str] = None
+    device_photos: Optional[List[str]] = None
 
 class RepairUpdate(BaseModel):
     status: Optional[str] = None

@@ -15,8 +15,9 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Smartphone, FileText, Lock } from 'lucide-react';
+import { ArrowLeft, User, Smartphone, FileText, Lock, Camera } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
+import DevicePhotos from '@/components/DevicePhotos';
 import { parseCLPInput } from '@/utils/currency';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -40,6 +41,7 @@ const NewRepair = () => {
     unlock_type: 'none',
     unlock_password: '',
     unlock_pattern: [],
+    device_photos: [],
   });
 
   useEffect(() => {
@@ -76,6 +78,7 @@ const NewRepair = () => {
         budget_estimate: formData.budget_estimate ? parseCLPInput(formData.budget_estimate) : null,
         unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
         unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
+        device_photos: formData.device_photos.length > 0 ? formData.device_photos : null,
       };
 
       const response = await axios.post(`${API}/repairs`, payload, {
@@ -216,6 +219,22 @@ const NewRepair = () => {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border border-zinc-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl font-medium">
+              <Camera size={20} />
+              Fotos del Equipo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DevicePhotos
+              photos={formData.device_photos}
+              onChange={(photos) => setFormData({ ...formData, device_photos: photos })}
+              maxPhotos={5}
+            />
           </CardContent>
         </Card>
 

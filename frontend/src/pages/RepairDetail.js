@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
@@ -47,6 +47,7 @@ const RepairDetail = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [updateData, setUpdateData] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   useEffect(() => {
     fetchRepair();
@@ -312,6 +313,44 @@ const RepairDetail = () => {
             </CardContent>
           </Card>
 
+          {repair.device_photos && repair.device_photos.length > 0 && (
+            <Card className="bg-white border border-zinc-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-medium">
+                  <Camera size={20} />
+                  Fotos del Equipo
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-zinc-600 mb-3">
+                  {repair.device_photos.length} foto(s) del estado inicial del equipo
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {repair.device_photos.map((photo, index) => (
+                    <div
+                      key={index}
+                      className="relative group rounded-lg overflow-hidden border-2 border-zinc-200 hover:border-blue-400 transition-colors cursor-pointer"
+                      onClick={() => setSelectedPhoto(photo)}
+                      data-testid={`device-photo-${index}`}
+                    >
+                      <img
+                        src={photo}
+                        alt={`Foto del equipo ${index + 1}`}
+                        className="w-full h-32 object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                        <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs py-1 px-2">
+                        Foto {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="bg-white border border-zinc-200 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl font-medium">
@@ -475,6 +514,24 @@ const RepairDetail = () => {
           </Card>
         </div>
       </div>
+
+      {/* Photo Viewer Dialog */}
+      <Dialog open={selectedPhoto !== null} onOpenChange={() => setSelectedPhoto(null)}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Vista de Foto</DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            {selectedPhoto && (
+              <img
+                src={selectedPhoto}
+                alt="Vista ampliada"
+                className="w-full h-auto rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
