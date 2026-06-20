@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
+from email_service import send_repair_ready_notification
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -328,6 +329,14 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
     update_data = {k: v for k, v in repair_update.model_dump().items() if v is not None}
     
+    # Get the repair before update to check status change
+    current_repair = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    if not current_repair:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
+    old_status = current_repair.get('status')
+    new_status = update_data.get('status', old_status)
+    
     if 'status' in update_data:
         if update_data['status'] == 'completed':
             update_data['completed_date'] = datetime.now(timezone.utc).isoformat()
@@ -351,6 +360,25 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         updated['completed_date'] = datetime.fromisoformat(updated['completed_date'])
     if updated.get('delivered_date') and isinstance(updated['delivered_date'], str):
         updated['delivered_date'] = datetime.fromisoformat(updated['delivered_date'])
+    
+    # Send email notification if status changed to completed
+    if old_status != 'completed' and new_status == 'completed':
+        # Get customer info
+        customer = await db.customers.find_one({"id": updated['customer_id']}, {"_id": 0})
+        if customer and customer.get('email'):
+            try:
+                email_result = await send_repair_ready_notification(
+                    customer_email=customer['email'],
+                    customer_name=updated['customer_name'],
+                    ticket_number=updated['ticket_number'],
+                    device_brand=updated['device_brand'],
+                    device_model=updated['device_model'],
+                    diagnosis=updated.get('diagnosis')
+                )
+                logger.info(f"Email notification result: {email_result}")
+            except Exception as e:
+                logger.error(f"Failed to send email notification: {str(e)}")
+                # Don't fail the request if email fails
     
     return Repair(**updated)
 
