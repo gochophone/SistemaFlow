@@ -2,10 +2,14 @@ import React, { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
-const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -20,63 +24,73 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
 
     const validFiles = files.filter(file => {
       const isValid = file.type.startsWith('image/');
-      const isUnder5MB = file.size <= 5 * 1024 * 1024;
+      const isUnder10MB = file.size <= 10 * 1024 * 1024;
       
       if (!isValid) {
         toast.error(`${file.name} no es una imagen válida`);
         return false;
       }
-      if (!isUnder5MB) {
-        toast.error(`${file.name} es muy grande (máx 5MB)`);
+      if (!isUnder10MB) {
+        toast.error(`${file.name} es muy grande (máx 10MB)`);
         return false;
       }
       return true;
     });
 
-    const base64Images = await Promise.all(
-      validFiles.map(file => convertToBase64(file))
-    );
+    if (validFiles.length === 0) return;
 
-    onChange([...photos, ...base64Images]);
-    toast.success(`${validFiles.length} foto(s) agregada(s)`);
+    setUploading(true);
+    toast.info(`Subiendo ${validFiles.length} foto(s) a Cloudinary...`);
+
+    try {
+      const uploadedUrls = await Promise.all(
+        validFiles.map(file => uploadToCloudinary(file))
+      );
+
+      onChange([...photos, ...uploadedUrls]);
+      toast.success(`${validFiles.length} foto(s) subida(s) exitosamente`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Error al subir fotos. Intenta nuevamente.');
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Compress image if needed
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Resize if too large (max 1200px)
-          const maxSize = 1200;
-          if (width > maxSize || height > maxSize) {
-            if (width > height) {
-              height = (height / width) * maxSize;
-              width = maxSize;
-            } else {
-              width = (width / height) * maxSize;
-              height = maxSize;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Convert to base64 with compression
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
-        };
-        img.src = reader.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  const uploadToCloudinary = async (file) => {
+    // Get signature from backend
+    const sigResponse = await axios.get(`${API}/cloudinary/signature`, {
+      headers: authHeader,
+      params: {
+        resource_type: 'image',
+        folder: 'repairs'
+      }
     });
+
+    const { signature, timestamp, cloud_name, api_key, folder } = sigResponse.data;
+
+    // Upload to Cloudinary
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', api_key);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
+    formData.append('folder', folder);
+
+    const uploadResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      throw new Error('Cloudinary upload failed');
+    }
+
+    const result = await uploadResponse.json();
+    return result.secure_url; // Return the URL
   };
 
   const removePhoto = (index) => {
@@ -92,19 +106,19 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
           type="button"
           variant="outline"
           onClick={() => fileInputRef.current?.click()}
-          disabled={photos.length >= maxPhotos}
+          disabled={photos.length >= maxPhotos || uploading}
           className="flex-1"
           data-testid="upload-photo-button"
         >
           <Upload size={18} className="mr-2" />
-          Subir Fotos
+          {uploading ? 'Subiendo...' : 'Subir Fotos'}
         </Button>
         
         <Button
           type="button"
           variant="outline"
           onClick={() => cameraInputRef.current?.click()}
-          disabled={photos.length >= maxPhotos}
+          disabled={photos.length >= maxPhotos || uploading}
           className="flex-1"
           data-testid="take-photo-button"
         >
@@ -120,6 +134,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
         multiple
         onChange={handleFileUpload}
         className="hidden"
+        disabled={uploading}
       />
       
       <input
@@ -129,6 +144,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
         capture="environment"
         onChange={handleFileUpload}
         className="hidden"
+        disabled={uploading}
       />
 
       {photos.length > 0 ? (
@@ -137,28 +153,35 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
             <p className="text-sm font-medium text-zinc-700">
               {photos.length} de {maxPhotos} fotos
             </p>
-            <p className="text-xs text-zinc-500">
-              Máximo 5MB por foto
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-800 border border-green-200">
+                ☁️ Cloudinary
+              </span>
+              <p className="text-xs text-zinc-500">
+                Almacenamiento en la nube
+              </p>
+            </div>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {photos.map((photo, index) => (
+            {photos.map((photoUrl, index) => (
               <div
                 key={index}
                 className="relative group rounded-lg overflow-hidden border-2 border-zinc-200 hover:border-blue-400 transition-colors"
                 data-testid={`photo-preview-${index}`}
               >
                 <img
-                  src={photo}
+                  src={photoUrl}
                   alt={`Foto del equipo ${index + 1}`}
                   className="w-full h-32 object-cover"
+                  loading="lazy"
                 />
                 <button
                   type="button"
                   onClick={() => removePhoto(index)}
                   className="absolute top-1 right-1 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
                   data-testid={`remove-photo-${index}`}
+                  disabled={uploading}
                 >
                   <X size={14} />
                 </button>
@@ -183,7 +206,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5 }) => {
 
       <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-xs text-blue-900">
-          <strong>Tip:</strong> Toma fotos del equipo completo, pantalla, parte trasera y cualquier daño visible. Esto protege tanto al técnico como al cliente.
+          <strong>Tip:</strong> Las fotos se suben a Cloudinary (CDN global) para carga rápida y almacenamiento seguro. Máximo 10MB por foto.
         </p>
       </div>
     </div>

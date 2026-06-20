@@ -234,6 +234,7 @@ const NewRepair = () => {
               photos={formData.device_photos}
               onChange={(photos) => setFormData({ ...formData, device_photos: photos })}
               maxPhotos={5}
+              authHeader={getAuthHeader()}
             />
           </CardContent>
         </Card>

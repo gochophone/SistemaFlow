@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile, Response, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -12,9 +12,10 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
+import time
+import cloudinary
+import cloudinary.utils
 from email_service import send_repair_ready_notification
-from storage_service import init_storage, put_object, get_object, get_mime_type
-import base64
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,6 +26,14 @@ db = client[os.environ['DB_NAME']]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    secure=True
+)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -542,6 +551,38 @@ async def global_search(q: str, current_user: dict = Depends(get_current_user)):
     results['inventory'] = inventory
     
     return results
+
+@api_router.get("/cloudinary/signature")
+async def generate_cloudinary_signature(
+    resource_type: str = Query("image", enum=["image", "video"]),
+    folder: str = "repairs",
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate signed upload parameters for Cloudinary"""
+    ALLOWED_FOLDERS = ("repairs", "users", "inventory")
+    if folder not in ALLOWED_FOLDERS:
+        raise HTTPException(status_code=400, detail="Invalid folder path")
+    
+    timestamp = int(time.time())
+    params = {
+        "timestamp": timestamp,
+        "folder": folder,
+        "resource_type": resource_type
+    }
+    
+    signature = cloudinary.utils.api_sign_request(
+        params,
+        os.environ.get('CLOUDINARY_API_SECRET')
+    )
+    
+    return {
+        "signature": signature,
+        "timestamp": timestamp,
+        "cloud_name": os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        "api_key": os.environ.get('CLOUDINARY_API_KEY'),
+        "folder": folder,
+        "resource_type": resource_type
+    }
 
 app.include_router(api_router)
 
