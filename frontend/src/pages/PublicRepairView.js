@@ -80,7 +80,7 @@ const PublicRepairView = () => {
         <div className="bg-zinc-900 text-white rounded-t-lg p-6">
           <div className="flex items-center gap-3 mb-2">
             <Wrench size={32} />
-            <h1 className="text-2xl font-bold tracking-tight">ServiceTech</h1>
+            <h1 className="text-2xl font-bold tracking-tight">TechFlow</h1>
           </div>
           <p className="text-zinc-400 text-sm uppercase tracking-wider">
             Consulta de Orden de Reparación

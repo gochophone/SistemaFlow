@@ -67,7 +67,7 @@ const Login = () => {
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
           <div className="flex items-center gap-3 mb-6">
             <Wrench size={40} strokeWidth={1.5} />
-            <h1 className="text-4xl font-bold tracking-tight">ServiceTech</h1>
+            <h1 className="text-4xl font-bold tracking-tight">TechFlow</h1>
           </div>
           <p className="text-xl text-zinc-200 max-w-md leading-relaxed">
             Sistema de gestión para servicios técnicos de telefonía. Controla reparaciones, inventario y clientes en un solo lugar.
@@ -80,7 +80,7 @@ const Login = () => {
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Wrench size={32} className="text-blue-600" />
-              <h1 className="text-3xl font-bold tracking-tight">ServiceTech</h1>
+              <h1 className="text-3xl font-bold tracking-tight">TechFlow</h1>
             </div>
             <p className="text-sm text-zinc-600">Sistema de Gestión</p>
           </div>

@@ -46,7 +46,7 @@ const Layout = () => {
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
         <div className="p-6">
-          <h1 className="text-2xl font-bold tracking-tight" data-testid="app-logo">ServiceTech</h1>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="app-logo">TechFlow</h1>
           <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider">Sistema de Gestión</p>
         </div>
         

@@ -67,7 +67,7 @@ const PrintLabel = () => {
               <div className="label-header">
                 <div className="label-logo">
                   <Wrench size={14} strokeWidth={2} />
-                  <span className="label-company">ServiceTech</span>
+                  <span className="label-company">TechFlow</span>
                   <div className="label-ticket">{repair.ticket_number}</div>
                 </div>
               </div>
