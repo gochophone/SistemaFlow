@@ -42,7 +42,6 @@
 
 .label-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   padding-bottom: 1mm;
   border-bottom: 1px solid #09090B;
@@ -69,6 +68,7 @@
   color: white;
   padding: 1mm 2mm;
   border-radius: 2px;
+  margin-left: 2mm;
 }
 
 .label-info {

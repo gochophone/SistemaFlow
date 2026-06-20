@@ -66,10 +66,10 @@ const PrintLabel = () => {
             <div className="label-left">
               <div className="label-header">
                 <div className="label-logo">
-                  <Wrench size={16} strokeWidth={2} />
+                  <Wrench size={14} strokeWidth={2} />
                   <span className="label-company">ServiceTech</span>
+                  <div className="label-ticket">{repair.ticket_number}</div>
                 </div>
-                <div className="label-ticket">{repair.ticket_number}</div>
               </div>
 
               <div className="label-info">
@@ -98,7 +98,7 @@ const PrintLabel = () => {
             <div className="label-qr">
               <QRCodeSVG 
                 value={publicUrl}
-                size={80}
+                size={65}
                 level="M"
                 includeMargin={false}
               />
