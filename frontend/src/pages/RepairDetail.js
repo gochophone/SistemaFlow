@@ -202,7 +202,7 @@ const RepairDetail = () => {
                 data-testid="download-delivery-pdf-button"
               >
                 <FileText size={18} className="mr-2" />
-                Descargar PDF de Entrega
+                PDF de Entrega
               </Button>
             )}
             
