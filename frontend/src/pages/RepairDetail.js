@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
@@ -160,6 +160,15 @@ const RepairDetail = () => {
             <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">Orden de Reparación</p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.open(`/print-label/${repair.id}`, '_blank')}
+              data-testid="print-label-button"
+            >
+              <Printer size={18} className="mr-2" />
+              Imprimir Etiqueta
+            </Button>
+            
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="edit-repair-button">

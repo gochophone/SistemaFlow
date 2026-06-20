@@ -8,6 +8,8 @@ import RepairDetail from '@/pages/RepairDetail';
 import NewRepair from '@/pages/NewRepair';
 import Customers from '@/pages/Customers';
 import Inventory from '@/pages/Inventory';
+import PrintLabel from '@/pages/PrintLabel';
+import PublicRepairView from '@/pages/PublicRepairView';
 import Layout from '@/components/Layout';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import '@/App.css';
@@ -39,6 +41,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/public/:ticketNumber" element={<PublicRepairView />} />
+          <Route path="/print-label/:id" element={<PrintLabel />} />
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />

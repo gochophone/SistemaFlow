@@ -586,6 +586,41 @@ async def generate_cloudinary_signature(
 
 app.include_router(api_router)
 
+# Public routes (no authentication required)
+public_router = APIRouter(prefix="/public")
+
+@public_router.get("/repair/{ticket_number}")
+async def get_public_repair(ticket_number: str):
+    """Get public repair information by ticket number"""
+    repair = await db.repairs.find_one({"ticket_number": ticket_number}, {"_id": 0})
+    if not repair:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
+    # Convert datetime strings
+    if isinstance(repair.get('received_date'), str):
+        repair['received_date'] = datetime.fromisoformat(repair['received_date'])
+    if repair.get('estimated_delivery') and isinstance(repair['estimated_delivery'], str):
+        repair['estimated_delivery'] = datetime.fromisoformat(repair['estimated_delivery'])
+    if repair.get('completed_date') and isinstance(repair['completed_date'], str):
+        repair['completed_date'] = datetime.fromisoformat(repair['completed_date'])
+    
+    # Return only public information
+    public_data = {
+        "ticket_number": repair['ticket_number'],
+        "customer_name": repair['customer_name'],
+        "device_brand": repair['device_brand'],
+        "device_model": repair['device_model'],
+        "reported_issue": repair['reported_issue'],
+        "status": repair['status'],
+        "received_date": repair['received_date'],
+        "estimated_delivery": repair.get('estimated_delivery'),
+        "completed_date": repair.get('completed_date')
+    }
+    
+    return public_data
+
+app.include_router(public_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
