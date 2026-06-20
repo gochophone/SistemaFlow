@@ -136,6 +136,13 @@ const Login = () => {
                   {loading ? 'Iniciando...' : 'Iniciar Sesión'}
                 </Button>
 
+                <p className="text-center text-sm text-zinc-600 mt-4">
+                  ¿No tienes una cuenta?{' '}
+                  <a href="/register" className="text-blue-600 hover:text-blue-700 font-semibold">
+                    Registrarse
+                  </a>
+                </p>
+
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <p className="text-xs text-blue-900 font-medium mb-1">Cuentas de prueba:</p>
                   <p className="text-xs text-blue-700">admin@servicetec.com / Admin123!</p>

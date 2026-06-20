@@ -25,11 +25,6 @@ load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-
-# Master database for user authentication and tenant mapping
-master_db = client['techflow_master']
-
-# Current database (will be set per request based on user)
 db = client[os.environ['DB_NAME']]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
@@ -53,13 +48,14 @@ class User(BaseModel):
     email: EmailStr
     name: str
     role: str
+    tenant_id: str  # Each user belongs to a tenant (business/company)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "technician"
+    company_name: str  # Name of the business/company
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -191,22 +187,20 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def create_token(user_id: str, email: str, role: str, db_name: str) -> str:
+def create_token(user_id: str, email: str, role: str, tenant_id: str) -> str:
     payload = {
         'user_id': user_id,
         'email': email,
         'role': role,
-        'db_name': db_name,
+        'tenant_id': tenant_id,
         'exp': datetime.now(timezone.utc) + timedelta(days=7)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-def get_user_db_name(email: str) -> str:
-    """Generate a unique database name for each user"""
-    # Use email prefix + hash for unique db name
-    email_prefix = email.split('@')[0][:10]
-    email_hash = hashlib.md5(email.encode()).hexdigest()[:8]
-    return f"techflow_{email_prefix}_{email_hash}"
+def get_tenant_id(email: str) -> str:
+    """Generate a unique tenant ID based on email domain or unique string"""
+    email_hash = hashlib.md5(email.encode()).hexdigest()[:12]
+    return f"tenant_{email_hash}"
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
@@ -218,30 +212,46 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-async def get_user_db(current_user: dict = Depends(get_current_user)):
-    """Get the database for the current user"""
-    db_name = current_user.get('db_name')
-    if not db_name:
-        raise HTTPException(status_code=400, detail="Base de datos no especificada")
-    return client[db_name]
-
-@api_router.post("/auth/register", response_model=User)
+@api_router.post("/auth/register")
 async def register(user_data: UserCreate):
+    # Check if user exists
     existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
     
+    # Generate tenant_id for the new company
+    tenant_id = get_tenant_id(user_data.email)
+    
+    # Create user document
     user_dict = user_data.model_dump()
     password = user_dict.pop('password')
-    user_dict['password_hash'] = hash_password(password)
+    company_name = user_dict.pop('company_name')
     
-    user_obj = User(**{k: v for k, v in user_dict.items() if k != 'password_hash'})
+    user_dict['password_hash'] = hash_password(password)
+    user_dict['role'] = 'admin'  # First user of tenant is admin
+    user_dict['tenant_id'] = tenant_id
+    user_dict['company_name'] = company_name
+    
+    user_obj = User(**{k: v for k, v in user_dict.items() if k not in ['password_hash', 'company_name']})
     doc = user_obj.model_dump()
     doc['password_hash'] = user_dict['password_hash']
+    doc['company_name'] = company_name
     doc['created_at'] = doc['created_at'].isoformat()
     
+    # Save user to database
     await db.users.insert_one(doc)
-    return user_obj
+    
+    logger.info(f"New tenant registered: {user_data.email} | Company: {company_name} | Tenant ID: {tenant_id}")
+    
+    return {
+        "message": "Usuario registrado exitosamente",
+        "user": {
+            "id": user_obj.id,
+            "email": user_obj.email,
+            "name": user_obj.name,
+            "company_name": company_name
+        }
+    }
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
@@ -249,7 +259,7 @@ async def login(credentials: UserLogin):
     if not user or not verify_password(credentials.password, user['password_hash']):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
-    token = create_token(user['id'], user['email'], user['role'])
+    token = create_token(user['id'], user['email'], user['role'], user['tenant_id'])
     return {
         "token": token,
         "user": {
