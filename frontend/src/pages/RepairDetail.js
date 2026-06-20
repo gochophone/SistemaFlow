@@ -188,9 +188,10 @@ const RepairDetail = () => {
               variant="outline"
               onClick={() => window.open(`/print-label/${repair.id}`, '_blank')}
               data-testid="print-label-button"
+              title="Imprimir Etiqueta"
+              className="px-3"
             >
-              <Printer size={18} className="mr-2" />
-              Imprimir Etiqueta
+              <Printer size={18} />
             </Button>
             
             {repair.status === 'delivered' && (
