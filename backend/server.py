@@ -92,6 +92,9 @@ class Repair(BaseModel):
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
+    unlock_type: Optional[str] = None
+    unlock_password: Optional[str] = None
+    unlock_pattern: Optional[str] = None
     received_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     estimated_delivery: Optional[datetime] = None
     completed_date: Optional[datetime] = None
@@ -110,6 +113,9 @@ class RepairCreate(BaseModel):
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
     estimated_delivery: Optional[datetime] = None
+    unlock_type: Optional[str] = None
+    unlock_password: Optional[str] = None
+    unlock_pattern: Optional[str] = None
 
 class RepairUpdate(BaseModel):
     status: Optional[str] = None

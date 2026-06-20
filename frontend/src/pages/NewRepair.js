@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Smartphone, FileText } from 'lucide-react';
+import { ArrowLeft, User, Smartphone, FileText, Lock } from 'lucide-react';
+import PatternLock from '@/components/PatternLock';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -35,6 +36,9 @@ const NewRepair = () => {
     diagnosis: '',
     budget_estimate: '',
     notes: '',
+    unlock_type: 'none',
+    unlock_password: '',
+    unlock_pattern: [],
   });
 
   useEffect(() => {
@@ -69,6 +73,8 @@ const NewRepair = () => {
       const payload = {
         ...formData,
         budget_estimate: formData.budget_estimate ? parseFloat(formData.budget_estimate) : null,
+        unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
+        unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
       };
 
       const response = await axios.post(`${API}/repairs`, payload, {
@@ -272,6 +278,95 @@ const NewRepair = () => {
                 data-testid="notes-input"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border border-zinc-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl font-medium">
+              <Lock size={20} />
+              Contraseña de Desbloqueo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="unlock_type" className="text-sm font-medium text-zinc-900">Tipo de Desbloqueo</Label>
+              <Select
+                value={formData.unlock_type}
+                onValueChange={(value) => setFormData({ ...formData, unlock_type: value, unlock_password: '', unlock_pattern: [] })}
+              >
+                <SelectTrigger className="mt-1 border-zinc-200" data-testid="unlock-type-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin contraseña / No especificado</SelectItem>
+                  <SelectItem value="numeric">Contraseña Numérica (PIN)</SelectItem>
+                  <SelectItem value="alphanumeric">Contraseña Alfanumérica</SelectItem>
+                  <SelectItem value="pattern">Patrón de Desbloqueo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.unlock_type === 'numeric' && (
+              <div>
+                <Label htmlFor="unlock_password" className="text-sm font-medium text-zinc-900">PIN Numérico</Label>
+                <Input
+                  id="unlock_password"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formData.unlock_password}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setFormData({ ...formData, unlock_password: value });
+                  }}
+                  placeholder="1234"
+                  className="mt-1 border-zinc-200 font-mono text-lg tracking-widest"
+                  maxLength="8"
+                  data-testid="unlock-password-numeric"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Solo números (4-8 dígitos)</p>
+              </div>
+            )}
+
+            {formData.unlock_type === 'alphanumeric' && (
+              <div>
+                <Label htmlFor="unlock_password" className="text-sm font-medium text-zinc-900">Contraseña Alfanumérica</Label>
+                <Input
+                  id="unlock_password"
+                  type="text"
+                  value={formData.unlock_password}
+                  onChange={(e) => setFormData({ ...formData, unlock_password: e.target.value })}
+                  placeholder="Mi#Contraseña123"
+                  className="mt-1 border-zinc-200 font-mono"
+                  data-testid="unlock-password-alphanumeric"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Letras, números y símbolos</p>
+              </div>
+            )}
+
+            {formData.unlock_type === 'pattern' && (
+              <div>
+                <Label className="text-sm font-medium text-zinc-900 mb-2 block">
+                  Patrón de Desbloqueo
+                </Label>
+                <p className="text-xs text-zinc-500 mb-3">
+                  Dibuja el patrón de desbloqueo del dispositivo. Los números mostrarán el orden de conexión.
+                </p>
+                <PatternLock
+                  value={formData.unlock_pattern}
+                  onChange={(pattern) => setFormData({ ...formData, unlock_pattern: pattern })}
+                />
+              </div>
+            )}
+
+            {formData.unlock_type === 'none' && (
+              <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-md">
+                <p className="text-sm text-zinc-600">
+                  No se especificó contraseña de desbloqueo. El cliente puede proporcionarla más tarde o el dispositivo no tiene contraseña.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

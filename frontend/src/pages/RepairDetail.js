@@ -23,7 +23,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff } from 'lucide-react';
+import PatternLock from '@/components/PatternLock';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -44,6 +45,7 @@ const RepairDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [updateData, setUpdateData] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetchRepair();
@@ -335,6 +337,67 @@ const RepairDetail = () => {
               )}
             </CardContent>
           </Card>
+
+          {(repair.unlock_type && repair.unlock_type !== 'none') && (
+            <Card className="bg-white border border-zinc-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-medium">
+                  <Lock size={20} />
+                  Contraseña de Desbloqueo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Tipo</p>
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 border font-medium">
+                    {repair.unlock_type === 'numeric' && 'PIN Numérico'}
+                    {repair.unlock_type === 'alphanumeric' && 'Contraseña Alfanumérica'}
+                    {repair.unlock_type === 'pattern' && 'Patrón de Desbloqueo'}
+                  </Badge>
+                </div>
+
+                {repair.unlock_type === 'pattern' && repair.unlock_pattern && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">Patrón</p>
+                    <div className="bg-zinc-50 p-4 rounded-lg border border-zinc-200">
+                      <PatternLock
+                        value={JSON.parse(repair.unlock_pattern)}
+                        onChange={() => {}}
+                        disabled={true}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(repair.unlock_type === 'numeric' || repair.unlock_type === 'alphanumeric') && repair.unlock_password && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Contraseña</p>
+                    <div className="flex items-center gap-2">
+                      <code className={`flex-1 p-3 bg-zinc-50 border border-zinc-200 rounded-md font-mono text-lg tracking-wider ${
+                        showPassword ? 'text-zinc-900' : 'text-zinc-400'
+                      }`}>
+                        {showPassword ? repair.unlock_password : '•'.repeat(repair.unlock_password.length)}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPassword(!showPassword)}
+                        data-testid="toggle-password-visibility"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs text-amber-900">
+                    <strong>Nota:</strong> Esta información es confidencial y solo debe ser usada por técnicos autorizados.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
