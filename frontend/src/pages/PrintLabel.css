@@ -149,32 +149,51 @@
     margin: 0;
   }
 
-  body {
+  * {
     margin: 0;
     padding: 0;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 62mm !important;
+    height: 29mm !important;
+    overflow: hidden;
   }
 
   .print-container {
     background: white;
-    padding: 0;
-    min-height: auto;
-    margin: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 29mm !important;
+    height: 29mm !important;
+    width: 62mm !important;
+    display: block !important;
+    overflow: hidden;
   }
 
   .label-page {
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 62mm !important;
+    height: 29mm !important;
+    display: block !important;
   }
 
   .label {
     border: 1px solid #09090B;
-    border-radius: 2px;
-    width: 62mm;
-    height: 29mm;
+    border-radius: 0;
+    width: 62mm !important;
+    height: 29mm !important;
     padding: 3mm;
-    margin: 0;
+    margin: 0 !important;
     page-break-inside: avoid;
     background: white;
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
 
   .no-print {
@@ -192,6 +211,13 @@
   .label-ticket {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  
+  /* Force black backgrounds to print */
+  .label-ticket {
+    background: #000000 !important;
+    color: #ffffff !important;
   }
 }
 
