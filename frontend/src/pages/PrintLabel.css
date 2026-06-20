@@ -21,7 +21,7 @@
   border-radius: 4px;
   width: 62mm;
   height: 29mm;
-  padding: 3mm;
+  padding: 2.5mm;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -36,89 +36,101 @@
 .label-left {
   display: flex;
   flex-direction: column;
-  gap: 1.5mm;
+  gap: 1mm;
   overflow: hidden;
+  min-width: 0;
 }
 
 .label-header {
   display: flex;
   align-items: center;
-  padding-bottom: 1mm;
+  padding-bottom: 0.8mm;
   border-bottom: 1px solid #09090B;
+  flex-shrink: 0;
 }
 
 .label-logo {
   display: flex;
   align-items: center;
-  gap: 2mm;
+  gap: 1.5mm;
 }
 
 .label-company {
   font-family: 'Chivo', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #09090B;
+  white-space: nowrap;
 }
 
 .label-ticket {
   font-family: 'Chivo', sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   background: #09090B;
   color: white;
-  padding: 1mm 2mm;
+  padding: 0.8mm 1.5mm;
   border-radius: 2px;
-  margin-left: 2mm;
+  margin-left: 1.5mm;
+  white-space: nowrap;
 }
 
 .label-info {
   display: flex;
   flex-direction: column;
-  gap: 1mm;
+  gap: 0.8mm;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .label-field {
   display: flex;
   flex-direction: column;
-  gap: 0.5mm;
-  overflow: hidden;
+  gap: 0.3mm;
+  min-width: 0;
 }
 
 .label-field-title {
-  font-size: 7px;
+  font-size: 6px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: #71717A;
   font-weight: 600;
+  line-height: 1;
 }
 
 .label-field-value {
-  font-size: 8px;
+  font-size: 7.5px;
   color: #09090B;
   font-weight: 500;
   line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .label-customer {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
+  line-height: 1.2;
+  word-wrap: break-word;
 }
 
 .label-device {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
+  line-height: 1.2;
+  word-wrap: break-word;
 }
 
 .label-issue {
-  font-size: 7px;
+  font-size: 6.5px;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  word-wrap: break-word;
 }
 
 .label-qr {

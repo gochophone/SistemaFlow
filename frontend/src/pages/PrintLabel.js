@@ -84,10 +84,10 @@ const PrintLabel = () => {
                 </div>
                 
                 <div className="label-field">
-                  <span className="label-field-title">Falla:</span>
+                  <span className="label-field-title">FALLA:</span>
                   <span className="label-field-value label-issue">
-                    {repair.reported_issue.length > 40 
-                      ? repair.reported_issue.substring(0, 40) + '...'
+                    {repair.reported_issue.length > 50 
+                      ? repair.reported_issue.substring(0, 50) + '...'
                       : repair.reported_issue
                     }
                   </span>
