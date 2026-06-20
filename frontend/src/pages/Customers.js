@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, User } from 'lucide-react';
+import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -34,6 +35,7 @@ const Customers = () => {
     name: '',
     phone: '',
     email: '',
+    rut: '',
     address: '',
   });
 
@@ -56,7 +58,7 @@ const Customers = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '', address: '' });
+    setFormData({ name: '', phone: '', email: '', rut: '', address: '' });
     setEditingCustomer(null);
   };
 
@@ -67,6 +69,7 @@ const Customers = () => {
         name: customer.name,
         phone: customer.phone,
         email: customer.email || '',
+        rut: customer.rut || '',
         address: customer.address || '',
       });
     } else {
@@ -77,14 +80,26 @@ const Customers = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar RUT si se proporcionó
+    if (formData.rut && !validateRUT(formData.rut)) {
+      toast.error('RUT inválido. Verifica el dígito verificador.');
+      return;
+    }
+    
     try {
+      const payload = {
+        ...formData,
+        rut: formData.rut ? cleanRUT(formData.rut) : null,
+      };
+      
       if (editingCustomer) {
-        await axios.put(`${API}/customers/${editingCustomer.id}`, formData, {
+        await axios.put(`${API}/customers/${editingCustomer.id}`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Cliente actualizado');
       } else {
-        await axios.post(`${API}/customers`, formData, {
+        await axios.post(`${API}/customers`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Cliente creado');
@@ -160,12 +175,29 @@ const Customers = () => {
               </div>
 
               <div>
+                <Label htmlFor="rut" className="text-sm font-medium text-zinc-900">RUT</Label>
+                <Input
+                  id="rut"
+                  value={formData.rut}
+                  onChange={(e) => {
+                    const formatted = formatRUT(e.target.value);
+                    setFormData({ ...formData, rut: formatted });
+                  }}
+                  placeholder="12.345.678-9"
+                  className="mt-1 border-zinc-200 font-mono"
+                  maxLength="12"
+                  data-testid="customer-rut-input"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Opcional. Formato: 12.345.678-9</p>
+              </div>
+
+              <div>
                 <Label htmlFor="phone" className="text-sm font-medium text-zinc-900">Teléfono *</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+34 123 456 789"
+                  placeholder="+56 9 1234 5678"
                   className="mt-1 border-zinc-200"
                   required
                   data-testid="customer-phone-input"
@@ -227,6 +259,7 @@ const Customers = () => {
           <TableHeader>
             <TableRow className="bg-zinc-50">
               <TableHead className="font-semibold text-zinc-900">Nombre</TableHead>
+              <TableHead className="font-semibold text-zinc-900">RUT</TableHead>
               <TableHead className="font-semibold text-zinc-900">Teléfono</TableHead>
               <TableHead className="font-semibold text-zinc-900">Email</TableHead>
               <TableHead className="font-semibold text-zinc-900">Dirección</TableHead>
@@ -236,7 +269,7 @@ const Customers = () => {
           <TableBody>
             {customers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-zinc-500">
+                <TableCell colSpan={6} className="text-center py-12 text-zinc-500">
                   No hay clientes registrados
                 </TableCell>
               </TableRow>
@@ -252,6 +285,9 @@ const Customers = () => {
                       <User size={16} className="text-zinc-400" />
                       {customer.name}
                     </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {customer.rut ? formatRUT(customer.rut) : '-'}
                   </TableCell>
                   <TableCell>{customer.phone}</TableCell>
                   <TableCell>{customer.email || '-'}</TableCell>

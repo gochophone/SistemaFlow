@@ -52,6 +52,7 @@ class Customer(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
+    rut: Optional[str] = None
     address: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -59,6 +60,7 @@ class CustomerCreate(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
+    rut: Optional[str] = None
     address: Optional[str] = None
 
 class Device(BaseModel):
