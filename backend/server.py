@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import hashlib
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -24,6 +25,11 @@ load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
+
+# Master database for user authentication and tenant mapping
+master_db = client['techflow_master']
+
+# Current database (will be set per request based on user)
 db = client[os.environ['DB_NAME']]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
@@ -185,14 +191,22 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def create_token(user_id: str, email: str, role: str) -> str:
+def create_token(user_id: str, email: str, role: str, db_name: str) -> str:
     payload = {
         'user_id': user_id,
         'email': email,
         'role': role,
+        'db_name': db_name,
         'exp': datetime.now(timezone.utc) + timedelta(days=7)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def get_user_db_name(email: str) -> str:
+    """Generate a unique database name for each user"""
+    # Use email prefix + hash for unique db name
+    email_prefix = email.split('@')[0][:10]
+    email_hash = hashlib.md5(email.encode()).hexdigest()[:8]
+    return f"techflow_{email_prefix}_{email_hash}"
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
@@ -203,6 +217,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+async def get_user_db(current_user: dict = Depends(get_current_user)):
+    """Get the database for the current user"""
+    db_name = current_user.get('db_name')
+    if not db_name:
+        raise HTTPException(status_code=400, detail="Base de datos no especificada")
+    return client[db_name]
 
 @api_router.post("/auth/register", response_model=User)
 async def register(user_data: UserCreate):
