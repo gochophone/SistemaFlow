@@ -97,6 +97,30 @@ const RepairDetail = () => {
     }
   };
 
+  const handleDownloadDeliveryPDF = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/repairs/${id}/delivery-pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `orden_entrega_${repair.ticket_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      
+      toast.success('PDF de entrega descargado');
+    } catch (error) {
+      toast.error('Error al descargar PDF');
+      console.error(error);
+    }
+  };
+
   const handleDelete = async () => {
     if (!window.confirm('¿Estás seguro de eliminar esta orden?')) return;
     
@@ -168,6 +192,18 @@ const RepairDetail = () => {
               <Printer size={18} className="mr-2" />
               Imprimir Etiqueta
             </Button>
+            
+            {repair.status === 'delivered' && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadDeliveryPDF}
+                className="border-green-600 text-green-700 hover:bg-green-50"
+                data-testid="download-delivery-pdf-button"
+              >
+                <FileText size={18} className="mr-2" />
+                Descargar PDF de Entrega
+              </Button>
+            )}
             
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
               <DialogTrigger asChild>

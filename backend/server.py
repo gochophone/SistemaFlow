@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile, Response, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -16,6 +17,7 @@ import time
 import cloudinary
 import cloudinary.utils
 from email_service import send_repair_ready_notification
+from pdf_generator import generate_delivery_pdf
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -409,6 +411,42 @@ async def delete_repair(repair_id: str, current_user: dict = Depends(get_current
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     return {"message": "Orden eliminada"}
+
+@api_router.get("/repairs/{repair_id}/delivery-pdf")
+async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depends(get_current_user)):
+    """Generate and download delivery order PDF"""
+    # Get repair data
+    repair = await db.repairs.find_one({"id": repair_id}, {"_id": 0})
+    if not repair:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
+    # Get customer data
+    customer = await db.customers.find_one({"id": repair['customer_id']}, {"_id": 0})
+    if not customer:
+        customer = {
+            'name': repair.get('customer_name', ''),
+            'email': '',
+            'phone': '',
+            'rut': ''
+        }
+    
+    # Generate PDF
+    try:
+        pdf_buffer = generate_delivery_pdf(repair, customer)
+        
+        # Return as downloadable file
+        filename = f"orden_entrega_{repair['ticket_number']}.pdf"
+        
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al generar PDF: {str(e)}")
 
 @api_router.post("/inventory", response_model=InventoryItem)
 async def create_inventory_item(item: InventoryCreate, current_user: dict = Depends(get_current_user)):
