@@ -1,0 +1,121 @@
+{
+  "theme": "light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "emotional_tone": "Objective, Functional, Authoritative, Clear",
+  "typography": {
+    "font_strategy": "The Swiss Brutalist / Corporate Tech",
+    "heading_font": "Chivo",
+    "body_font": "IBM Plex Sans",
+    "rules": {
+      "headings": "Tracking-tight, high-weight for top-level metrics. Left-aligned.",
+      "overlines": "Uppercase, tiny text-xs, tracking-[0.2em] for status labels and form groups.",
+      "hierarchy": {
+        "h1": "text-3xl sm:text-4xl font-bold tracking-tight",
+        "h2": "text-2xl sm:text-3xl font-semibold tracking-tight",
+        "h3": "text-xl font-medium",
+        "h4": "text-lg font-medium",
+        "body": "text-sm",
+        "small": "text-xs"
+      }
+    }
+  },
+  "colors": {
+    "strategy": "Functional High-Contrast. Color is used strictly for status and action, not decoration.",
+    "background": {
+      "app": "#F4F4F5",
+      "sidebar": "#09090B",
+      "card": "#FFFFFF"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#52525B",
+      "muted": "#A1A1AA",
+      "inverse": "#FFFFFF"
+    },
+    "primary_accent": {
+      "default": "#2563EB",
+      "hover": "#1D4ED8",
+      "focus": "#60A5FA"
+    },
+    "status": {
+      "received": "#F59E0B",
+      "diagnosis": "#8B5CF6",
+      "in_repair": "#2563EB",
+      "completed": "#10B981",
+      "delivered": "#059669",
+      "urgent_issue": "#DC2626"
+    },
+    "borders": "#E4E4E7"
+  },
+  "layout_and_spacing": {
+    "strategy": "The 'Control Room' Grid",
+    "grid_system": "Dense and scanable. grid-cols-1 md:grid-cols-3 lg:grid-cols-4 for KPI metrics. gap-4 or gap-6 for tight widget spacing.",
+    "spacing_scale": {
+      "section": "p-6 md:p-8",
+      "card": "p-4 md:p-6",
+      "forms": "gap-4"
+    },
+    "structure": {
+      "sidebar": "Dark mode sidebar (#09090B) to anchor the application. Contains main navigation routes.",
+      "topbar": "Sticky white topbar featuring a prominent global search input (for IMEI, Ticket #, Customer) and User Profile.",
+      "main_canvas": "Light grey (#F4F4F5) background with stark white cards."
+    }
+  },
+  "components": {
+    "strategy": "Flat, sharp borders, highly data-dense. Avoid heavy shadows; rely on 1px borders.",
+    "cards": {
+      "style": "bg-white border border-zinc-200 rounded-md shadow-sm",
+      "hover": "hover:border-zinc-300 transition-colors"
+    },
+    "buttons": {
+      "primary": "bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-300 font-medium",
+      "secondary": "bg-white border border-zinc-200 text-zinc-900 rounded-md hover:bg-zinc-100"
+    },
+    "tables": {
+      "style": "Shadcn Table. Crisp borders between rows. Dense padding (py-2) to fit more data (IMEIs, serial numbers) on screen without scrolling."
+    },
+    "forms": {
+      "inputs": "Shadcn input/select. bg-white border-zinc-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500. Labels must be text-sm font-medium text-zinc-900."
+    },
+    "badges": {
+      "style": "Used extensively for 'Repair Status'. Soft background with dark text of the same hue (e.g., bg-emerald-100 text-emerald-800 border border-emerald-200)."
+    }
+  },
+  "media_and_images": {
+    "rules": "Use images sparingly in the dashboard. Use them for empty states, login screens, or generic part placeholders.",
+    "image_urls": [
+      {
+        "category": "auth_background",
+        "url": "https://images.pexels.com/photos/13625784/pexels-photo-13625784.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Technician repairing a smartphone under a desk lamp. Use as the left/right split background for the Login/Auth screen with a heavy dark overlay (bg-black/60)."
+      },
+      {
+        "category": "inventory_empty_state",
+        "url": "https://images.pexels.com/photos/1476321/pexels-photo-1476321.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Exploded view of smartphone hardware parts. Use as an opaque, stylized background or empty state illustration in the Inventory section."
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "usage": "Use stroke-width 1.5 or 2. Clean, unopinionated icons."
+    }
+  },
+  "interactions_and_motion": {
+    "hover_states": "All buttons, table rows, and interactive cards must have an explicit hover state (background color shift).",
+    "transitions": "Fast and snappy. transition-all duration-150 ease-in-out.",
+    "modals": "Use Shadcn Dialog for Quick Actions (e.g., 'Update Status', 'Add Note'). Ensure backdrop blur is present."
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure all text meets WCAG AA contrast. Never use text lighter than text-zinc-500 on white backgrounds.",
+    "testing_attributes": "CRITICAL: All buttons, links, form inputs, menus, and table actions MUST include `data-testid` in kebab-case. Example: `data-testid='search-imei-input'`, `data-testid='add-repair-button'`."
+  },
+  "instructions_to_main_agent": [
+    "Build a robust Dashboard layout using the 'Dark Sidebar / Light Workspace' pattern.",
+    "The primary action should always be accessible: a global 'New Repair Ticket' button in the header or sidebar.",
+    "Implement Shadcn Data Tables for the 'Repairs', 'Customers', and 'Inventory' views with built-in pagination and filtering.",
+    "Forms for device registration must be structured cleanly with clear sections: Device Info, Customer Info, Diagnostic Notes.",
+    "Include an overarching Dashboard view with Recharts (Bar chart for weekly repairs, Pie chart for status distribution).",
+    "Strictly follow the color mappings for repair status to give users instant visual context on the state of the shop.",
+    "Do not invent colors outside of this Swiss High-Contrast spec. Ensure the UI feels like a professional, high-density work tool."
+  ]
+}
