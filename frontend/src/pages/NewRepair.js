@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, User, Smartphone, FileText, Lock } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
+import { parseCLPInput } from '@/utils/currency';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -72,7 +73,7 @@ const NewRepair = () => {
     try {
       const payload = {
         ...formData,
-        budget_estimate: formData.budget_estimate ? parseFloat(formData.budget_estimate) : null,
+        budget_estimate: formData.budget_estimate ? parseCLPInput(formData.budget_estimate) : null,
         unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
         unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
       };
@@ -253,17 +254,29 @@ const NewRepair = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="budget_estimate" className="text-sm font-medium text-zinc-900">Presupuesto Estimado</Label>
-                <Input
-                  id="budget_estimate"
-                  type="number"
-                  step="0.01"
-                  value={formData.budget_estimate}
-                  onChange={(e) => updateField('budget_estimate', e.target.value)}
-                  placeholder="0.00"
-                  className="mt-1 border-zinc-200"
-                  data-testid="budget-estimate-input"
-                />
+                <Label htmlFor="budget_estimate" className="text-sm font-medium text-zinc-900">Presupuesto Estimado (CLP)</Label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
+                  <Input
+                    id="budget_estimate"
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.budget_estimate}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d]/g, '');
+                      if (value) {
+                        const formatted = new Intl.NumberFormat('es-CL').format(parseInt(value));
+                        updateField('budget_estimate', formatted);
+                      } else {
+                        updateField('budget_estimate', '');
+                      }
+                    }}
+                    placeholder="150.000"
+                    className="pl-7 border-zinc-200"
+                    data-testid="budget-estimate-input"
+                  />
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">Ejemplo: 150.000 (sin decimales)</p>
               </div>
             </div>
 

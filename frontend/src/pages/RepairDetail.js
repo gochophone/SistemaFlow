@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
+import { formatCLP } from '@/utils/currency';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -433,8 +434,9 @@ const RepairDetail = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-zinc-900" data-testid="budget-estimate">
-                  ${repair.budget_estimate.toFixed(2)}
+                  {formatCLP(repair.budget_estimate)}
                 </p>
+                <p className="text-xs text-zinc-500 mt-1">Pesos Chilenos (CLP)</p>
               </CardContent>
             </Card>
           )}

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { formatCLP, parseCLPInput } from '@/utils/currency';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -70,7 +71,7 @@ const Inventory = () => {
         name: item.name,
         code: item.code,
         quantity: item.quantity.toString(),
-        price: item.price.toString(),
+        price: new Intl.NumberFormat('es-CL').format(item.price),
         location: item.location || '',
         min_stock: item.min_stock.toString(),
       });
@@ -86,7 +87,7 @@ const Inventory = () => {
       const payload = {
         ...formData,
         quantity: parseInt(formData.quantity),
-        price: parseFloat(formData.price),
+        price: parseCLPInput(formData.price),
         min_stock: parseInt(formData.min_stock),
       };
 
@@ -222,19 +223,30 @@ const Inventory = () => {
               </div>
 
               <div>
-                <Label htmlFor="price" className="text-sm font-medium text-zinc-900">Precio *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
-                  className="mt-1 border-zinc-200"
-                  required
-                  data-testid="item-price-input"
-                />
+                <Label htmlFor="price" className="text-sm font-medium text-zinc-900">Precio (CLP) *</Label>
+                <div className="relative mt-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
+                  <Input
+                    id="price"
+                    type="text"
+                    inputMode="numeric"
+                    value={formData.price}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d]/g, '');
+                      if (value) {
+                        const formatted = new Intl.NumberFormat('es-CL').format(parseInt(value));
+                        setFormData({ ...formData, price: formatted });
+                      } else {
+                        setFormData({ ...formData, price: '' });
+                      }
+                    }}
+                    placeholder="25.000"
+                    className="pl-7 border-zinc-200"
+                    required
+                    data-testid="item-price-input"
+                  />
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">Ejemplo: 25.000</p>
               </div>
 
               <div>
@@ -316,7 +328,7 @@ const Inventory = () => {
                       </span>
                       <span className="text-zinc-400 text-xs ml-1">/ {item.min_stock}</span>
                     </TableCell>
-                    <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
+                    <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>
                     <TableCell>
                       {isLowStock ? (
