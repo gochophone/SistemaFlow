@@ -59,7 +59,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
 
   const uploadToCloudinary = async (file) => {
     // Get signature from backend
-    const sigResponse = await axios.get(`${API}/cloudinary/signature`, {
+    const sigResponse = await axios.get(`${API}/api/cloudinary/signature`, {
       headers: authHeader,
       params: {
         resource_type: 'image',
