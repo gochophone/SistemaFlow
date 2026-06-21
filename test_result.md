@@ -184,7 +184,7 @@ backend:
     implemented: true
     working: true
     file: "backend/server.py, backend/.env"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -194,6 +194,12 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTED: Cloudinary integration working. GET /api/cloudinary/signature generates valid upload signatures with timestamp, cloud_name (do24bmhab), api_key, folder, and resource_type. Signature generation successful for image uploads to repairs folder."
+      - working: false
+        agent: "user"
+        comment: "Usuario reporta: 'da error al subir fotos'"
+      - working: true
+        agent: "main"
+        comment: "🐛 BUG CORREGIDO: Firma de Cloudinary inválida. El problema era que la firma incluía 'resource_type' en params_to_sign, pero el frontend no enviaba resource_type en el FormData al hacer upload. Solución: Removido resource_type de params_to_sign, ahora solo firma timestamp y folder. Probado exitosamente - imagen de prueba subida a Cloudinary y devolvió secure_url correctamente."
   
   - task: "Resend Email Integration"
     implemented: true
