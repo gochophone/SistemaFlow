@@ -192,11 +192,12 @@ const Inventory = () => {
               Nuevo Artículo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl p-0 max-h-[95vh] flex flex-col">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>{editingItem ? 'Editar Artículo' : 'Nuevo Artículo'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4 pb-4">
+            <div className="overflow-y-auto px-6 py-4 flex-1">
+              <form onSubmit={handleSubmit} className="space-y-4" id="inventory-form">
               <div>
                 <Label htmlFor="name" className="text-sm font-medium text-zinc-900">Nombre *</Label>
                 <Input
@@ -340,7 +341,7 @@ const Inventory = () => {
                 />
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-2 pt-4 border-t mt-6">
                 <Button
                   type="button"
                   variant="outline"
@@ -361,6 +362,7 @@ const Inventory = () => {
                 </Button>
               </div>
             </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
