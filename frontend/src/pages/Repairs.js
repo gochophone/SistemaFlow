@@ -15,7 +15,7 @@ import {
 import { Plus, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },

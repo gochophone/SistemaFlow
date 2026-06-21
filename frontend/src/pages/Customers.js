@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { Plus, Edit, Trash2, User } from 'lucide-react';
 import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const Customers = () => {
   const { getAuthHeader } = useAuth();

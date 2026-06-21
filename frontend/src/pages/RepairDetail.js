@@ -27,7 +27,7 @@ import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Ey
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },

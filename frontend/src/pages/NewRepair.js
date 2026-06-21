@@ -20,7 +20,7 @@ import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { parseCLPInput } from '@/utils/currency';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const NewRepair = () => {
   const { getAuthHeader } = useAuth();

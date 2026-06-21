@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { formatCLP, parseCLPInput } from '@/utils/currency';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const Inventory = () => {
   const { getAuthHeader } = useAuth();
