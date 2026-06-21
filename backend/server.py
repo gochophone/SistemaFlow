@@ -155,6 +155,8 @@ class InventoryItem(BaseModel):
     quantity: int
     price: float
     location: Optional[str] = None
+    condition: Optional[int] = Field(default=10, ge=1, le=10)  # Estado del 1 al 10
+    photos: Optional[List[str]] = []  # URLs de fotos en Cloudinary
     available: bool = True  # Disponibilidad del artículo
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -165,6 +167,8 @@ class InventoryCreate(BaseModel):
     quantity: int
     price: float
     location: Optional[str] = None
+    condition: Optional[int] = Field(default=10, ge=1, le=10)
+    photos: Optional[List[str]] = []
     available: bool = True
 
 class InventoryUpdate(BaseModel):
@@ -173,6 +177,8 @@ class InventoryUpdate(BaseModel):
     quantity: Optional[int] = None
     price: Optional[float] = None
     location: Optional[str] = None
+    condition: Optional[int] = Field(default=None, ge=1, le=10)
+    photos: Optional[List[str]] = None
     available: Optional[bool] = None
 
 class DashboardStats(BaseModel):

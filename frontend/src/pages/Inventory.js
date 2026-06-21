@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
+import DevicePhotos from '@/components/DevicePhotos';
 import {
   Table,
   TableBody,
@@ -39,6 +41,8 @@ const Inventory = () => {
     quantity: '',
     price: '',
     location: '',
+    condition: '10',
+    photos: [],
     available: true,
   });
 
@@ -61,7 +65,7 @@ const Inventory = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', quantity: '', price: '', location: '', available: true });
+    setFormData({ name: '', code: '', quantity: '', price: '', location: '', condition: '10', photos: [], available: true });
     setEditingItem(null);
   };
 
@@ -74,6 +78,8 @@ const Inventory = () => {
         quantity: item.quantity.toString(),
         price: new Intl.NumberFormat('es-CL').format(item.price),
         location: item.location || '',
+        condition: item.condition ? item.condition.toString() : '10',
+        photos: item.photos || [],
         available: item.available !== undefined ? item.available : true,
       });
     } else {
@@ -89,6 +95,8 @@ const Inventory = () => {
         ...formData,
         quantity: parseInt(formData.quantity),
         price: parseCLPInput(formData.price),
+        condition: parseInt(formData.condition),
+        photos: formData.photos,
         available: formData.available,
       };
 
@@ -262,6 +270,52 @@ const Inventory = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="condition" className="text-sm font-medium text-zinc-900">
+                  Estado del Producto: {formData.condition}/10
+                </Label>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-zinc-500 min-w-[60px]">Malo (1)</span>
+                  <input
+                    id="condition"
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.condition}
+                    onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                    className="flex-1 h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    data-testid="item-condition-slider"
+                  />
+                  <span className="text-xs text-zinc-500 min-w-[80px] text-right">Excelente (10)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {parseInt(formData.condition) <= 3 && (
+                    <Badge className="bg-red-100 text-red-800 border-red-200">Malo</Badge>
+                  )}
+                  {parseInt(formData.condition) >= 4 && parseInt(formData.condition) <= 6 && (
+                    <Badge className="bg-orange-100 text-orange-800 border-orange-200">Regular</Badge>
+                  )}
+                  {parseInt(formData.condition) >= 7 && parseInt(formData.condition) <= 8 && (
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">Bueno</Badge>
+                  )}
+                  {parseInt(formData.condition) >= 9 && (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Excelente</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-zinc-900 mb-2 block">
+                  Fotos del Producto
+                </Label>
+                <DevicePhotos
+                  photos={formData.photos}
+                  onChange={(photos) => setFormData({ ...formData, photos })}
+                  maxPhotos={5}
+                  authHeader={getAuthHeader()}
+                />
+              </div>
+
               <div className="flex items-center justify-between p-4 border border-zinc-200 rounded-md">
                 <div className="flex-1">
                   <Label htmlFor="available" className="text-sm font-medium text-zinc-900">
@@ -311,9 +365,10 @@ const Inventory = () => {
               <TableHead className="font-semibold text-zinc-900">Nombre</TableHead>
               <TableHead className="font-semibold text-zinc-900">Código</TableHead>
               <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
               <TableHead className="font-semibold text-zinc-900">Precio</TableHead>
               <TableHead className="font-semibold text-zinc-900">Ubicación</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Inventario</TableHead>
               <TableHead className="font-semibold text-zinc-900">Disponibilidad</TableHead>
               <TableHead className="font-semibold text-zinc-900 text-right">Acciones</TableHead>
             </TableRow>
@@ -321,7 +376,7 @@ const Inventory = () => {
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-zinc-500">
+                <TableCell colSpan={9} className="text-center py-12 text-zinc-500">
                   No hay artículos en el inventario
                 </TableCell>
               </TableRow>
@@ -348,6 +403,20 @@ const Inventory = () => {
                       <span className={isOutOfStock ? 'text-red-700 font-bold' : isLowStock ? 'text-orange-600 font-semibold' : ''}>
                         {item.quantity}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{item.condition || 10}/10</span>
+                        {item.condition >= 9 ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Excelente</Badge>
+                        ) : item.condition >= 7 ? (
+                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Bueno</Badge>
+                        ) : item.condition >= 4 ? (
+                          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">Regular</Badge>
+                        ) : (
+                          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Malo</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>
