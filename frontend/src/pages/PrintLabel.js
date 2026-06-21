@@ -19,7 +19,7 @@ const PrintLabel = () => {
   const fetchRepair = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/api/repairs/${id}`, {
+      const response = await axios.get(`${API}/repairs/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRepair(response.data);

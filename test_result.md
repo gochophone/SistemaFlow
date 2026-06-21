@@ -281,9 +281,9 @@ frontend:
     implemented: true
     working: true
     file: "frontend/src/pages/Login.js, frontend/src/context/AuthContext.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "main"
@@ -291,6 +291,9 @@ frontend:
       - working: true
         agent: "main"
         comment: "Corrección aplicada en 9 archivos. Frontend recompilado exitosamente."
+      - working: true
+        agent: "main"
+        comment: "🐛 BUG CORREGIDO: PrintLabel.js tenía URL duplicada /api/api/repairs. Corregido a /repairs. Etiquetas ahora se muestran correctamente."
   
   - task: "Dashboard UI"
     implemented: true
