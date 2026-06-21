@@ -23,7 +23,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await axios.get(`${API}/dashboard/stats`, {
+        const response = await axios.get(`${API}/api/dashboard/stats`, {
           headers: getAuthHeader()
         });
         setStats(response.data);

@@ -55,7 +55,7 @@ const RepairDetail = () => {
 
   const fetchRepair = async () => {
     try {
-      const response = await axios.get(`${API}/repairs/${id}`, {
+      const response = await axios.get(`${API}/api/repairs/${id}`, {
         headers: getAuthHeader()
       });
       setRepair(response.data);
@@ -82,7 +82,7 @@ const RepairDetail = () => {
         budget_estimate: updateData.budget_estimate ? parseFloat(updateData.budget_estimate) : null,
       };
       
-      await axios.patch(`${API}/repairs/${id}`, payload, {
+      await axios.patch(`${API}/api/repairs/${id}`, payload, {
         headers: getAuthHeader()
       });
       
@@ -100,7 +100,7 @@ const RepairDetail = () => {
   const handleDownloadDeliveryPDF = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/repairs/${id}/delivery-pdf`, {
+      const response = await axios.get(`${API}/api/repairs/${id}/delivery-pdf`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
       });
@@ -125,7 +125,7 @@ const RepairDetail = () => {
     if (!window.confirm('¿Estás seguro de eliminar esta orden?')) return;
     
     try {
-      await axios.delete(`${API}/repairs/${id}`, {
+      await axios.delete(`${API}/api/repairs/${id}`, {
         headers: getAuthHeader()
       });
       toast.success('Orden eliminada');

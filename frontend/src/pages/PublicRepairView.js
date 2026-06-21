@@ -27,7 +27,7 @@ const PublicRepairView = () => {
 
   const fetchRepair = async () => {
     try {
-      const response = await axios.get(`${API}/public/repair/${ticketNumber}`);
+      const response = await axios.get(`${API}/api/public/repair/${ticketNumber}`);
       setRepair(response.data);
     } catch (error) {
       setError('No se pudo cargar la información de la orden');

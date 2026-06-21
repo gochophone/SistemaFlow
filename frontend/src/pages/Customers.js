@@ -45,7 +45,7 @@ const Customers = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${API}/customers`, {
+      const response = await axios.get(`${API}/api/customers`, {
         headers: getAuthHeader()
       });
       setCustomers(response.data);
@@ -94,12 +94,12 @@ const Customers = () => {
       };
       
       if (editingCustomer) {
-        await axios.put(`${API}/customers/${editingCustomer.id}`, payload, {
+        await axios.put(`${API}/api/customers/${editingCustomer.id}`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Cliente actualizado');
       } else {
-        await axios.post(`${API}/customers`, payload, {
+        await axios.post(`${API}/api/customers`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Cliente creado');
@@ -117,7 +117,7 @@ const Customers = () => {
     if (!window.confirm('¿Estás seguro de eliminar este cliente?')) return;
     
     try {
-      await axios.delete(`${API}/customers/${id}`, {
+      await axios.delete(`${API}/api/customers/${id}`, {
         headers: getAuthHeader()
       });
       toast.success('Cliente eliminado');

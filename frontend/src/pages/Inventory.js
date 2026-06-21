@@ -54,7 +54,7 @@ const Inventory = () => {
 
   const fetchInventory = async () => {
     try {
-      const response = await axios.get(`${API}/inventory`, {
+      const response = await axios.get(`${API}/api/inventory`, {
         headers: getAuthHeader()
       });
       setItems(response.data);
@@ -103,12 +103,12 @@ const Inventory = () => {
       };
 
       if (editingItem) {
-        await axios.patch(`${API}/inventory/${editingItem.id}`, payload, {
+        await axios.patch(`${API}/api/inventory/${editingItem.id}`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Artículo actualizado');
       } else {
-        await axios.post(`${API}/inventory`, payload, {
+        await axios.post(`${API}/api/inventory`, payload, {
           headers: getAuthHeader()
         });
         toast.success('Artículo creado');
@@ -126,7 +126,7 @@ const Inventory = () => {
     if (!window.confirm('¿Estás seguro de eliminar este artículo?')) return;
     
     try {
-      await axios.delete(`${API}/inventory/${id}`, {
+      await axios.delete(`${API}/api/inventory/${id}`, {
         headers: getAuthHeader()
       });
       toast.success('Artículo eliminado');
@@ -139,7 +139,7 @@ const Inventory = () => {
 
   const handleToggleAvailability = async (item) => {
     try {
-      await axios.patch(`${API}/inventory/${item.id}`, {
+      await axios.patch(`${API}/api/inventory/${item.id}`, {
         available: !item.available
       }, {
         headers: getAuthHeader()

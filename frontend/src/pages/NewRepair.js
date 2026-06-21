@@ -50,7 +50,7 @@ const NewRepair = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${API}/customers`, {
+      const response = await axios.get(`${API}/api/customers`, {
         headers: getAuthHeader()
       });
       setCustomers(response.data);
@@ -81,7 +81,7 @@ const NewRepair = () => {
         device_photos: formData.device_photos.length > 0 ? formData.device_photos : null,
       };
 
-      const response = await axios.post(`${API}/repairs`, payload, {
+      const response = await axios.post(`${API}/api/repairs`, payload, {
         headers: getAuthHeader()
       });
 
