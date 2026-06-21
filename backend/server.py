@@ -156,6 +156,7 @@ class InventoryItem(BaseModel):
     price: float
     location: Optional[str] = None
     min_stock: int = 5
+    available: bool = True  # Disponibilidad del artículo
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -166,6 +167,7 @@ class InventoryCreate(BaseModel):
     price: float
     location: Optional[str] = None
     min_stock: int = 5
+    available: bool = True
 
 class InventoryUpdate(BaseModel):
     name: Optional[str] = None
@@ -174,6 +176,7 @@ class InventoryUpdate(BaseModel):
     price: Optional[float] = None
     location: Optional[str] = None
     min_stock: Optional[int] = None
+    available: Optional[bool] = None
 
 class DashboardStats(BaseModel):
     total_repairs: int

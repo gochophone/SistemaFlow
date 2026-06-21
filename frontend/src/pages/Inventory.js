@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -21,7 +22,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { formatCLP, parseCLPInput } from '@/utils/currency';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -39,6 +40,7 @@ const Inventory = () => {
     price: '',
     location: '',
     min_stock: '5',
+    available: true,
   });
 
   useEffect(() => {
@@ -60,7 +62,7 @@ const Inventory = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', quantity: '', price: '', location: '', min_stock: '5' });
+    setFormData({ name: '', code: '', quantity: '', price: '', location: '', min_stock: '5', available: true });
     setEditingItem(null);
   };
 
@@ -74,6 +76,7 @@ const Inventory = () => {
         price: new Intl.NumberFormat('es-CL').format(item.price),
         location: item.location || '',
         min_stock: item.min_stock.toString(),
+        available: item.available !== undefined ? item.available : true,
       });
     } else {
       resetForm();
@@ -89,6 +92,7 @@ const Inventory = () => {
         quantity: parseInt(formData.quantity),
         price: parseCLPInput(formData.price),
         min_stock: parseInt(formData.min_stock),
+        available: formData.available,
       };
 
       if (editingItem) {
@@ -122,6 +126,21 @@ const Inventory = () => {
       fetchInventory();
     } catch (error) {
       toast.error('Error al eliminar artículo');
+      console.error(error);
+    }
+  };
+
+  const handleToggleAvailability = async (item) => {
+    try {
+      await axios.patch(`${API}/inventory/${item.id}`, {
+        available: !item.available
+      }, {
+        headers: getAuthHeader()
+      });
+      toast.success(item.available ? 'Marcado como no disponible' : 'Marcado como disponible');
+      fetchInventory();
+    } catch (error) {
+      toast.error('Error al actualizar disponibilidad');
       console.error(error);
     }
   };
@@ -261,6 +280,23 @@ const Inventory = () => {
                 />
               </div>
 
+              <div className="flex items-center justify-between p-4 border border-zinc-200 rounded-md">
+                <div className="flex-1">
+                  <Label htmlFor="available" className="text-sm font-medium text-zinc-900">
+                    Estado de Disponibilidad
+                  </Label>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    {formData.available ? 'Artículo disponible para uso' : 'Artículo no disponible temporalmente'}
+                  </p>
+                </div>
+                <Switch
+                  id="available"
+                  checked={formData.available}
+                  onCheckedChange={(checked) => setFormData({ ...formData, available: checked })}
+                  data-testid="item-available-switch"
+                />
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button
                   type="button"
@@ -295,14 +331,15 @@ const Inventory = () => {
               <TableHead className="font-semibold text-zinc-900">Cantidad</TableHead>
               <TableHead className="font-semibold text-zinc-900">Precio</TableHead>
               <TableHead className="font-semibold text-zinc-900">Ubicación</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Disponibilidad</TableHead>
               <TableHead className="font-semibold text-zinc-900 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-zinc-500">
+                <TableCell colSpan={8} className="text-center py-12 text-zinc-500">
                   No hay artículos en el inventario
                 </TableCell>
               </TableRow>
@@ -338,9 +375,29 @@ const Inventory = () => {
                         </Badge>
                       ) : (
                         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border font-medium">
-                          Disponible
+                          <CheckCircle2 size={12} className="mr-1" />
+                          Stock OK
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => handleToggleAvailability(item)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100"
+                        data-testid={`toggle-availability-${item.code}`}
+                      >
+                        {item.available !== undefined && item.available ? (
+                          <>
+                            <CheckCircle2 size={16} className="text-emerald-600" />
+                            <span className="text-sm font-medium text-emerald-700">Disponible</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle size={16} className="text-red-600" />
+                            <span className="text-sm font-medium text-red-700">No Disponible</span>
+                          </>
+                        )}
+                      </button>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
