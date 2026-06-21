@@ -75,7 +75,7 @@ const Layout = () => {
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-zinc-800">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-md bg-zinc-800 flex items-center justify-center text-sm font-semibold">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
@@ -84,6 +84,14 @@ const Layout = () => {
               <p className="text-xs text-zinc-400 truncate">{user?.email}</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+            data-testid="logout-button-sidebar"
+          >
+            <LogOut size={18} strokeWidth={1.5} />
+            <span>Cerrar Sesión</span>
+          </button>
         </div>
       </aside>
 

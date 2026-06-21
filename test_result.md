@@ -369,3 +369,7 @@ agent_communication:
     message: "Corrección de bug crítico: URLs del frontend tenían duplicación /api. Corregido en 9 archivos. Usuario de prueba creado: test@ejemplo.com / test123456. Integraciones Cloudinary y Resend configuradas. Listo para testing completo del backend."
   - agent: "testing"
     message: "🎉 BACKEND TESTING COMPLETE - ALL TESTS PASSED (21/21 - 100%). Comprehensive testing performed on all backend APIs: Authentication (register/login/me), Customers CRUD, Repairs Management (with status transitions), Inventory CRUD, Dashboard Statistics, Cloudinary Integration, Resend Email Integration, PDF Generation, Public Endpoint, Search Functionality, and Security. All endpoints working correctly with proper JWT authentication, multi-tenant isolation, and error handling. Test credentials verified: test@ejemplo.com / test123456. Backend is production-ready. Note: Resend email requires domain verification for gmail.com (expected limitation). Created /app/backend_test.py for future regression testing."
+  - agent: "main"
+    message: "🐛 BUGS CORREGIDOS POST-TESTING: 1) Cloudinary upload - firma inválida corregida (removido resource_type de params_to_sign). 2) Emails no llegaban - SENDER_EMAIL cambiado a onboarding@resend.dev. Ambos probados exitosamente."
+  - agent: "main"
+    message: "✨ MEJORA UI: Agregado botón 'Cerrar Sesión' visible en sidebar. Ahora hay 2 opciones para logout: botón en sidebar y menú dropdown en header."
