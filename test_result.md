@@ -205,7 +205,7 @@ backend:
     implemented: true
     working: true
     file: "backend/email_service.py, backend/.env"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -215,6 +215,12 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTED: Resend email integration configured and working. Email service properly integrated with repair status updates. When status changes to 'completed', email notification is triggered. Proper error handling implemented - endpoint doesn't crash if email fails. Note: Resend requires domain verification for gmail.com addresses (expected limitation, not a bug)."
+      - working: false
+        agent: "user"
+        comment: "Usuario reporta: 'no me llega correo al pasar estado a completado'"
+      - working: true
+        agent: "main"
+        comment: "🐛 BUG CORREGIDO: Emails no llegaban porque SENDER_EMAIL era 'gochophone@gmail.com' pero gmail.com no está verificado en Resend. Error: 'The gmail.com domain is not verified'. Solución: Cambiado SENDER_EMAIL a 'onboarding@resend.dev' (email de desarrollo de Resend). Probado exitosamente - email enviado con ID: fb55c3f0-f0f1-4f7c-8628-122973cc5e3d a gochophone@gmail.com. Usuario debe revisar bandeja de entrada y SPAM."
   
   - task: "PDF Generation"
     implemented: true
