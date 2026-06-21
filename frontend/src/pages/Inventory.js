@@ -24,7 +24,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Package, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, AlertTriangle, CheckCircle2, XCircle, Image as ImageIcon } from 'lucide-react';
 import { formatCLP, parseCLPInput } from '@/utils/currency';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -35,6 +35,8 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [selectedItemPhotos, setSelectedItemPhotos] = useState({ name: '', photos: [] });
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -148,6 +150,11 @@ const Inventory = () => {
       toast.error('Error al actualizar disponibilidad');
       console.error(error);
     }
+  };
+
+  const handleViewPhotos = (item) => {
+    setSelectedItemPhotos({ name: item.name, photos: item.photos || [] });
+    setPhotoModalOpen(true);
   };
 
   if (loading) {
@@ -366,6 +373,7 @@ const Inventory = () => {
               <TableHead className="font-semibold text-zinc-900">Código</TableHead>
               <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
               <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Fotos</TableHead>
               <TableHead className="font-semibold text-zinc-900">Precio</TableHead>
               <TableHead className="font-semibold text-zinc-900">Ubicación</TableHead>
               <TableHead className="font-semibold text-zinc-900">Inventario</TableHead>
@@ -376,7 +384,7 @@ const Inventory = () => {
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12 text-zinc-500">
+                <TableCell colSpan={10} className="text-center py-12 text-zinc-500">
                   No hay artículos en el inventario
                 </TableCell>
               </TableRow>
@@ -417,6 +425,25 @@ const Inventory = () => {
                           <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Malo</Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {item.photos && item.photos.length > 0 ? (
+                        <button
+                          onClick={() => handleViewPhotos(item)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-zinc-100 transition-colors group"
+                          data-testid={`view-photos-${item.code}`}
+                        >
+                          <div className="relative">
+                            <ImageIcon size={18} className="text-blue-600 group-hover:text-blue-700" />
+                            <Badge className="absolute -top-1 -right-2 h-4 min-w-[16px] flex items-center justify-center text-[10px] px-1 bg-blue-600 hover:bg-blue-600">
+                              {item.photos.length}
+                            </Badge>
+                          </div>
+                          <span className="text-sm text-zinc-700 group-hover:text-zinc-900">Ver fotos</span>
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-400 italic">Sin fotos</span>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>
@@ -492,6 +519,55 @@ const Inventory = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modal de Galería de Fotos */}
+      <Dialog open={photoModalOpen} onOpenChange={setPhotoModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">
+              Fotos de {selectedItemPhotos.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedItemPhotos.photos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {selectedItemPhotos.photos.map((photo, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={photo}
+                    alt={`Foto ${index + 1} de ${selectedItemPhotos.name}`}
+                    className="w-full h-64 object-cover rounded-lg border border-zinc-200"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center">
+                    <a
+                      href={photo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="opacity-0 group-hover:opacity-100 bg-white px-4 py-2 rounded-md text-sm font-medium shadow-lg transition-opacity"
+                    >
+                      Ver en tamaño completo
+                    </a>
+                  </div>
+                  <Badge className="absolute top-2 right-2 bg-black/70 text-white">
+                    {index + 1} de {selectedItemPhotos.photos.length}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-zinc-500">
+              <ImageIcon size={48} className="mx-auto mb-4 text-zinc-300" />
+              <p>No hay fotos disponibles</p>
+            </div>
+          )}
+          
+          <div className="flex justify-end mt-6">
+            <Button onClick={() => setPhotoModalOpen(false)}>
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
