@@ -71,6 +71,7 @@ class Customer(BaseModel):
     rut: Optional[str] = None
     address: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class CustomerCreate(BaseModel):
     name: str
@@ -119,6 +120,8 @@ class Repair(BaseModel):
     estimated_delivery: Optional[datetime] = None
     completed_date: Optional[datetime] = None
     delivered_date: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class RepairCreate(BaseModel):
     customer_id: str
@@ -323,6 +326,7 @@ async def get_customer(customer_id: str, current_user: dict = Depends(get_curren
 async def update_customer(customer_id: str, customer_update: CustomerCreate, current_user: dict = Depends(get_current_user)):
     tenant_id = current_user['tenant_id']
     update_data = customer_update.model_dump()
+    update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     result = await db.customers.update_one({"id": customer_id, "tenant_id": tenant_id}, {"$set": update_data})
     
     if result.matched_count == 0:
@@ -331,6 +335,8 @@ async def update_customer(customer_id: str, customer_update: CustomerCreate, cur
     updated = await db.customers.find_one({"id": customer_id, "tenant_id": tenant_id}, {"_id": 0})
     if isinstance(updated.get('created_at'), str):
         updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    if isinstance(updated.get('updated_at'), str):
+        updated['updated_at'] = datetime.fromisoformat(updated['updated_at'])
     return Customer(**updated)
 
 @api_router.delete("/customers/{customer_id}")
@@ -403,6 +409,7 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
     tenant_id = current_user['tenant_id']
     update_data = {k: v for k, v in repair_update.model_dump().items() if v is not None}
+    update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
     # Get the repair before update to check status change
     current_repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
@@ -427,6 +434,10 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
     updated = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
+    if isinstance(updated.get('created_at'), str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    if isinstance(updated.get('updated_at'), str):
+        updated['updated_at'] = datetime.fromisoformat(updated['updated_at'])
     if isinstance(updated.get('received_date'), str):
         updated['received_date'] = datetime.fromisoformat(updated['received_date'])
     if updated.get('estimated_delivery') and isinstance(updated['estimated_delivery'], str):
