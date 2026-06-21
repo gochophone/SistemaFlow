@@ -345,11 +345,14 @@ const Inventory = () => {
               </TableRow>
             ) : (
               items.map((item) => {
-                const isLowStock = item.quantity <= item.min_stock;
+                const isLowStock = item.quantity === 1; // Solo mostrar "Stock Bajo" cuando queda 1
+                const isOutOfStock = item.quantity === 0; // Sin stock
                 return (
                   <TableRow 
                     key={item.id} 
-                    className={`hover:bg-zinc-50 transition-colors ${isLowStock ? 'bg-red-50/50' : ''}`}
+                    className={`hover:bg-zinc-50 transition-colors ${
+                      isOutOfStock ? 'bg-red-50/50' : isLowStock ? 'bg-orange-50/50' : ''
+                    }`}
                     data-testid={`inventory-row-${item.code}`}
                   >
                     <TableCell className="font-medium">
@@ -360,7 +363,7 @@ const Inventory = () => {
                     </TableCell>
                     <TableCell className="font-mono text-xs">{item.code}</TableCell>
                     <TableCell>
-                      <span className={isLowStock ? 'text-red-600 font-semibold' : ''}>
+                      <span className={isOutOfStock ? 'text-red-700 font-bold' : isLowStock ? 'text-orange-600 font-semibold' : ''}>
                         {item.quantity}
                       </span>
                       <span className="text-zinc-400 text-xs ml-1">/ {item.min_stock}</span>
@@ -368,10 +371,15 @@ const Inventory = () => {
                     <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>
                     <TableCell>
-                      {isLowStock ? (
-                        <Badge className="bg-red-100 text-red-800 border-red-200 border font-medium" data-testid="low-stock-badge">
+                      {isOutOfStock ? (
+                        <Badge className="bg-red-100 text-red-800 border-red-200 border font-medium" data-testid="out-of-stock-badge">
+                          <XCircle size={12} className="mr-1" />
+                          Sin Stock
+                        </Badge>
+                      ) : isLowStock ? (
+                        <Badge className="bg-orange-100 text-orange-800 border-orange-200 border font-medium" data-testid="low-stock-badge">
                           <AlertTriangle size={12} className="mr-1" />
-                          Stock Bajo
+                          Stock Bajo (1)
                         </Badge>
                       ) : (
                         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border font-medium">
@@ -381,23 +389,30 @@ const Inventory = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => handleToggleAvailability(item)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100"
-                        data-testid={`toggle-availability-${item.code}`}
-                      >
-                        {item.available !== undefined && item.available ? (
-                          <>
-                            <CheckCircle2 size={16} className="text-emerald-600" />
-                            <span className="text-sm font-medium text-emerald-700">Disponible</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={16} className="text-red-600" />
-                            <span className="text-sm font-medium text-red-700">No Disponible</span>
-                          </>
-                        )}
-                      </button>
+                      {isOutOfStock ? (
+                        <div className="flex items-center gap-2 text-zinc-400" title="No disponible - Sin stock">
+                          <XCircle size={16} className="text-zinc-400" />
+                          <span className="text-sm font-medium">No Disponible</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleAvailability(item)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100"
+                          data-testid={`toggle-availability-${item.code}`}
+                        >
+                          {item.available !== undefined && item.available ? (
+                            <>
+                              <CheckCircle2 size={16} className="text-emerald-600" />
+                              <span className="text-sm font-medium text-emerald-700">Disponible</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle size={16} className="text-red-600" />
+                              <span className="text-sm font-medium text-red-700">No Disponible</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

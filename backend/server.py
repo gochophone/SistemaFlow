@@ -540,6 +540,10 @@ async def update_inventory_item(item_id: str, item_update: InventoryUpdate, curr
     update_data = {k: v for k, v in item_update.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
+    # Si la cantidad llega a 0, marcar como no disponible automáticamente
+    if 'quantity' in update_data and update_data['quantity'] == 0:
+        update_data['available'] = False
+    
     result = await db.inventory.update_one({"id": item_id, "tenant_id": tenant_id}, {"$set": update_data})
     
     if result.matched_count == 0:
