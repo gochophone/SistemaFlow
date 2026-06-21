@@ -192,11 +192,11 @@ const Inventory = () => {
               Nuevo Artículo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingItem ? 'Editar Artículo' : 'Nuevo Artículo'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit} className="space-y-4 mt-4 pb-4">
               <div>
                 <Label htmlFor="name" className="text-sm font-medium text-zinc-900">Nombre *</Label>
                 <Input
