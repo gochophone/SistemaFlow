@@ -39,7 +39,6 @@ const Inventory = () => {
     quantity: '',
     price: '',
     location: '',
-    min_stock: '5',
     available: true,
   });
 
@@ -62,7 +61,7 @@ const Inventory = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', quantity: '', price: '', location: '', min_stock: '5', available: true });
+    setFormData({ name: '', code: '', quantity: '', price: '', location: '', available: true });
     setEditingItem(null);
   };
 
@@ -75,7 +74,6 @@ const Inventory = () => {
         quantity: item.quantity.toString(),
         price: new Intl.NumberFormat('es-CL').format(item.price),
         location: item.location || '',
-        min_stock: item.min_stock.toString(),
         available: item.available !== undefined ? item.available : true,
       });
     } else {
@@ -91,7 +89,6 @@ const Inventory = () => {
         ...formData,
         quantity: parseInt(formData.quantity),
         price: parseCLPInput(formData.price),
-        min_stock: parseInt(formData.min_stock),
         available: formData.available,
       };
 
@@ -211,34 +208,19 @@ const Inventory = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="quantity" className="text-sm font-medium text-zinc-900">Cantidad *</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="0"
-                    value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                    className="mt-1 border-zinc-200"
-                    required
-                    data-testid="item-quantity-input"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="min_stock" className="text-sm font-medium text-zinc-900">Stock Mínimo *</Label>
-                  <Input
-                    id="min_stock"
-                    type="number"
-                    min="0"
-                    value={formData.min_stock}
-                    onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
-                    className="mt-1 border-zinc-200"
-                    required
-                    data-testid="item-min-stock-input"
-                  />
-                </div>
+              <div>
+                <Label htmlFor="quantity" className="text-sm font-medium text-zinc-900">Stock *</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="0"
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                  className="mt-1 border-zinc-200"
+                  required
+                  data-testid="item-quantity-input"
+                  placeholder="Cantidad disponible"
+                />
               </div>
 
               <div>
@@ -328,10 +310,10 @@ const Inventory = () => {
             <TableRow className="bg-zinc-50">
               <TableHead className="font-semibold text-zinc-900">Nombre</TableHead>
               <TableHead className="font-semibold text-zinc-900">Código</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Cantidad</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
               <TableHead className="font-semibold text-zinc-900">Precio</TableHead>
               <TableHead className="font-semibold text-zinc-900">Ubicación</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
               <TableHead className="font-semibold text-zinc-900">Disponibilidad</TableHead>
               <TableHead className="font-semibold text-zinc-900 text-right">Acciones</TableHead>
             </TableRow>
@@ -366,7 +348,6 @@ const Inventory = () => {
                       <span className={isOutOfStock ? 'text-red-700 font-bold' : isLowStock ? 'text-orange-600 font-semibold' : ''}>
                         {item.quantity}
                       </span>
-                      <span className="text-zinc-400 text-xs ml-1">/ {item.min_stock}</span>
                     </TableCell>
                     <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>

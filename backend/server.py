@@ -155,7 +155,6 @@ class InventoryItem(BaseModel):
     quantity: int
     price: float
     location: Optional[str] = None
-    min_stock: int = 5
     available: bool = True  # Disponibilidad del artículo
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -166,7 +165,6 @@ class InventoryCreate(BaseModel):
     quantity: int
     price: float
     location: Optional[str] = None
-    min_stock: int = 5
     available: bool = True
 
 class InventoryUpdate(BaseModel):
@@ -175,7 +173,6 @@ class InventoryUpdate(BaseModel):
     quantity: Optional[int] = None
     price: Optional[float] = None
     location: Optional[str] = None
-    min_stock: Optional[int] = None
     available: Optional[bool] = None
 
 class DashboardStats(BaseModel):
@@ -580,9 +577,10 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     
     pending_delivery = await db.repairs.count_documents({"tenant_id": tenant_id, "status": "completed"})
     
+    # Contar items con stock bajo (quantity = 1) o sin stock (quantity = 0)
     low_stock_items = await db.inventory.count_documents({
         "tenant_id": tenant_id,
-        "$expr": {"$lte": ["$quantity", "$min_stock"]}
+        "quantity": {"$lte": 1}
     })
     
     status_pipeline = [
