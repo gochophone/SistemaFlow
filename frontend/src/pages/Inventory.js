@@ -50,6 +50,7 @@ const Inventory = () => {
 
   useEffect(() => {
     fetchInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchInventory = async () => {
@@ -533,11 +534,11 @@ const Inventory = () => {
           
           {selectedItemPhotos.photos.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              {selectedItemPhotos.photos.map((photo, index) => (
-                <div key={index} className="relative group">
+              {selectedItemPhotos.photos.map((photo, photoIndex) => (
+                <div key={photo} className="relative group">
                   <img
                     src={photo}
-                    alt={`Foto ${index + 1} de ${selectedItemPhotos.name}`}
+                    alt={`Foto ${photoIndex + 1} de ${selectedItemPhotos.name}`}
                     className="w-full h-64 object-cover rounded-lg border border-zinc-200"
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center">
@@ -551,7 +552,7 @@ const Inventory = () => {
                     </a>
                   </div>
                   <Badge className="absolute top-2 right-2 bg-black/70 text-white">
-                    {index + 1} de {selectedItemPhotos.photos.length}
+                    {photoIndex + 1} de {selectedItemPhotos.photos.length}
                   </Badge>
                 </div>
               ))}

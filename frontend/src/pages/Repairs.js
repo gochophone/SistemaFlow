@@ -37,6 +37,7 @@ const Repairs = () => {
 
   useEffect(() => {
     fetchRepairs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

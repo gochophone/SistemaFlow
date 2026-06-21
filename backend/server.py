@@ -211,7 +211,7 @@ def create_token(user_id: str, email: str, role: str, tenant_id: str) -> str:
 
 def get_tenant_id(email: str) -> str:
     """Generate a unique tenant ID based on email domain or unique string"""
-    email_hash = hashlib.md5(email.encode()).hexdigest()[:12]
+    email_hash = hashlib.sha256(email.encode()).hexdigest()[:12]
     return f"tenant_{email_hash}"
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):

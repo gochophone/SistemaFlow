@@ -23,6 +23,7 @@ const PublicRepairView = () => {
 
   useEffect(() => {
     fetchRepair();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticketNumber]);
 
   const fetchRepair = async () => {
