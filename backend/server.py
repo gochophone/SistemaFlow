@@ -9,7 +9,11 @@ import logging
 import hashlib
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Literal
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
+import re
+import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
@@ -25,9 +29,19 @@ load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+control_db = client[os.environ['DB_NAME']]
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+def database_name(tenant_id):
+    return 'sf_' + hashlib.sha256(tenant_id.encode()).hexdigest()[:40]
+
+async def tenant_database(tenant_id):
+    tenant = await control_db.tenants.find_one({'_id': tenant_id, 'ready': True})
+    if not tenant:
+        raise HTTPException(status_code=503, detail='Cuenta pendiente de migración. Contacta al administrador.')
+    return client[database_name(tenant_id)]
+
+
+JWT_SECRET = os.environ.get('JWT_SECRET')
 JWT_ALGORITHM = 'HS256'
 
 # Configure Cloudinary
@@ -54,14 +68,28 @@ class User(BaseModel):
     email: EmailStr
     name: str
     role: str
+    is_owner: bool = False
+    active: bool = True
     tenant_id: str  # Each user belongs to a tenant (business/company)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
-    name: str
+    password: str = Field(min_length=10, max_length=72)
+    name: str = Field(min_length=1)
     company_name: str  # Name of the business/company
+
+class TeamUserCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+    password: str = Field(min_length=10, max_length=72)
+    name: str = Field(min_length=1)
+    role: Literal["admin", "technician"]
+
+class TeamUserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Optional[Literal["admin", "technician"]] = None
+    active: Optional[bool] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -106,6 +134,7 @@ class Repair(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     tenant_id: str  # Multi-tenant isolation
     ticket_number: str
+    public_token: str = Field(default_factory=lambda: uuid.uuid4().hex)
     customer_id: str
     customer_name: str
     device_brand: str
@@ -195,11 +224,13 @@ class DashboardStats(BaseModel):
     active_repairs: int
     completed_today: int
     pending_delivery: int
-    low_stock_items: int
+    low_stock_items: Optional[int] = None
     repairs_by_status: dict
     weekly_repairs: List[dict]
 
 def hash_password(password: str) -> str:
+    if len(password.encode('utf-8')) > 72:
+        raise HTTPException(status_code=422, detail='La contraseña debe ocupar como máximo 72 bytes UTF-8')
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(password: str, hashed: str) -> bool:
@@ -220,87 +251,107 @@ def get_tenant_id(email: str) -> str:
     email_hash = hashlib.sha256(email.encode()).hexdigest()[:12]
     return f"tenant_{email_hash}"
 
+@app.on_event("startup")
+async def initialize_identity_indexes():
+    global JWT_SECRET
+    # Generate once in the identity directory if no deployment secret was set.
+    # $setOnInsert makes all replicas share the same persistent signing key.
+    if not JWT_SECRET or JWT_SECRET == 'your-secret-key-change-in-production':
+        settings = await control_db.auth_settings.find_one_and_update(
+            {"_id": "jwt_signing"}, {"$setOnInsert": {"secret": secrets.token_hex(48)}},
+            upsert=True, return_document=ReturnDocument.AFTER)
+        JWT_SECRET = settings["secret"]
+    # Fail closed if the directory is unavailable or contains duplicate identities.
+    await control_db.users.create_index("email", unique=True)
+    await control_db.public_links.create_index("token", unique=True)
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
-        token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user = await control_db.users.find_one({"id": payload.get("user_id")}, {"_id": 0})
+        if not user or not user.get("active", True):
+            raise HTTPException(status_code=401, detail="Sesión inválida")
+        # Roles and routing always come from the server, never from client claims.
+        return {**user, "user_id": user["id"]}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+async def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    return current_user
+
+def public_user(user):
+    return User(**user).model_dump(mode="json")
+
 @api_router.post("/auth/register")
 async def register(user_data: UserCreate):
-    # Check if user exists
-    existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
-    if existing:
-        raise HTTPException(status_code=400, detail="El email ya está registrado")
-    
-    # Generate tenant_id for the new company
-    tenant_id = get_tenant_id(user_data.email)
-    
-    # Create user document
-    user_dict = user_data.model_dump()
-    password = user_dict.pop('password')
-    company_name = user_dict.pop('company_name')
-    
-    user_dict['password_hash'] = hash_password(password)
-    user_dict['role'] = 'admin'  # First user of tenant is admin
-    user_dict['tenant_id'] = tenant_id
-    user_dict['company_name'] = company_name
-    
-    user_obj = User(**{k: v for k, v in user_dict.items() if k not in ['password_hash', 'company_name']})
-    doc = user_obj.model_dump()
-    doc['password_hash'] = user_dict['password_hash']
-    doc['company_name'] = company_name
-    doc['created_at'] = doc['created_at'].isoformat()
-    
-    # Save user to database
-    await db.users.insert_one(doc)
-    
-    logger.info(f"New tenant registered: {user_data.email} | Company: {company_name} | Tenant ID: {tenant_id}")
-    
-    return {
-        "message": "Usuario registrado exitosamente",
-        "user": {
-            "id": user_obj.id,
-            "email": user_obj.email,
-            "name": user_obj.name,
-            "company_name": company_name
-        }
-    }
+    email = str(user_data.email).strip().lower()
+    if await control_db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="El email ya está registrado")
+    tenant_id = "tenant_" + uuid.uuid4().hex
+    user = User(email=email, name=user_data.name, role="admin", tenant_id=tenant_id, is_owner=True)
+    doc = user.model_dump(mode="json")
+    doc.update(password_hash=hash_password(user_data.password), company_name=user_data.company_name)
+    # Provision before making the identity visible. Failed duplicate registration
+    # may leave an empty, unreachable tenant, but never grants access to another one.
+    await client[database_name(tenant_id)].settings.update_one(
+        {"_id": "account"}, {"$setOnInsert": {"owner_id": user.id, "company_name": user_data.company_name}}, upsert=True)
+    await control_db.tenants.insert_one({"_id": tenant_id, "owner_id": user.id, "ready": True})
+    try:
+        await control_db.users.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="El email ya está registrado")
+    return {"message": "Cuenta principal creada", "user": public_user(doc)}
 
 @api_router.post("/auth/login")
 async def login(credentials: UserLogin):
-    user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
-    if not user or not verify_password(credentials.password, user['password_hash']):
+    user = await control_db.users.find_one({"email": str(credentials.email).strip().lower()}, {"_id": 0})
+    if not user or not user.get("active", True) or not verify_password(credentials.password, user['password_hash']):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
+    await tenant_database(user["tenant_id"])
     token = create_token(user['id'], user['email'], user['role'], user['tenant_id'])
-    return {
-        "token": token,
-        "user": {
-            "id": user['id'],
-            "email": user['email'],
-            "name": user['name'],
-            "role": user['role']
-        }
-    }
+    return {"token": token, "user": public_user(user)}
 
 @api_router.get("/auth/me", response_model=User)
 async def get_me(current_user: dict = Depends(get_current_user)):
-    user = await db.users.find_one({"id": current_user['user_id']}, {"_id": 0, "password_hash": 0})
-    if not user:
+    return public_user(current_user)
+
+@api_router.get("/team", response_model=List[User])
+async def get_team(current_user: dict = Depends(require_admin)):
+    users = await control_db.users.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return [public_user(user) for user in users]
+
+@api_router.post("/team", response_model=User, status_code=201)
+async def create_team_user(data: TeamUserCreate, current_user: dict = Depends(require_admin)):
+    await tenant_database(current_user["tenant_id"])
+    user = User(email=str(data.email).strip().lower(), name=data.name, role=data.role, tenant_id=current_user["tenant_id"])
+    doc = user.model_dump(mode="json")
+    doc["password_hash"] = hash_password(data.password)
+    try:
+        await control_db.users.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="El email ya está registrado")
+    return public_user(doc)
+
+@api_router.patch("/team/{user_id}", response_model=User)
+async def update_team_user(user_id: str, data: TeamUserUpdate, current_user: dict = Depends(require_admin)):
+    query = {"id": user_id, "tenant_id": current_user["tenant_id"]}
+    target = await control_db.users.find_one(query)
+    if not target:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
-    if isinstance(user.get('created_at'), str):
-        user['created_at'] = datetime.fromisoformat(user['created_at'])
-    
-    return User(**user)
+    if target.get("is_owner") or target["id"] == current_user["id"]:
+        raise HTTPException(status_code=403, detail="No puedes modificar la cuenta principal ni tu propio acceso")
+    updates = data.model_dump(exclude_none=True)
+    if updates:
+        await control_db.users.update_one(query, {"$set": updates})
+    return public_user(await control_db.users.find_one(query))
 
 @api_router.post("/customers", response_model=Customer)
 async def create_customer(customer: CustomerCreate, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customer_obj = Customer(**customer.model_dump(), tenant_id=tenant_id)
     doc = customer_obj.model_dump()
@@ -311,6 +362,7 @@ async def create_customer(customer: CustomerCreate, current_user: dict = Depends
 
 @api_router.get("/customers", response_model=List[Customer])
 async def get_customers(current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customers = await db.customers.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
     for c in customers:
@@ -320,6 +372,7 @@ async def get_customers(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/customers/{customer_id}", response_model=Customer)
 async def get_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customer = await db.customers.find_one({"id": customer_id, "tenant_id": tenant_id}, {"_id": 0})
     if not customer:
@@ -330,6 +383,7 @@ async def get_customer(customer_id: str, current_user: dict = Depends(get_curren
 
 @api_router.put("/customers/{customer_id}", response_model=Customer)
 async def update_customer(customer_id: str, customer_update: CustomerCreate, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     update_data = customer_update.model_dump()
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -347,6 +401,7 @@ async def update_customer(customer_id: str, customer_update: CustomerCreate, cur
 
 @api_router.delete("/customers/{customer_id}")
 async def delete_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     result = await db.customers.delete_one({"id": customer_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
@@ -355,11 +410,16 @@ async def delete_customer(customer_id: str, current_user: dict = Depends(get_cur
 
 @api_router.post("/repairs", response_model=Repair)
 async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     
-    # Count only repairs for this tenant
-    count = await db.repairs.count_documents({"tenant_id": tenant_id})
-    ticket_number = f"REP-{count + 1:05d}"
+    customer = await db.customers.find_one({"id": repair.customer_id, "tenant_id": tenant_id})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    repair.customer_name = customer["name"]
+    # Allocate an account-local ticket atomically
+    counter = await db.counters.find_one_and_update({"_id": "repair_number"}, {"$inc": {"value": 1}}, upsert=True, return_document=ReturnDocument.AFTER)
+    ticket_number = f"REP-{counter['value']:05d}"
     
     repair_dict = repair.model_dump()
     repair_dict['ticket_number'] = ticket_number
@@ -371,11 +431,13 @@ async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_c
     if doc.get('estimated_delivery'):
         doc['estimated_delivery'] = doc['estimated_delivery'].isoformat()
     
+    await control_db.public_links.insert_one({"token": repair_obj.public_token, "tenant_id": tenant_id, "repair_id": repair_obj.id})
     await db.repairs.insert_one(doc)
     return repair_obj
 
 @api_router.get("/repairs", response_model=List[Repair])
 async def get_repairs(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     query = {"tenant_id": tenant_id}
     if status:
@@ -395,6 +457,7 @@ async def get_repairs(status: Optional[str] = None, current_user: dict = Depends
 
 @api_router.get("/repairs/{repair_id}", response_model=Repair)
 async def get_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not repair:
@@ -413,6 +476,7 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
 
 @api_router.patch("/repairs/{repair_id}", response_model=Repair)
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     update_data = {k: v for k, v in repair_update.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -476,6 +540,7 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
 
 @api_router.delete("/repairs/{repair_id}")
 async def delete_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     result = await db.repairs.delete_one({"id": repair_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
@@ -484,6 +549,7 @@ async def delete_repair(repair_id: str, current_user: dict = Depends(get_current
 
 @api_router.get("/repairs/{repair_id}/delivery-pdf")
 async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     """Generate and download delivery order PDF"""
     tenant_id = current_user['tenant_id']
     
@@ -521,7 +587,8 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
         raise HTTPException(status_code=500, detail=f"Error al generar PDF: {str(e)}")
 
 @api_router.post("/inventory", response_model=InventoryItem)
-async def create_inventory_item(item: InventoryCreate, current_user: dict = Depends(get_current_user)):
+async def create_inventory_item(item: InventoryCreate, current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     item_obj = InventoryItem(**item.model_dump(), tenant_id=tenant_id)
     doc = item_obj.model_dump()
@@ -532,7 +599,8 @@ async def create_inventory_item(item: InventoryCreate, current_user: dict = Depe
     return item_obj
 
 @api_router.get("/inventory", response_model=List[InventoryItem])
-async def get_inventory(current_user: dict = Depends(get_current_user)):
+async def get_inventory(current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     items = await db.inventory.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
     for item in items:
@@ -543,7 +611,8 @@ async def get_inventory(current_user: dict = Depends(get_current_user)):
     return items
 
 @api_router.get("/inventory/{item_id}", response_model=InventoryItem)
-async def get_inventory_item(item_id: str, current_user: dict = Depends(get_current_user)):
+async def get_inventory_item(item_id: str, current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     item = await db.inventory.find_one({"id": item_id, "tenant_id": tenant_id}, {"_id": 0})
     if not item:
@@ -555,7 +624,8 @@ async def get_inventory_item(item_id: str, current_user: dict = Depends(get_curr
     return InventoryItem(**item)
 
 @api_router.patch("/inventory/{item_id}", response_model=InventoryItem)
-async def update_inventory_item(item_id: str, item_update: InventoryUpdate, current_user: dict = Depends(get_current_user)):
+async def update_inventory_item(item_id: str, item_update: InventoryUpdate, current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     update_data = {k: v for k, v in item_update.model_dump().items() if v is not None}
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -577,7 +647,8 @@ async def update_inventory_item(item_id: str, item_update: InventoryUpdate, curr
     return InventoryItem(**updated)
 
 @api_router.delete("/inventory/{item_id}")
-async def delete_inventory_item(item_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_inventory_item(item_id: str, current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     result = await db.inventory.delete_one({"id": item_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
@@ -586,6 +657,7 @@ async def delete_inventory_item(item_id: str, current_user: dict = Depends(get_c
 
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     
     total_repairs = await db.repairs.count_documents({"tenant_id": tenant_id})
@@ -601,10 +673,9 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     pending_delivery = await db.repairs.count_documents({"tenant_id": tenant_id, "status": "completed"})
     
     # Contar items con stock bajo (quantity = 1) o sin stock (quantity = 0)
-    low_stock_items = await db.inventory.count_documents({
-        "tenant_id": tenant_id,
-        "quantity": {"$lte": 1}
-    })
+    low_stock_items = None
+    if current_user["role"] == "admin":
+        low_stock_items = await db.inventory.count_documents({"tenant_id": tenant_id, "quantity": {"$lte": 1}})
     
     status_pipeline = [
         {"$match": {"tenant_id": tenant_id}},
@@ -637,13 +708,14 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/search")
 async def global_search(q: str, current_user: dict = Depends(get_current_user)):
+    db = await tenant_database(current_user["tenant_id"])
     results = {
         "repairs": [],
         "customers": [],
         "inventory": []
     }
     
-    search_pattern = {"$regex": q, "$options": "i"}
+    search_pattern = {"$regex": re.escape(q[:200]), "$options": "i"}
     
     repairs = await db.repairs.find({
         "$or": [
@@ -667,13 +739,14 @@ async def global_search(q: str, current_user: dict = Depends(get_current_user)):
     }, {"_id": 0}).limit(10).to_list(10)
     results['customers'] = customers
     
-    inventory = await db.inventory.find({
-        "$or": [
-            {"name": search_pattern},
-            {"code": search_pattern}
-        ]
-    }, {"_id": 0}).limit(10).to_list(10)
-    results['inventory'] = inventory
+    if current_user["role"] == "admin":
+        inventory = await db.inventory.find({
+            "$or": [
+                {"name": search_pattern},
+                {"code": search_pattern}
+            ]
+        }, {"_id": 0}).limit(10).to_list(10)
+        results['inventory'] = inventory
     
     return results
 
@@ -688,6 +761,9 @@ async def generate_cloudinary_signature(
     if folder not in ALLOWED_FOLDERS:
         raise HTTPException(status_code=400, detail="Invalid folder path")
     
+    if folder == "inventory" and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    folder = f"{current_user['tenant_id']}/{folder}"
     timestamp = int(time.time())
     # Only include params that will be sent in the upload request
     params_to_sign = {
@@ -714,10 +790,14 @@ app.include_router(api_router)
 # Public routes (no authentication required)
 public_router = APIRouter(prefix="/public")
 
-@public_router.get("/repair/{ticket_number}")
-async def get_public_repair(ticket_number: str):
+@public_router.get("/repair/{public_token}")
+async def get_public_repair(public_token: str):
     """Get public repair information by ticket number"""
-    repair = await db.repairs.find_one({"ticket_number": ticket_number}, {"_id": 0})
+    link = await control_db.public_links.find_one({"token": public_token})
+    if not link:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    db = await tenant_database(link["tenant_id"])
+    repair = await db.repairs.find_one({"id": link["repair_id"], "public_token": public_token}, {"_id": 0})
     if not repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
