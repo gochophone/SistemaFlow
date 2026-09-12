@@ -16,7 +16,7 @@ const STATUS_COLORS = {
 };
 
 const Dashboard = () => {
-  const { getAuthHeader } = useAuth();
+  const { user, getAuthHeader } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -113,6 +113,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        {user?.role === 'admin' && (
         <Card className="bg-white border border-zinc-200 shadow-sm" data-testid="stat-card-low-stock">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -125,6 +126,7 @@ const Dashboard = () => {
             <p className="text-sm text-zinc-600 mt-1">Bajo Stock</p>
           </CardContent>
         </Card>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -56,7 +56,7 @@ const PrintLabel = () => {
     );
   }
 
-  const publicUrl = `${window.location.origin}/public/${repair.ticket_number}`;
+  const publicUrl = `${window.location.origin}/public/${repair.public_token}`;
 
   return (
     <div className="print-container">

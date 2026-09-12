@@ -7,13 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Wrench, Mail, Lock, User, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,7 +18,7 @@ const Login = () => {
     email: '', 
     password: '', 
     name: '', 
-    role: 'technician' 
+    company_name: ''
   });
 
   const handleLogin = async (e) => {
@@ -49,7 +43,8 @@ const Login = () => {
       toast.success('Cuenta creada exitosamente. Inicia sesión.');
       setLoginData({ email: registerData.email, password: '' });
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Error al crear cuenta');
+      const detail = error.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'Revisa los datos: la contraseña necesita al menos 10 caracteres.');
     } finally {
       setLoading(false);
     }
@@ -143,11 +138,7 @@ const Login = () => {
                   </a>
                 </p>
 
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-xs text-blue-900 font-medium mb-1">Cuentas de prueba:</p>
-                  <p className="text-xs text-blue-700">admin@servicetec.com / Admin123!</p>
-                  <p className="text-xs text-blue-700">tecnico@servicetec.com / Tecnico123!</p>
-                </div>
+
               </form>
             </TabsContent>
 
@@ -193,6 +184,8 @@ const Login = () => {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
                     <Input
                       id="register-password"
+                      minLength={10}
+                      maxLength={72}
                       type="password"
                       placeholder="••••••••"
                       value={registerData.password}
@@ -205,20 +198,9 @@ const Login = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="register-role" className="text-sm font-medium text-zinc-900">Rol</Label>
-                  <Select
-                    value={registerData.role}
-                    onValueChange={(value) => setRegisterData({ ...registerData, role: value })}
-                  >
-                    <SelectTrigger className="mt-1 border-zinc-200" data-testid="register-role-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="technician">Técnico</SelectItem>
-                      <SelectItem value="receptionist">Recepcionista</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="register-company">Nombre del negocio</Label>
+                  <Input id="register-company" required value={registerData.company_name} onChange={e => setRegisterData({ ...registerData, company_name: e.target.value })} />
+                  <p className="text-xs text-zinc-500 mt-2">Crearás la cuenta principal. Después podrás añadir administradores y técnicos en Equipo.</p>
                 </div>
 
                 <Button
