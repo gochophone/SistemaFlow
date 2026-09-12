@@ -3,8 +3,11 @@
 ## Backend (servicio existente)
 
 Esta configuración permite desplegar el backend desde la raíz del repositorio.
-`requirements.txt` carga las dependencias de `backend/requirements.txt` y
+`requirements.txt` enumera las dependencias completas de Python y
 `railway.toml` arranca `server:app` con el directorio de importación correcto.
+Mantén sincronizados `requirements.txt` y `backend/requirements.txt`: Railpack
+copia el archivo raíz antes de instalar las dependencias y todavía no incluye
+la carpeta backend en esa capa de compilación.
 
 1. Conecta este repositorio y selecciona la rama que contiene estos cambios.
 2. En Settings → Source, deja Root Directory vacío (raíz del repositorio).

@@ -1,2 +1,20 @@
-# Railway detects Python from the repository root.
--r backend/requirements.txt
+fastapi==0.110.1
+uvicorn==0.25.0
+motor==3.3.1
+pymongo==4.6.3
+python-dotenv==1.2.2
+pydantic==2.13.4
+python-multipart==0.0.32
+passlib==1.7.4
+bcrypt==4.1.3
+PyJWT==2.13.0
+python-jose==3.5.0
+email-validator==2.3.0
+requests==2.34.2
+aiohttp==3.14.1
+cloudinary==1.44.2
+boto3==1.43.33
+reportlab==5.0.0
+pillow==12.2.0
+resend==2.32.2
+stripe==14.4.1
