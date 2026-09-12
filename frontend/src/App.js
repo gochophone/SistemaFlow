@@ -9,6 +9,7 @@ import RepairDetail from '@/pages/RepairDetail';
 import NewRepair from '@/pages/NewRepair';
 import Customers from '@/pages/Customers';
 import Inventory from '@/pages/Inventory';
+import Team from '@/pages/Team';
 import PrintLabel from '@/pages/PrintLabel';
 import PublicRepairView from '@/pages/PublicRepairView';
 import Layout from '@/components/Layout';
@@ -36,6 +37,11 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user } = useAuth();
+  return user?.role === "admin" ? children : <Navigate to="/" replace />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -44,7 +50,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/public/:ticketNumber" element={<PublicRepairView />} />
-          <Route path="/print-label/:id" element={<PrintLabel />} />
+          <Route path="/print-label/:id" element={<ProtectedRoute><PrintLabel /></ProtectedRoute>} />
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />
@@ -55,7 +61,8 @@ function App() {
             <Route path="repairs/new" element={<NewRepair />} />
             <Route path="repairs/:id" element={<RepairDetail />} />
             <Route path="customers" element={<Customers />} />
-            <Route path="inventory" element={<Inventory />} />
+            <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
+            <Route path="team" element={<AdminRoute><Team /></AdminRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>
