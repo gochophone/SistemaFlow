@@ -44,7 +44,23 @@ const Login = () => {
       setLoginData({ email: registerData.email, password: '' });
     } catch (error) {
       const detail = error.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : 'Revisa los datos: la contraseña necesita al menos 10 caracteres.');
+      if (!error.response) {
+        toast.error('No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.');
+      } else if (typeof detail === 'string') {
+        toast.error(detail);
+      } else if (Array.isArray(detail)) {
+        const labels = { email: 'Email', password: 'Contraseña', name: 'Nombre', company_name: 'Nombre del negocio' };
+        const messages = detail.map(item => {
+          const field = item.loc?.[item.loc.length - 1];
+          if (field === 'email') return 'Introduce un email válido';
+          if (field === 'password' && item.type === 'string_too_short') return 'La contraseña debe tener al menos 10 caracteres';
+          if (field === 'password' && item.type === 'string_too_long') return 'La contraseña no puede superar 72 caracteres';
+          return (labels[field] || 'Datos del registro') + ': ' + (item.msg || 'valor no válido');
+        });
+        toast.error(messages.join('. ') || 'Revisa los datos del registro.');
+      } else {
+        toast.error('El servidor no pudo completar el registro. Inténtalo de nuevo.');
+      }
     } finally {
       setLoading(false);
     }
