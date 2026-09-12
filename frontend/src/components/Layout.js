@@ -25,7 +25,10 @@ const Layout = () => {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
-    { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
+    ...(user?.role === 'admin' ? [
+      { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
+      { path: '/team', icon: Users, label: 'Equipo', testId: 'nav-team' },
+    ] : []),
   ];
 
   const handleLogout = () => {
