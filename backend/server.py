@@ -39,6 +39,12 @@ cloudinary.config(
 )
 
 app = FastAPI()
+@app.get("/health", include_in_schema=False)
+async def health():
+    """Process health only; does not read customer data or require MongoDB."""
+    return {"status": "ok"}
+
+
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 
