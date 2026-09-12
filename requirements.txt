@@ -1,0 +1,2 @@
+# Railway detects Python from the repository root.
+-r backend/requirements.txt
