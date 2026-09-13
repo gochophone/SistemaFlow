@@ -32,7 +32,7 @@ const SubscriptionGate = ({ children }) => {
         if (live) setState(data.active ? 'active' : 'expired');
       } catch { if (live) setState('error'); }
     };
-    setState('loading');
+    // Keep the current page mounted while navigation checks run in the background.
     if (!billingPage) check();
     const timer = billingPage ? null : setInterval(check, 60000);
     const interceptor = axios.interceptors.response.use(response => response, error => {
