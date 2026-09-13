@@ -131,6 +131,7 @@ const Register = () => {
             </p>
           </CardHeader>
           <CardContent>
+            <p className="mb-4 rounded bg-blue-50 p-3 text-sm text-blue-900">Un mes gratis por negocio. Después, $10.000 CLP al mes por transferencia, con administradores y técnicos incluidos. Sin cobro automático.</p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="company_name" className="text-sm font-medium text-zinc-900">
