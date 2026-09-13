@@ -17,7 +17,7 @@ os.environ["JWT_SECRET"] = "test-isolation-secret-not-for-production-123456789"
 import server
 from migrate_account_databases import migrate
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def api():
     with TestClient(server.app) as app:
         yield app
@@ -136,3 +136,62 @@ def test_migration_copies_preserves_and_is_idempotent():
         with pytest.raises(RuntimeError): migrate(mongo,directory,True)
     finally:
         mongo.drop_database(directory);mongo.drop_database(server.database_name(tid));mongo.close()
+
+import os
+from datetime import datetime, timezone
+from pymongo import MongoClient
+import billing
+
+
+def test_calendar_month():
+    assert billing.month_after(datetime(2024, 1, 31, tzinfo=timezone.utc)).day == 29
+    assert billing.month_after(datetime(2025, 12, 31, tzinfo=timezone.utc)).year == 2026
+
+
+def test_billing_authorization_and_renewal(api):
+    owner, headers = account(api, 'billing')
+    other, oh = account(api, 'other')
+    manager, mh = account(api, 'manager')
+    os.environ['BILLING_ADMIN_USER_IDS'] = manager['id']
+    bank = dict(holder='Test company', rut='test', bank='Test bank', account_type='Current', account_number='000')
+    assert api.put('/api/billing/bank', headers=headers, json=bank).status_code == 403
+    assert api.put('/api/billing/bank', headers=mh, json=bank).status_code == 200
+    before = api.get('/api/billing', headers=headers).json()
+    assert before['active'] and not before['is_manager']
+    assert api.get('/api/billing/admin', headers=headers).status_code == 403
+    tech_email = 'tech-' + owner['id'] + '@example.com'
+    assert api.post('/api/team', headers=headers, json=dict(email=tech_email, name='Tech', password='Password123!', role='technician')).status_code == 201
+    th = {'Authorization': 'Bearer ' + api.post('/api/auth/login', json=dict(email=tech_email, password='Password123!')).json()['token']}
+    assert api.get('/api/billing', headers=th).json()['bank'] is None
+    assert api.post('/api/billing/report', headers=th, json={'reference': 'test'}).status_code == 403
+    with MongoClient(TEST_URI) as mongo:
+        db = mongo[os.environ['DB_NAME']]
+        db.subscriptions.update_one({'_id': owner['tenant_id']}, {'$set': {'expires_at': '2020-01-01T00:00:00+00:00'}})
+        for h in (headers, th):
+            for path in ('/customers', '/repairs', '/inventory', '/team'):
+                assert api.get('/api' + path, headers=h).status_code == 402
+            assert api.get('/api/auth/me', headers=h).status_code == 200
+            assert api.get('/api/billing', headers=h).json()['active'] is False
+        assert api.get('/api/customers', headers=oh).status_code == 200
+        assert api.post('/api/customers', headers=headers, json={'name': 'Blocked', 'phone': '123'}).status_code == 402
+        assert api.post('/api/billing/report', headers=headers, json={'reference': 'Test', 'tenant_id': other['tenant_id']}).status_code == 422
+        assert api.post('/api/billing/report', headers=headers, json={'reference': 'Test transfer'}).status_code == 200
+        assert api.post('/api/billing/report', headers=headers, json={'reference': 'Duplicate'}).status_code == 409
+        reported = api.get('/api/billing', headers=headers).json()
+        assert not reported['active']
+        rid = reported['pending']['id']
+        route = f"/api/billing/admin/{owner['tenant_id']}/{rid}"
+        assert api.post(route, headers=headers, json={'approve': True, 'note': 'Fake'}).status_code == 403
+        assert api.post(route, headers=mh, json={'approve': True, 'note': 'Verified'}).status_code == 200
+        renewed = api.get('/api/billing', headers=headers).json()
+        assert renewed['active'] and renewed['pending'] is None
+        assert api.get('/api/customers', headers=th).status_code == 200
+        assert api.post(route, headers=mh, json={'approve': True, 'note': 'Duplicate'}).status_code == 200
+        assert api.get('/api/billing', headers=headers).json()['expires_at'] == renewed['expires_at']
+        assert len(db.subscriptions.find_one({'_id': owner['tenant_id']})['history']) == 1
+        assert api.get('/api/billing', headers=oh).json()['expires_at'] != renewed['expires_at']
+        assert api.post('/api/billing/report', headers=headers, json={'reference': 'Rejected transfer'}).status_code == 200
+        rid = api.get('/api/billing', headers=headers).json()['pending']['id']
+        assert api.post(f"/api/billing/admin/{owner['tenant_id']}/{rid}", headers=mh, json={'approve': False, 'note': 'Not received'}).status_code == 200
+        assert api.get('/api/billing', headers=headers).json()['expires_at'] == renewed['expires_at']
+    os.environ.pop('BILLING_ADMIN_USER_IDS')
