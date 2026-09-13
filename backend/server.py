@@ -47,9 +47,9 @@ JWT_ALGORITHM = 'HS256'
 
 # Configure Cloudinary
 cloudinary.config(
-    cloud_name=os.environ.get('do24bmhab'),
-    api_key=os.environ.get('939855198456183'),
-    api_secret=os.environ.get('QzKEeHQMLI4ik8eMj55-u1Ak_GI'),
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_SECRET'),
+    api_secret=os.environ.get('CLOUDINARY_API_KEY'),
     secure=True
 )
 
