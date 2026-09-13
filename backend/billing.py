@@ -32,7 +32,7 @@ async def subscription(db, tenant_id):
 
 
 def active(doc):
-    return datetime.fromisoformat(doc['expires_at']) > now()
+    return not doc.get('suspended', False) and datetime.fromisoformat(doc['expires_at']) > now()
 
 
 class PaymentReport(BaseModel):
@@ -44,6 +44,12 @@ class Decision(BaseModel):
     model_config = ConfigDict(extra='forbid')
     approve: bool
     note: str = Field(min_length=3, max_length=200)
+
+
+class AccessChange(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    suspended: bool
+    reason: str = Field(min_length=3, max_length=200)
 
 
 class BankDetails(BaseModel):
@@ -69,6 +75,7 @@ def router(db, authenticate):
         bank = await db.billing_settings.find_one({'_id': 'bank'}, {'_id': 0})
         return {'active': active(doc), 'expires_at': doc['expires_at'], 'amount': 10000,
                 'currency': 'CLP', 'is_manager': is_manager(user),
+                'suspended': doc.get('suspended', False),
                 'pending': doc['pending'], 'history': doc['history'][-12:],
                 'bank': bank if user.get('is_owner') else None}
 
@@ -95,9 +102,34 @@ def router(db, authenticate):
         async for owner in db.users.find({'is_owner': True}, {'password_hash': 0}):
             doc = await subscription(db, owner['tenant_id'])
             items.append({'tenant_id': owner['tenant_id'], 'company': owner.get('company_name', owner['name']),
-                          'email': owner['email'], 'expires_at': doc['expires_at'],
-                          'active': active(doc), 'pending': doc['pending']})
+                          'email': owner['email'], 'owner_name': owner['name'],
+                          'registered_at': owner.get('created_at'),
+                          'trial_started_at': doc['trial_started_at'],
+                          'expires_at': doc['expires_at'],
+                          'active': active(doc), 'pending': doc['pending'],
+                          'suspended': doc.get('suspended', False),
+                          'can_suspend': owner['tenant_id'] != user['tenant_id'] and not is_manager(owner),
+                          'access_change': doc.get('access_change')})
         return items
+
+    @api.patch('/admin/{tenant_id}/access')
+    async def change_access(tenant_id: str, data: AccessChange, user=Depends(manager)):
+        owner = await db.users.find_one({'tenant_id': tenant_id, 'is_owner': True})
+        if not owner:
+            raise HTTPException(404, 'Negocio no encontrado')
+        if tenant_id == user['tenant_id'] or is_manager(owner):
+            raise HTTPException(403, 'No puedes suspender la cuenta principal de cobros')
+        reason = data.reason.strip()
+        if len(reason) < 3:
+            raise HTTPException(422, 'Indica el motivo del cambio')
+        await subscription(db, tenant_id)
+        audit = {'suspended': data.suspended, 'reason': reason,
+                 'changed_by': user['id'], 'changed_at': now().isoformat()}
+        await db.subscriptions.update_one({'_id': tenant_id}, {
+            '$set': {'suspended': data.suspended, 'access_change': audit},
+            '$inc': {'revision': 1}, '$push': {'access_history': audit}})
+        return {'message': 'Acceso del negocio suspendido; sus datos se conservan' if data.suspended
+                else 'Suspensión retirada. El acceso depende del vencimiento de su suscripción.'}
 
     @api.put('/bank')
     async def bank(data: BankDetails, user=Depends(manager)):
