@@ -20,6 +20,9 @@ import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { parseCLPInput } from '@/utils/currency';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { validateRUT, cleanRUT } from '@/utils/rut';
+
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const NewRepair = () => {
@@ -27,6 +30,42 @@ const NewRepair = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', rut: '', address: '' });
+
+  const createCustomer = async (event) => {
+    event.preventDefault();
+    if (savingCustomer) return;
+    if (!newCustomer.name.trim() || !newCustomer.phone.trim()) {
+      toast.error('Completa el nombre y el teléfono del cliente.');
+      return;
+    }
+    if (newCustomer.rut && !validateRUT(newCustomer.rut)) {
+      toast.error('RUT inválido. Verifica el dígito verificador.');
+      return;
+    }
+    setSavingCustomer(true);
+    try {
+      const { data: customer } = await axios.post(API + '/api/customers', {
+        ...newCustomer,
+        name: newCustomer.name.trim(),
+        phone: newCustomer.phone.trim(),
+        email: newCustomer.email.trim(),
+        rut: newCustomer.rut ? cleanRUT(newCustomer.rut) : null,
+      }, { headers: getAuthHeader() });
+      setCustomers(current => [...current.filter(item => item.id !== customer.id), customer]);
+      setFormData(current => ({ ...current, customer_id: customer.id, customer_name: customer.name }));
+      setCustomerOpen(false);
+      setNewCustomer({ name: '', phone: '', email: '', rut: '', address: '' });
+      toast.success('Cliente creado y seleccionado.');
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'No se pudo crear el cliente. Revisa los datos e inténtalo de nuevo.');
+    } finally {
+      setSavingCustomer(false);
+    }
+  };
   const [formData, setFormData] = useState({
     customer_id: '',
     customer_name: '',
@@ -149,7 +188,7 @@ const NewRepair = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/customers')}
+                  onClick={() => setCustomerOpen(true)}
                   className="w-full"
                   data-testid="add-customer-link"
                 >
@@ -424,6 +463,34 @@ const NewRepair = () => {
           </Button>
         </div>
       </form>
+      <Dialog open={customerOpen} onOpenChange={open => { if (!savingCustomer) setCustomerOpen(open); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo cliente</DialogTitle>
+            <DialogDescription>Al guardar, el cliente quedará seleccionado en esta reparación. Los datos de la orden se conservarán.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={createCustomer} className="space-y-4" data-testid="new-repair-customer-form">
+            {[
+              ['name', 'Nombre *', 'text', true],
+              ['phone', 'Teléfono *', 'tel', true],
+              ['email', 'Email', 'email', false],
+              ['rut', 'RUT', 'text', false],
+              ['address', 'Dirección', 'text', false],
+            ].map(([field, label, type, required]) => (
+              <div key={field}>
+                <Label htmlFor={'repair-customer-' + field}>{label}</Label>
+                <Input id={'repair-customer-' + field} type={type} required={required}
+                  disabled={savingCustomer} value={newCustomer[field]}
+                  onChange={event => setNewCustomer(current => ({ ...current, [field]: event.target.value }))} />
+              </div>
+            ))}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" disabled={savingCustomer} onClick={() => setCustomerOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={savingCustomer}>{savingCustomer ? 'Guardando...' : 'Guardar y seleccionar'}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
