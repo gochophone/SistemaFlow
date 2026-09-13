@@ -23,6 +23,7 @@ import cloudinary
 import cloudinary.utils
 from email_service import send_repair_ready_notification
 from pdf_generator import generate_delivery_pdf
+import billing
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -265,8 +266,11 @@ async def initialize_identity_indexes():
     # Fail closed if the directory is unavailable or contains duplicate identities.
     await control_db.users.create_index("email", unique=True)
     await control_db.public_links.create_index("token", unique=True)
+    # Existing businesses receive their trial once at rollout, never on each login.
+    async for tenant in control_db.tenants.find({'ready': True}):
+        await billing.subscription(control_db, tenant['_id'])
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def get_authenticated_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user = await control_db.users.find_one({"id": payload.get("user_id")}, {"_id": 0})
@@ -278,6 +282,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+async def get_current_user(user: dict = Depends(get_authenticated_user)):
+    if not billing.active(await billing.subscription(control_db, user['tenant_id'])):
+        raise HTTPException(status_code=402, detail='Suscripción vencida. Renueva en Suscripción; tus datos se conservan.')
+    return user
+
+app.include_router(billing.router(control_db, get_authenticated_user))
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
@@ -305,6 +316,7 @@ async def register(user_data: UserCreate):
         await control_db.users.insert_one(doc)
     except DuplicateKeyError:
         raise HTTPException(status_code=409, detail="El email ya está registrado")
+    await billing.subscription(control_db, tenant_id)
     return {"message": "Cuenta principal creada", "user": public_user(doc)}
 
 @api_router.post("/auth/login")
@@ -317,7 +329,7 @@ async def login(credentials: UserLogin):
     return {"token": token, "user": public_user(user)}
 
 @api_router.get("/auth/me", response_model=User)
-async def get_me(current_user: dict = Depends(get_current_user)):
+async def get_me(current_user: dict = Depends(get_authenticated_user)):
     return public_user(current_user)
 
 @api_router.get("/team", response_model=List[User])
