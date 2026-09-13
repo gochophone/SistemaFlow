@@ -32,7 +32,8 @@ client = AsyncIOMotorClient(mongo_url)
 control_db = client[os.environ['DB_NAME']]
 
 def database_name(tenant_id):
-    return 'sf_' + hashlib.sha256(tenant_id.encode()).hexdigest()[:40]
+    # Atlas shared clusters limit database names to 38 bytes (3 + 32 = 35).
+    return 'sf_' + hashlib.sha256(tenant_id.encode()).hexdigest()[:32]
 
 async def tenant_database(tenant_id):
     tenant = await control_db.tenants.find_one({'_id': tenant_id, 'ready': True})
