@@ -22,6 +22,7 @@ const Layout = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const menuItems = [
+    { path: "/billing", icon: Users, label: "Suscripción", testId: "nav-billing" },
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
