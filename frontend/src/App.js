@@ -1,5 +1,7 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import Billing from '@/pages/Billing';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -15,6 +17,36 @@ import PublicRepairView from '@/pages/PublicRepairView';
 import Layout from '@/components/Layout';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import '@/App.css';
+
+const SubscriptionGate = ({ children }) => {
+  const { token } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [state, setState] = useState('loading');
+  const billingPage = location.pathname === '/billing';
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      try {
+        const { data } = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/billing`, { headers: { Authorization: `Bearer ${token}` } });
+        if (live) setState(data.active ? 'active' : 'expired');
+      } catch { if (live) setState('error'); }
+    };
+    setState('loading');
+    if (!billingPage) check();
+    const timer = billingPage ? null : setInterval(check, 60000);
+    const interceptor = axios.interceptors.response.use(response => response, error => {
+      if (error.response?.status === 402 && !billingPage) navigate('/billing', { replace: true });
+      return Promise.reject(error);
+    });
+    return () => { live = false; clearInterval(timer); axios.interceptors.response.eject(interceptor); };
+  }, [token, location.pathname, billingPage, navigate]);
+  if (billingPage) return children;
+  if (state === 'loading') return <p className="p-8">Verificando acceso…</p>;
+  if (state === 'error') return <div className="p-8">No se pudo verificar el acceso. <button onClick={() => window.location.reload()}>Reintentar</button></div>;
+  if (state === 'expired') return <Navigate to="/billing" replace />;
+  return children;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -34,7 +66,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
   
-  return children;
+  return <SubscriptionGate>{children}</SubscriptionGate>;
 };
 
 const AdminRoute = ({ children }) => {
@@ -56,6 +88,7 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
+            <Route path="billing" element={<Billing />} />
             <Route index element={<Dashboard />} />
             <Route path="repairs" element={<Repairs />} />
             <Route path="repairs/new" element={<NewRepair />} />
