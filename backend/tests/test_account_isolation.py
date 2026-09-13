@@ -195,3 +195,41 @@ def test_billing_authorization_and_renewal(api):
         assert api.post(f"/api/billing/admin/{owner['tenant_id']}/{rid}", headers=mh, json={'approve': False, 'note': 'Not received'}).status_code == 200
         assert api.get('/api/billing', headers=headers).json()['expires_at'] == renewed['expires_at']
     os.environ.pop('BILLING_ADMIN_USER_IDS')
+
+
+def test_global_business_suspension(api):
+    owner, oh = account(api, 'suspension-owner')
+    manager, mh = account(api, 'suspension-manager')
+    os.environ['BILLING_ADMIN_USER_IDS'] = manager['id']
+    try:
+        listing = api.get('/api/billing/admin', headers=mh).json()
+        entry = next(a for a in listing if a['tenant_id'] == owner['tenant_id'])
+        assert entry['registered_at'] and entry['trial_started_at'] and entry['can_suspend']
+        path = f"/api/billing/admin/{owner['tenant_id']}/access"
+        change = {'suspended': True, 'reason': 'Administrative test'}
+        assert api.patch(path, headers=oh, json=change).status_code == 403
+        assert api.patch(f"/api/billing/admin/{manager['tenant_id']}/access", headers=mh, json=change).status_code == 403
+        staff_headers = []
+        for role in ('admin', 'technician'):
+            email = f'{uuid.uuid4().hex}@example.com'
+            assert api.post('/api/team', headers=oh, json={'email': email, 'password': 'Password123!', 'name': role, 'role': role}).status_code == 201
+            login = api.post('/api/auth/login', json={'email': email, 'password': 'Password123!'}).json()
+            staff_headers.append({'Authorization': 'Bearer '+login['token']})
+        before = api.get('/api/billing', headers=oh).json()['expires_at']
+        assert api.patch(path, headers=mh, json=change).status_code == 200
+        for headers in [oh, *staff_headers]:
+            assert api.get('/api/customers', headers=headers).status_code == 402
+            assert api.get('/api/auth/me', headers=headers).status_code == 200
+            assert api.get('/api/billing', headers=headers).json()['suspended']
+        assert api.patch(path, headers=mh, json={'suspended': False, 'reason': 'Restored in test'}).status_code == 200
+        assert api.get('/api/billing', headers=oh).json()['expires_at'] == before
+        for headers in [oh, *staff_headers]:
+            assert api.get('/api/customers', headers=headers).status_code == 200
+        with MongoClient(TEST_URI) as mongo:
+            doc = mongo[os.environ['DB_NAME']].subscriptions.find_one({'_id': owner['tenant_id']})
+            assert len(doc['access_history']) == 2
+            mongo[os.environ['DB_NAME']].subscriptions.update_one({'_id': owner['tenant_id']}, {'$set': {'expires_at': '2020-01-01T00:00:00+00:00'}})
+        assert api.patch(path, headers=mh, json={'suspended': False, 'reason': 'No free extension'}).status_code == 200
+        assert api.get('/api/customers', headers=oh).status_code == 402
+    finally:
+        os.environ.pop('BILLING_ADMIN_USER_IDS', None)
