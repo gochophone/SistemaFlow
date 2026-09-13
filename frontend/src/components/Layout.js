@@ -28,7 +28,7 @@ const Layout = () => {
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
     ...(user?.role === 'admin' ? [
       { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
-      { path: '/team', icon: Users, label: 'Equipo', testId: 'nav-team' },
+      { path: '/team', icon: Users, label: 'Equipo de trabajo', testId: 'nav-team' },
     ] : []),
   ];
 
