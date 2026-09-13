@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, LayoutDashboard, Wrench, Users, Package, LogOut, Menu, X, Plus } from 'lucide-react';
+import { Search, LayoutDashboard, Wrench, Users, Package, LogOut, Menu, X, Plus, CreditCard } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,7 @@ const Layout = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const menuItems = [
-    { path: "/billing", icon: Users, label: "Suscripción", testId: "nav-billing" },
+    { path: "/billing", icon: CreditCard, label: "Suscripción", testId: "nav-billing" },
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
