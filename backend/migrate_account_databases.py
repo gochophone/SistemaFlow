@@ -12,7 +12,7 @@ from pymongo import MongoClient
 COLLECTIONS = ("customers", "repairs", "inventory")
 
 def database_name(tenant_id):
-    return "sf_" + hashlib.sha256(tenant_id.encode()).hexdigest()[:40]
+    return "sf_" + hashlib.sha256(tenant_id.encode()).hexdigest()[:32]
 
 def migrate(client, directory_name, apply=False):
     control = client[directory_name]
