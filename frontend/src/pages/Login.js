@@ -216,7 +216,7 @@ const Login = () => {
                 <div>
                   <Label htmlFor="register-company">Nombre del negocio</Label>
                   <Input id="register-company" required value={registerData.company_name} onChange={e => setRegisterData({ ...registerData, company_name: e.target.value })} />
-                  <p className="text-xs text-zinc-500 mt-2">Crearás la cuenta principal. Después podrás añadir administradores y técnicos en Equipo.</p>
+                  <p className="text-xs text-zinc-500 mt-2">Crearás la cuenta principal. Después podrás añadir administradores y técnicos en Equipo de trabajo.</p>
                 </div>
 
                 <Button

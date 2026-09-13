@@ -42,7 +42,7 @@ export default function Team() {
     finally { setBusy(false); }
   };
   return <div className="space-y-6">
-    <div><h1 className="text-3xl font-bold">Equipo</h1>
+    <div><h1 className="text-3xl font-bold">Equipo de trabajo</h1>
       <p className="text-zinc-600 mt-2">Todos los integrantes trabajan con los datos de esta cuenta. Solo los administradores pueden acceder al inventario.</p></div>
     <form onSubmit={create} className="bg-white rounded-lg border p-6 space-y-4">
       <h2 className="text-xl font-semibold">Crear usuario</h2>
