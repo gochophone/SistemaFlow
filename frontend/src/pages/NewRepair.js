@@ -25,6 +25,32 @@ import { validateRUT, cleanRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+const CUSTOM_OPTION = '__custom__';
+
+const DEVICE_MODELS = {
+  Apple: ['iPhone 11', 'iPhone 12', 'iPhone 13', 'iPhone 14', 'iPhone 15', 'iPhone 16', 'iPad'],
+  Samsung: ['Galaxy A05', 'Galaxy A15', 'Galaxy A25', 'Galaxy A35', 'Galaxy A55', 'Galaxy S21', 'Galaxy S22', 'Galaxy S23', 'Galaxy S24', 'Galaxy S25', 'Galaxy Z Flip', 'Galaxy Z Fold'],
+  Xiaomi: ['Redmi 12', 'Redmi 13C', 'Redmi Note 12', 'Redmi Note 13', 'Redmi Note 14', 'POCO X6', 'POCO X7', 'Xiaomi 13', 'Xiaomi 14'],
+  Motorola: ['Moto G14', 'Moto G24', 'Moto G34', 'Moto G54', 'Moto G84', 'Moto Edge 40', 'Moto Edge 50'],
+  Huawei: ['P30', 'P40', 'P50', 'Nova 9', 'Nova 11', 'Nova 12', 'Mate 40'],
+  OPPO: ['A38', 'A58', 'A78', 'Reno 8', 'Reno 10', 'Reno 11', 'Reno 12'],
+  vivo: ['Y17s', 'Y27', 'Y36', 'Y51', 'V25', 'V29', 'V30'],
+  realme: ['C51', 'C53', 'C55', 'C67', '11 Pro', '12 Pro'],
+  HONOR: ['X6', 'X7', 'X8', 'X9', '90', '200', 'Magic V2'],
+  Google: ['Pixel 6', 'Pixel 7', 'Pixel 8', 'Pixel 9', 'Pixel Fold'],
+  OnePlus: ['Nord CE 3', 'Nord CE 4', '10 Pro', '11', '12', '13'],
+  Nokia: ['G22', 'G42', 'X30'],
+  ZTE: ['Blade A54', 'Blade A73', 'Blade V50'],
+  TCL: ['30 SE', '40 SE', '50 Pro'],
+  Tecno: ['Spark 10', 'Spark 20', 'Spark 30', 'Pova 5'],
+  Infinix: ['Hot 30', 'Hot 40', 'Note 30', 'Note 40'],
+  LG: ['K42', 'K52', 'Velvet'],
+  Sony: ['Xperia 10', 'Xperia 1'],
+  ASUS: ['ROG Phone 6', 'ROG Phone 7', 'Zenfone 9', 'Zenfone 10'],
+};
+
+const DEVICE_BRANDS = Object.keys(DEVICE_MODELS);
+
 const NewRepair = () => {
   const { getAuthHeader } = useAuth();
   const navigate = useNavigate();
@@ -33,6 +59,8 @@ const NewRepair = () => {
   const [customerOpen, setCustomerOpen] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', rut: '', address: '' });
+  const [brandChoice, setBrandChoice] = useState('');
+  const [modelChoice, setModelChoice] = useState('');
 
   const createCustomer = async (event) => {
     event.preventDefault();
@@ -139,6 +167,21 @@ const NewRepair = () => {
     setFormData({ ...formData, [field]: value });
   };
 
+  const handleBrandChange = (value) => {
+    setBrandChoice(value);
+    setModelChoice('');
+    setFormData(current => ({
+      ...current,
+      device_brand: value === CUSTOM_OPTION ? '' : value,
+      device_model: '',
+    }));
+  };
+
+  const handleModelChange = (value) => {
+    setModelChoice(value);
+    updateField('device_model', value === CUSTOM_OPTION ? '' : value);
+  };
+
   return (
     <div className="max-w-4xl" data-testid="new-repair-page">
       <div className="mb-6">
@@ -210,27 +253,64 @@ const NewRepair = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="device_brand" className="text-sm font-medium text-zinc-900">Marca *</Label>
-                <Input
-                  id="device_brand"
-                  value={formData.device_brand}
-                  onChange={(e) => updateField('device_brand', e.target.value)}
-                  placeholder="Samsung, Apple, Xiaomi..."
-                  className="mt-1 border-zinc-200"
-                  required
-                  data-testid="device-brand-input"
-                />
+                <Select value={brandChoice} onValueChange={handleBrandChange} required>
+                  <SelectTrigger className="mt-1 border-zinc-200" data-testid="device-brand-select">
+                    <SelectValue placeholder="Seleccionar marca" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEVICE_BRANDS.map((brand) => <SelectItem key={brand} value={brand}>{brand}</SelectItem>)}
+                    <SelectItem value={CUSTOM_OPTION}>Otra / especificar</SelectItem>
+                  </SelectContent>
+                </Select>
+                {brandChoice === CUSTOM_OPTION && (
+                  <Input
+                    id="device_brand"
+                    value={formData.device_brand}
+                    onChange={(e) => updateField('device_brand', e.target.value)}
+                    placeholder="Escribe la marca"
+                    className="mt-2 border-zinc-200"
+                    required
+                    data-testid="device-brand-input"
+                  />
+                )}
               </div>
               <div>
                 <Label htmlFor="device_model" className="text-sm font-medium text-zinc-900">Modelo *</Label>
-                <Input
-                  id="device_model"
-                  value={formData.device_model}
-                  onChange={(e) => updateField('device_model', e.target.value)}
-                  placeholder="Galaxy S21, iPhone 13..."
-                  className="mt-1 border-zinc-200"
-                  required
-                  data-testid="device-model-input"
-                />
+                {brandChoice && brandChoice !== CUSTOM_OPTION ? (
+                  <>
+                    <Select value={modelChoice} onValueChange={handleModelChange} required>
+                      <SelectTrigger className="mt-1 border-zinc-200" data-testid="device-model-select">
+                        <SelectValue placeholder="Seleccionar modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(DEVICE_MODELS[brandChoice] || []).map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}
+                        <SelectItem value={CUSTOM_OPTION}>Otro / especificar</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {modelChoice === CUSTOM_OPTION && (
+                      <Input
+                        id="device_model"
+                        value={formData.device_model}
+                        onChange={(e) => updateField('device_model', e.target.value)}
+                        placeholder={`Escribe el modelo ${brandChoice}`}
+                        className="mt-2 border-zinc-200"
+                        required
+                        data-testid="device-model-input"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <Input
+                    id="device_model"
+                    value={formData.device_model}
+                    onChange={(e) => updateField('device_model', e.target.value)}
+                    placeholder={brandChoice === CUSTOM_OPTION ? 'Escribe el modelo' : 'Primero selecciona una marca'}
+                    className="mt-1 border-zinc-200"
+                    disabled={!brandChoice}
+                    required
+                    data-testid="device-model-input"
+                  />
+                )}
               </div>
             </div>
 

@@ -11,7 +11,7 @@ const applyTheme = (theme) => {
 };
 
 const Settings = () => {
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'dark');
 
   useEffect(() => {
     applyTheme(theme);
