@@ -14,6 +14,7 @@ import Inventory from '@/pages/Inventory';
 import Team from '@/pages/Team';
 import PrintLabel from '@/pages/PrintLabel';
 import PublicRepairView from '@/pages/PublicRepairView';
+import Settings from '@/pages/Settings';
 import Layout from '@/components/Layout';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import '@/App.css';
@@ -94,6 +95,7 @@ function App() {
             <Route path="repairs/new" element={<NewRepair />} />
             <Route path="repairs/:id" element={<RepairDetail />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
             <Route path="team" element={<AdminRoute><Team /></AdminRoute>} />
           </Route>
