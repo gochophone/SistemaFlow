@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Wrench, Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
@@ -81,7 +81,7 @@ const Login = ({ initialTab = 'login' }) => {
         <div className="absolute inset-0 bg-black/60"></div>
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
           <div className="flex items-center gap-3 mb-6">
-            <Wrench size={40} strokeWidth={1.5} />
+            <img src="/ifixflow-logo.png" alt="Logo iFixFlow" className="h-12 w-12 object-contain" />
             <h1 className="text-4xl font-bold tracking-tight">iFixFlow</h1>
           </div>
           <p className="text-xl text-zinc-200 max-w-md leading-relaxed">
@@ -94,7 +94,7 @@ const Login = ({ initialTab = 'login' }) => {
         <div className="w-full max-w-md">
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <Wrench size={32} className="text-blue-600" />
+              <img src="/ifixflow-logo.png" alt="Logo iFixFlow" className="h-10 w-10 object-contain" />
               <h1 className="text-3xl font-bold tracking-tight">iFixFlow</h1>
             </div>
             <p className="text-sm text-zinc-600">Sistema de Gestión</p>

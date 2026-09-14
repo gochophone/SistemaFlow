@@ -80,7 +80,7 @@ const PublicRepairView = () => {
         {/* Header */}
         <div className="bg-zinc-900 text-white rounded-t-lg p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Wrench size={32} />
+            <img src="/ifixflow-logo.png" alt="Logo iFixFlow" className="h-10 w-10 object-contain" />
             <h1 className="text-2xl font-bold tracking-tight">iFixFlow</h1>
           </div>
           <p className="text-zinc-400 text-sm uppercase tracking-wider">
