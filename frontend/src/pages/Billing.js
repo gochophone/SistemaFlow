@@ -38,7 +38,7 @@ export default function Billing() {
     <h1 className="text-2xl font-bold flex items-center gap-3"><CreditCard className="text-blue-600" aria-hidden="true" />Suscripción</h1>
     {error && <p role="alert" className="p-4 bg-red-50 text-red-800 rounded">{error}</p>}
     {message && <p role="status" className="p-4 bg-green-50 text-green-800 rounded">{message}</p>}
-    {!status ? <p>Consultando suscripción…</p> : <>
+    {status && <>
       <section className="bg-white rounded-lg p-6 space-y-3 border">
         <h2 className="text-xl font-semibold">$10.000 CLP / mes por negocio</h2>
         <p>Incluye al propietario, administradores y técnicos. Un mes gratis al crear el negocio.</p>
