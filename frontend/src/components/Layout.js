@@ -20,13 +20,17 @@ const Layout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [theme, setTheme] = useState(() => localStorage.getItem('ifixflow-theme') || 'light');
+  const [theme, setTheme] = useState(() => localStorage.getItem('ifixflow-theme') || 'dark');
 
   useEffect(() => {
-    const syncTheme = () => setTheme(localStorage.getItem('ifixflow-theme') || 'light');
+    const syncTheme = () => setTheme(localStorage.getItem('ifixflow-theme') || 'dark');
     window.addEventListener('ifixflow-theme-changed', syncTheme);
     return () => window.removeEventListener('ifixflow-theme-changed', syncTheme);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const menuItems = [
     { path: "/billing", icon: CreditCard, label: "Suscripción", testId: "nav-billing" },
