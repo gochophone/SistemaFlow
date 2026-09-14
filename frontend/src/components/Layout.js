@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, LayoutDashboard, Wrench, Users, Package, LogOut, Menu, X, Plus, CreditCard } from 'lucide-react';
+import { Search, LayoutDashboard, Wrench, Users, Package, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,12 +20,20 @@ const Layout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [theme, setTheme] = useState(() => localStorage.getItem('ifixflow-theme') || 'light');
+
+  useEffect(() => {
+    const syncTheme = () => setTheme(localStorage.getItem('ifixflow-theme') || 'light');
+    window.addEventListener('ifixflow-theme-changed', syncTheme);
+    return () => window.removeEventListener('ifixflow-theme-changed', syncTheme);
+  }, []);
 
   const menuItems = [
     { path: "/billing", icon: CreditCard, label: "Suscripción", testId: "nav-billing" },
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
+    { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
     ...(user?.role === 'admin' ? [
       { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
       { path: '/team', icon: Users, label: 'Equipo de trabajo', testId: 'nav-team' },
@@ -45,7 +53,7 @@ const Layout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-100">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-100'}`}>
       <aside className={`fixed top-0 left-0 h-full bg-zinc-900 text-white w-64 z-40 transition-transform duration-200 ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}>
@@ -107,11 +115,11 @@ const Layout = () => {
       )}
 
       <div className="lg:ml-64">
-        <header className="sticky top-0 z-20 bg-white border-b border-zinc-200">
+        <header className={`sticky top-0 z-20 border-b ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-200 bg-white'}`}>
           <div className="flex items-center gap-4 px-4 py-3 md:px-8">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 hover:bg-zinc-100 rounded-md"
+              className={`lg:hidden rounded-md p-2 ${theme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}
               data-testid="menu-toggle"
             >
               {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -125,7 +133,7 @@ const Layout = () => {
                   placeholder="Buscar por IMEI, ticket, cliente..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-zinc-50 border-zinc-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className={`pl-10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-400' : 'border-zinc-200 bg-zinc-50'}`}
                   data-testid="global-search-input"
                 />
               </div>
@@ -144,7 +152,7 @@ const Layout = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button 
-                  className="w-9 h-9 rounded-md bg-zinc-100 flex items-center justify-center text-sm font-semibold hover:bg-zinc-200 transition-colors"
+                  className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-semibold transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}
                   data-testid="user-menu-trigger"
                 >
                   {user?.name?.charAt(0).toUpperCase()}
