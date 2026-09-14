@@ -163,3 +163,12 @@ async def send_repair_ready_notification(
             "error": str(e),
             "recipient": customer_email
         }
+
+async def send_auth_code(email: str, code: str, purpose: str):
+    action = 'verificar tu correo' if purpose == 'register' else 'cambiar tu contraseña'
+    await asyncio.to_thread(resend.Emails.send, {
+        'from': SENDER_EMAIL,
+        'to': [email],
+        'subject': f'Ifixflow: código para {action}',
+        'text': f'Tu código para {action} es {code}. Vence en 10 minutos y solo puede usarse una vez. Si no lo solicitaste, ignora este correo. No compartas este código.'
+    })

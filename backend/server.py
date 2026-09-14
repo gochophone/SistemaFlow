@@ -24,6 +24,7 @@ import cloudinary.utils
 from email_service import send_repair_ready_notification
 from pdf_generator import generate_delivery_pdf
 import billing
+import auth_codes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -239,9 +240,10 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
-def create_token(user_id: str, email: str, role: str, tenant_id: str) -> str:
+def create_token(user_id: str, email: str, role: str, tenant_id: str, token_version: int = 0) -> str:
     payload = {
         'user_id': user_id,
+        'token_version': token_version,
         'email': email,
         'role': role,
         'tenant_id': tenant_id,
@@ -265,6 +267,8 @@ async def initialize_identity_indexes():
             upsert=True, return_document=ReturnDocument.AFTER)
         JWT_SECRET = settings["secret"]
     # Fail closed if the directory is unavailable or contains duplicate identities.
+    await control_db.email_challenges.create_index("expires_at", expireAfterSeconds=0)
+    await control_db.email_limits.create_index("expires_at", expireAfterSeconds=0)
     await control_db.users.create_index("email", unique=True)
     await control_db.public_links.create_index("token", unique=True)
     # Existing businesses receive their trial once at rollout, never on each login.
@@ -281,7 +285,7 @@ async def get_authenticated_user(credentials: HTTPAuthorizationCredentials = Dep
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user = await control_db.users.find_one({"id": payload.get("user_id")}, {"_id": 0})
-        if not user or not user.get("active", True):
+        if not user or not user.get("active", True) or payload.get("token_version", 0) != user.get("token_version", 0):
             raise HTTPException(status_code=401, detail="Sesión inválida")
         # Roles and routing always come from the server, never from client claims.
         return {**(await with_company_name(user)), "user_id": user["id"]}
@@ -305,15 +309,55 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
 def public_user(user):
     return User(**user).model_dump(mode="json")
 
+class CodeCheck(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^[0-9]{6}$")
+
+class ResetPassword(CodeCheck):
+    password: str = Field(min_length=10, max_length=72)
+
+class EmailRequest(BaseModel):
+    email: EmailStr
+
 @api_router.post("/auth/register")
 async def register(user_data: UserCreate):
+    email = str(user_data.email).strip().lower()
+    payload = user_data.model_dump(mode="json")
+    payload.pop('password')
+    payload['password_hash'] = hash_password(user_data.password)
+    if await control_db.users.find_one({'email': email}):
+        payload = None
+    return await auth_codes.issue(control_db, JWT_SECRET, email, 'register', payload)
+
+@api_router.post("/auth/password/request")
+async def request_password(data: EmailRequest):
+    email = str(data.email).strip().lower()
+    user = await control_db.users.find_one({'email': email})
+    payload = {'id': user['id'], 'version': user.get('token_version', 0)} if user and user.get('active', True) else None
+    return await auth_codes.issue(control_db, JWT_SECRET, email, 'reset', payload)
+
+@api_router.post("/auth/password/reset")
+async def reset_password(data: ResetPassword):
+    hashed = hash_password(data.password)
+    payload = await auth_codes.consume(control_db, JWT_SECRET, str(data.email).strip().lower(), 'reset', data.code)
+    result = await control_db.users.update_one(
+        {'id': payload['id'], '$expr': {'$eq': [{'$ifNull': ['$token_version', 0]}, payload['version']]}},
+        {'$set': {'password_hash': hashed, 'email_verified': True}, '$inc': {'token_version': 1}})
+    if not result.modified_count:
+        raise HTTPException(400, 'Solicita un código nuevo.')
+    return {'message': 'Contraseña actualizada. Inicia sesión con tu nueva contraseña.'}
+
+@api_router.post("/auth/register/verify")
+async def verify_registration(data: CodeCheck):
+    payload = await auth_codes.consume(control_db, JWT_SECRET, str(data.email).strip().lower(), 'register', data.code)
+    user_data = UserCreate(**{**payload, 'password': 'unused-placeholder'})
     email = str(user_data.email).strip().lower()
     if await control_db.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="El email ya está registrado")
     tenant_id = "tenant_" + uuid.uuid4().hex
     user = User(email=email, name=user_data.name, role="admin", tenant_id=tenant_id, is_owner=True)
     doc = user.model_dump(mode="json")
-    doc.update(password_hash=hash_password(user_data.password), company_name=user_data.company_name)
+    doc.update(password_hash=payload['password_hash'], company_name=user_data.company_name, email_verified=True)
     # Provision before making the identity visible. Failed duplicate registration
     # may leave an empty, unreachable tenant, but never grants access to another one.
     await client[database_name(tenant_id)].settings.update_one(
@@ -332,7 +376,7 @@ async def login(credentials: UserLogin):
     if not user or not user.get("active", True) or not verify_password(credentials.password, user['password_hash']):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     await tenant_database(user["tenant_id"])
-    token = create_token(user['id'], user['email'], user['role'], user['tenant_id'])
+    token = create_token(user['id'], user['email'], user['role'], user['tenant_id'], user.get('token_version', 0))
     return {"token": token, "user": public_user(await with_company_name(user))}
 
 @api_router.get("/auth/me", response_model=User)
