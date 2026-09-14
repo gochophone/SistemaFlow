@@ -165,10 +165,47 @@ async def send_repair_ready_notification(
         }
 
 async def send_auth_code(email: str, code: str, purpose: str):
-    action = 'verificar tu correo' if purpose == 'register' else 'cambiar tu contraseña'
+    is_registration = purpose == 'register'
+    action = 'verificar tu correo' if is_registration else 'cambiar tu contraseña'
+    title = 'Confirma tu correo' if is_registration else 'Restablece tu contraseña'
+    description = (
+        'Usa este código para activar tu cuenta de Ifixflow.'
+        if is_registration else
+        'Usa este código para crear una nueva contraseña en tu cuenta de Ifixflow.'
+    )
+    html = f'''<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#182230;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5eaf1;">
+          <tr><td style="padding:30px 36px;background:#0f5bd7;text-align:center;">
+            <div style="display:inline-block;width:38px;height:38px;line-height:38px;border-radius:10px;background:#ffffff;color:#0f5bd7;font-size:22px;font-weight:700;">i</div>
+            <h1 style="margin:14px 0 0;color:#ffffff;font-size:25px;line-height:1.25;">Ifixflow</h1>
+            <p style="margin:6px 0 0;color:#dbeafe;font-size:14px;">Sistema de gestión de servicio técnico</p>
+          </td></tr>
+          <tr><td style="padding:36px;">
+            <h2 style="margin:0 0 12px;color:#182230;font-size:23px;line-height:1.3;">{title}</h2>
+            <p style="margin:0;color:#526174;font-size:16px;line-height:1.55;">{description}</p>
+            <p style="margin:28px 0 12px;color:#526174;font-size:13px;font-weight:700;letter-spacing:.08em;text-align:center;text-transform:uppercase;">Tu código de seguridad</p>
+            <div style="margin:0 auto;padding:20px 16px;max-width:340px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;color:#0f5bd7;font-size:32px;font-weight:700;letter-spacing:9px;text-align:center;">{code}</div>
+            <p style="margin:20px 0 0;color:#526174;font-size:14px;line-height:1.55;text-align:center;">Vence en <strong>10 minutos</strong> y solo puede usarse una vez.</p>
+            <hr style="margin:30px 0;border:0;border-top:1px solid #e5eaf1;">
+            <p style="margin:0;color:#728096;font-size:13px;line-height:1.55;">Si no solicitaste este código, puedes ignorar este correo. No compartas el código con nadie.</p>
+          </td></tr>
+          <tr><td style="padding:24px 36px;background:#f8fafc;border-top:1px solid #e5eaf1;text-align:center;">
+            <p style="margin:0;color:#526174;font-size:13px;">Visita <a href="https://ifixflow.com" style="color:#0f5bd7;font-weight:700;text-decoration:none;">ifixflow.com</a></p>
+            <p style="margin:8px 0 0;color:#94a3b8;font-size:12px;">Este es un correo automático de seguridad.</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>'''
     await asyncio.to_thread(resend.Emails.send, {
         'from': SENDER_EMAIL,
         'to': [email],
         'subject': f'Ifixflow: código para {action}',
-        'text': f'Tu código para {action} es {code}. Vence en 10 minutos y solo puede usarse una vez. Si no lo solicitaste, ignora este correo. No compartas este código.'
+        'text': f'Tu código para {action} es {code}. Vence en 10 minutos y solo puede usarse una vez. Si no lo solicitaste, ignora este correo. No compartas este código. https://ifixflow.com',
+        'html': html
     })
