@@ -28,7 +28,17 @@ const API = process.env.REACT_APP_BACKEND_URL;
 const CUSTOM_OPTION = '__custom__';
 
 const DEVICE_MODELS = {
-  Apple: ['iPhone 11', 'iPhone 12', 'iPhone 13', 'iPhone 14', 'iPhone 15', 'iPhone 16', 'iPad'],
+  Apple: [
+    'iPhone X', 'iPhone XR', 'iPhone XS', 'iPhone XS Max',
+    'iPhone 11', 'iPhone 11 Pro', 'iPhone 11 Pro Max', 'iPhone SE (2.ª generación)',
+    'iPhone 12 mini', 'iPhone 12', 'iPhone 12 Pro', 'iPhone 12 Pro Max',
+    'iPhone 13 mini', 'iPhone 13', 'iPhone 13 Pro', 'iPhone 13 Pro Max', 'iPhone SE (3.ª generación)',
+    'iPhone 14', 'iPhone 14 Plus', 'iPhone 14 Pro', 'iPhone 14 Pro Max',
+    'iPhone 15', 'iPhone 15 Plus', 'iPhone 15 Pro', 'iPhone 15 Pro Max',
+    'iPhone 16', 'iPhone 16 Plus', 'iPhone 16 Pro', 'iPhone 16 Pro Max', 'iPhone 16e',
+    'iPhone 17', 'iPhone 17 Pro', 'iPhone 17 Pro Max', 'iPhone 17e', 'iPhone Air',
+    'iPhone 18 Pro', 'iPhone 18 Pro Max', 'iPhone Duo', 'iPad'
+  ],
   Samsung: ['Galaxy A05', 'Galaxy A15', 'Galaxy A25', 'Galaxy A35', 'Galaxy A55', 'Galaxy S21', 'Galaxy S22', 'Galaxy S23', 'Galaxy S24', 'Galaxy S25', 'Galaxy Z Flip', 'Galaxy Z Fold'],
   Xiaomi: ['Redmi 12', 'Redmi 13C', 'Redmi Note 12', 'Redmi Note 13', 'Redmi Note 14', 'POCO X6', 'POCO X7', 'Xiaomi 13', 'Xiaomi 14'],
   Motorola: ['Moto G14', 'Moto G24', 'Moto G34', 'Moto G54', 'Moto G84', 'Moto Edge 40', 'Moto Edge 50'],
