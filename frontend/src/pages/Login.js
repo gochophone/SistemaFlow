@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import EmailCodeForm from './EmailCodeForm';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,10 @@ import { Wrench, Mail, Lock, User, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
-const Login = () => {
+const Login = ({ initialTab = 'login' }) => {
+  const [tab, setTab] = useState(initialTab);
+  const [challenge, setChallenge] = useState(null);
+  const [recovering, setRecovering] = useState(false);
   const navigate = useNavigate();
   const { login, register } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -40,8 +44,8 @@ const Login = () => {
     setLoading(true);
     try {
       await register(registerData);
-      toast.success('Cuenta creada exitosamente. Inicia sesión.');
-      setLoginData({ email: registerData.email, password: '' });
+      setChallenge({ ...registerData });
+      toast.success('Revisa tu correo para verificar la cuenta.');
     } catch (error) {
       const detail = error.response?.data?.detail;
       if (!error.response) {
@@ -96,7 +100,7 @@ const Login = () => {
             <p className="text-sm text-zinc-600">Sistema de Gestión</p>
           </div>
 
-          <Tabs defaultValue="login" className="w-full">
+          {(challenge || recovering) ? <EmailCodeForm registration={challenge} onBack={() => { setChallenge(null); setRecovering(false); }} onDone={email => { setChallenge(null); setRecovering(false); setRegisterData({email: '', password: '', name: '', company_name: ''}); setLoginData({ email, password: '' }); setTab('login'); }} /> : <Tabs value={tab} onValueChange={setTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="login" data-testid="login-tab">Iniciar Sesión</TabsTrigger>
               <TabsTrigger value="register" data-testid="register-tab">Registrarse</TabsTrigger>
@@ -147,6 +151,7 @@ const Login = () => {
                   {loading ? 'Iniciando...' : 'Iniciar Sesión'}
                 </Button>
 
+                <Button type="button" variant="link" className="w-full" onClick={() => setRecovering(true)}>¿Olvidaste tu contraseña?</Button>
                 <p className="text-center text-sm text-zinc-600 mt-4">
                   ¿No tienes una cuenta?{' '}
                   <a href="/register" className="text-blue-600 hover:text-blue-700 font-semibold">
@@ -159,6 +164,7 @@ const Login = () => {
             </TabsContent>
 
             <TabsContent value="register">
+              <p className="text-sm text-zinc-600 mb-4">Un mes de prueba gratis. Después, $10.000 CLP al mes por negocio.</p>
               <form onSubmit={handleRegister} className="space-y-4">
                 <div>
                   <Label htmlFor="register-name" className="text-sm font-medium text-zinc-900">Nombre Completo</Label>
@@ -225,11 +231,11 @@ const Login = () => {
                   className="w-full bg-blue-600 text-white hover:bg-blue-700 font-medium mt-6"
                   data-testid="register-submit-button"
                 >
-                  {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                  {loading ? 'Enviando código...' : 'Enviar código de verificación'}
                 </Button>
               </form>
             </TabsContent>
-          </Tabs>
+          </Tabs>}
         </div>
       </div>
     </div>
