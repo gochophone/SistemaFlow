@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import './PrintLabel.css';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const defaults = { width: 62, height: 29, font: 7, company: 'Ifixflow', customer: true, device: true, imei: false, issue: true, date: false, qr: true };
+const defaults = { width: 62, height: 29, font: 7, customer: true, device: true, imei: false, issue: true, date: false, qr: true };
 const choices = { customer: 'Cliente', device: 'Marca y modelo', imei: 'IMEI', issue: 'Falla reportada', date: 'Fecha de ingreso', qr: 'Código QR de seguimiento' };
 function saved(key) {
   try {
@@ -18,6 +18,7 @@ function saved(key) {
 export default function PrintLabel() {
   const { id } = useParams();
   const { user, token } = useAuth();
+  const companyName = user.company_name || 'Mi negocio';
   const key = `ifixflow-label-v1:${user.tenant_id}`;
   const [config, setConfig] = useState(() => saved(key));
   const [customSize, setCustomSize] = useState(false);
@@ -64,7 +65,7 @@ export default function PrintLabel() {
         <label>Alto (mm)<input type="number" min="20" max="150" value={config.height} onChange={e => change('height', e.target.value === '' ? '' : Number(e.target.value))} /></label>
         <label>Letra (pt)<input type="number" min="5" max="14" step="0.5" value={config.font} onChange={e => change('font', e.target.value === '' ? '' : Number(e.target.value))} /></label>
       </div>
-      <label>Nombre del negocio<input maxLength="60" value={config.company} onChange={e => change('company', e.target.value)} /></label>
+      <label>Nombre del negocio<input value={companyName} readOnly /></label>
       <fieldset><legend>Contenido (el número de ticket siempre se incluye)</legend>{Object.entries(choices).map(([name, label]) => <label className="label-check" key={name}><input type="checkbox" checked={config[name]} onChange={e => change(name, e.target.checked)} />{label}</label>)}</fieldset>
       {!valid && <p role="alert">Usa un ancho de 30 a 150 mm, alto de 20 a 150 mm y letra de 5 a 14 pt.</p>}
       {overflow && <p role="alert">El contenido no cabe: aumenta el tamaño, reduce la letra o desmarca campos antes de imprimir.</p>}
@@ -80,7 +81,7 @@ export default function PrintLabel() {
         <div className="repair-print-label" style={{ width: `${width}mm`, height: `${height}mm`, fontSize: `${valid ? config.font : 7}pt` }}>
           <div className="repair-label-content" ref={content}>
             <div className="repair-label-text" ref={text}>
-              {config.company && <strong>{config.company}</strong>}
+              <strong>{companyName}</strong>
               <strong>Ticket: {repair.ticket_number || '—'}</strong>
               {config.customer && <div>{repair.customer_name || 'Sin cliente'}</div>}
               {config.device && <div>{[repair.device_brand, repair.device_model].filter(Boolean).join(' ') || 'Sin modelo'}</div>}
