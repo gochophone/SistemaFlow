@@ -33,11 +33,11 @@ const Layout = () => {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
-    { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
     ...(user?.role === 'admin' ? [
       { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
       { path: '/team', icon: Users, label: 'Equipo de trabajo', testId: 'nav-team' },
     ] : []),
+    { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
   ];
 
   const handleLogout = () => {
