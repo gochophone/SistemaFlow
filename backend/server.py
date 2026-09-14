@@ -70,6 +70,7 @@ class User(BaseModel):
     email: EmailStr
     name: str
     role: str
+    company_name: str = ""
     is_owner: bool = False
     active: bool = True
     tenant_id: str  # Each user belongs to a tenant (business/company)
@@ -270,6 +271,12 @@ async def initialize_identity_indexes():
     async for tenant in control_db.tenants.find({'ready': True}):
         await billing.subscription(control_db, tenant['_id'])
 
+async def with_company_name(user):
+    owner = await control_db.users.find_one(
+        {'tenant_id': user['tenant_id'], 'is_owner': True},
+        {'company_name': 1, '_id': 0})
+    return {**user, 'company_name': (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio'}
+
 async def get_authenticated_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -277,7 +284,7 @@ async def get_authenticated_user(credentials: HTTPAuthorizationCredentials = Dep
         if not user or not user.get("active", True):
             raise HTTPException(status_code=401, detail="Sesión inválida")
         # Roles and routing always come from the server, never from client claims.
-        return {**user, "user_id": user["id"]}
+        return {**(await with_company_name(user)), "user_id": user["id"]}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
@@ -326,7 +333,7 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     await tenant_database(user["tenant_id"])
     token = create_token(user['id'], user['email'], user['role'], user['tenant_id'])
-    return {"token": token, "user": public_user(user)}
+    return {"token": token, "user": public_user(await with_company_name(user))}
 
 @api_router.get("/auth/me", response_model=User)
 async def get_me(current_user: dict = Depends(get_authenticated_user)):
