@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Check, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { Check, FileSpreadsheet, Moon, Settings as SettingsIcon, Sun, Upload } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 
 const THEME_KEY = 'ifixflow-theme';
 
@@ -11,11 +14,44 @@ const applyTheme = (theme) => {
 };
 
 const Settings = () => {
+  const { user, token } = useAuth();
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'dark');
+  const [files, setFiles] = useState({ customers: null, repairs: null });
+  const [importing, setImporting] = useState('');
+  const [importResult, setImportResult] = useState('');
+  const customerInput = useRef(null);
+  const repairInput = useRef(null);
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  const importGestioo = async (type) => {
+    const file = files[type];
+    if (!file) return;
+    setImporting(type);
+    setImportResult('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/imports/gestioo/${type}`,
+        form,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const summary = type === 'customers'
+        ? `${data.created} clientes creados${data.skipped ? ` · ${data.skipped} omitidos por estar repetidos o incompletos` : ''}.`
+        : `${data.created_repairs} reparaciones importadas y ${data.created_customers} clientes creados${data.skipped ? ` · ${data.skipped} filas omitidas` : ''}.`;
+      setImportResult(summary + (data.errors?.length ? ` Revisa: ${data.errors[0]}` : ''));
+      setFiles((current) => ({ ...current, [type]: null }));
+      if (type === 'customers' && customerInput.current) customerInput.current.value = '';
+      if (type === 'repairs' && repairInput.current) repairInput.current.value = '';
+    } catch (error) {
+      setImportResult(error.response?.data?.detail || 'No se pudo importar el archivo. Verifica que sea CSV, XLS o XLSX.');
+    } finally {
+      setImporting('');
+    }
+  };
 
   const options = [
     {
@@ -83,6 +119,40 @@ const Settings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {user?.role === 'admin' && (
+        <Card className="border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900" data-testid="gestioo-import">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100"><FileSpreadsheet size={22} className="text-blue-600 dark:text-blue-400" />Importar desde Gestioo</CardTitle>
+            <CardDescription className="dark:text-zinc-400">Carga las exportaciones CSV, XLS o XLSX. Primero importa clientes y luego las órdenes: cada reparación quedará enlazada a su cliente por nombre, teléfono o correo.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              {[['customers', '1. Clientes', 'Exportación de clientes de Gestioo', customerInput], ['repairs', '2. Reparaciones', '“Todas las órdenes” descargadas desde Gestioo', repairInput]].map(([type, title, hint, inputRef]) => (
+                <div key={type} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{hint}</p>
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".csv,.xls,.xlsx"
+                    className="mt-3 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700 hover:file:bg-blue-100 dark:text-zinc-300 dark:file:bg-blue-500/20 dark:file:text-blue-300"
+                    onChange={(event) => setFiles((current) => ({ ...current, [type]: event.target.files?.[0] || null }))}
+                  />
+                  {files[type] && <p className="mt-2 truncate text-sm text-zinc-600 dark:text-zinc-400">Archivo: {files[type].name}</p>}
+                  <Button className="mt-3 w-full" disabled={!files[type] || Boolean(importing)} onClick={() => importGestioo(type)}>
+                    <Upload size={16} className="mr-2" />{importing === type ? 'Importando…' : `Importar ${type === 'customers' ? 'clientes' : 'reparaciones'}`}
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+              La importación no elimina datos existentes. Los clientes repetidos se omiten y las órdenes reciben un nuevo número iFixFlow, conservando el número original en las notas.
+            </div>
+            {importResult && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{importResult}</p>}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
