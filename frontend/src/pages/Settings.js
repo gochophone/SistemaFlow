@@ -123,7 +123,7 @@ const Settings = () => {
       {user?.role === 'admin' && (
         <Card className="border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900" data-testid="gestioo-import">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100"><FileSpreadsheet size={22} className="text-blue-600 dark:text-blue-400" />Importar desde Gestioo</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100"><FileSpreadsheet size={22} className="text-blue-600 dark:text-blue-400" />Importar</CardTitle>
             <CardDescription className="dark:text-zinc-400">Carga las exportaciones CSV, XLS o XLSX. Primero importa clientes y luego las órdenes: cada reparación quedará enlazada a su cliente por nombre, teléfono o correo.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
