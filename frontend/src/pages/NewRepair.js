@@ -66,6 +66,8 @@ const NewRepair = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [repairCounts, setRepairCounts] = useState({});
+  const [customerSearch, setCustomerSearch] = useState('');
   const [customerOpen, setCustomerOpen] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', rut: '', address: '' });
@@ -128,14 +130,33 @@ const NewRepair = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get(`${API}/api/customers`, {
-        headers: getAuthHeader()
-      });
-      setCustomers(response.data);
+      const config = { headers: getAuthHeader() };
+      const [customerResponse, repairResponse] = await Promise.all([
+        axios.get(`${API}/api/customers`, config),
+        axios.get(`${API}/api/repairs`, config),
+      ]);
+      setCustomers(customerResponse.data);
+      setRepairCounts(repairResponse.data.reduce((counts, repair) => ({
+        ...counts,
+        [repair.customer_id]: (counts[repair.customer_id] || 0) + 1,
+      }), {}));
     } catch (error) {
       console.error('Error al cargar clientes:', error);
     }
   };
+
+  const normalizedCustomerSearch = customerSearch.trim().toLocaleLowerCase('es');
+  const visibleCustomers = [...customers]
+    .filter((customer) => {
+      if (!normalizedCustomerSearch) return true;
+      return `${customer.name} ${customer.phone} ${customer.email || ''} ${customer.rut || ''}`
+        .toLocaleLowerCase('es')
+        .includes(normalizedCustomerSearch);
+    })
+    .sort((first, second) => {
+      const countDifference = (repairCounts[second.id] || 0) - (repairCounts[first.id] || 0);
+      return countDifference || first.name.localeCompare(second.name, 'es');
+    });
 
   const handleCustomerChange = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -220,18 +241,27 @@ const NewRepair = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="customer" className="text-sm font-medium text-zinc-900">Cliente *</Label>
+                <Input
+                  id="customer-search"
+                  value={customerSearch}
+                  onChange={(event) => setCustomerSearch(event.target.value)}
+                  placeholder="Buscar por nombre, teléfono, correo o RUT"
+                  className="mt-1 border-zinc-200"
+                  data-testid="customer-search"
+                />
+                <p className="mt-1 text-xs text-zinc-500">Los clientes con más reparaciones aparecen primero.</p>
                 <Select
                   value={formData.customer_id}
                   onValueChange={handleCustomerChange}
                   required
                 >
-                  <SelectTrigger className="mt-1 border-zinc-200" data-testid="customer-select">
-                    <SelectValue placeholder="Seleccionar cliente" />
+                  <SelectTrigger className="mt-2 border-zinc-200" data-testid="customer-select">
+                    <SelectValue placeholder={visibleCustomers.length ? 'Seleccionar cliente' : 'No se encontraron clientes'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((customer) => (
+                    {visibleCustomers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.phone}
+                        {customer.name} - {customer.phone}{repairCounts[customer.id] ? ` · ${repairCounts[customer.id]} reparaciones` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
