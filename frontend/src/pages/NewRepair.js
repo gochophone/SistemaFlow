@@ -13,9 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Smartphone, FileText, Lock, Camera } from 'lucide-react';
+import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpDown } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { parseCLPInput } from '@/utils/currency';
@@ -68,6 +70,7 @@ const NewRepair = () => {
   const [customers, setCustomers] = useState([]);
   const [repairCounts, setRepairCounts] = useState({});
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSelectorOpen, setCustomerSelectorOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', rut: '', address: '' });
@@ -146,17 +149,19 @@ const NewRepair = () => {
   };
 
   const normalizedCustomerSearch = customerSearch.trim().toLocaleLowerCase('es');
-  const visibleCustomers = [...customers]
+  const matchingCustomers = customers
     .filter((customer) => {
       if (!normalizedCustomerSearch) return true;
       return `${customer.name} ${customer.phone} ${customer.email || ''} ${customer.rut || ''}`
         .toLocaleLowerCase('es')
         .includes(normalizedCustomerSearch);
-    })
-    .sort((first, second) => {
+    });
+  const byFrequency = (first, second) => {
       const countDifference = (repairCounts[second.id] || 0) - (repairCounts[first.id] || 0);
       return countDifference || first.name.localeCompare(second.name, 'es');
-    });
+  };
+  const frequentCustomers = matchingCustomers.filter((customer) => repairCounts[customer.id]).sort(byFrequency);
+  const otherCustomers = matchingCustomers.filter((customer) => !repairCounts[customer.id]).sort((first, second) => first.name.localeCompare(second.name, 'es'));
 
   const handleCustomerChange = (customerId) => {
     const customer = customers.find(c => c.id === customerId);
@@ -241,31 +246,59 @@ const NewRepair = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="customer" className="text-sm font-medium text-zinc-900">Cliente *</Label>
-                <Input
-                  id="customer-search"
-                  value={customerSearch}
-                  onChange={(event) => setCustomerSearch(event.target.value)}
-                  placeholder="Buscar por nombre, teléfono, correo o RUT"
-                  className="mt-1 border-zinc-200"
-                  data-testid="customer-search"
-                />
-                <p className="mt-1 text-xs text-zinc-500">Los clientes con más reparaciones aparecen primero.</p>
-                <Select
-                  value={formData.customer_id}
-                  onValueChange={handleCustomerChange}
-                  required
-                >
-                  <SelectTrigger className="mt-2 border-zinc-200" data-testid="customer-select">
-                    <SelectValue placeholder={visibleCustomers.length ? 'Seleccionar cliente' : 'No se encontraron clientes'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visibleCustomers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.phone}{repairCounts[customer.id] ? ` · ${repairCounts[customer.id]} reparaciones` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerSelectorOpen} onOpenChange={setCustomerSelectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerSelectorOpen}
+                      className="mt-1 w-full justify-between border-zinc-200 font-normal"
+                      data-testid="customer-select"
+                    >
+                      {formData.customer_id ? `${formData.customer_name} — ${customers.find((customer) => customer.id === formData.customer_id)?.phone || ''}` : 'Seleccionar cliente'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Buscar cliente por nombre, teléfono, correo o RUT..."
+                        value={customerSearch}
+                        onValueChange={setCustomerSearch}
+                        data-testid="customer-search"
+                      />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                        {frequentCustomers.length > 0 && <CommandGroup heading="Clientes frecuentes">
+                          {frequentCustomers.map((customer) => (
+                            <CommandItem key={customer.id} value={customer.id} onSelect={() => {
+                              handleCustomerChange(customer.id);
+                              setCustomerSearch('');
+                              setCustomerSelectorOpen(false);
+                            }}>
+                              <Check className={`mr-1 h-4 w-4 ${formData.customer_id === customer.id ? 'opacity-100' : 'opacity-0'}`} />
+                              <span className="min-w-0 flex-1 truncate">{customer.name} — {customer.phone}</span>
+                              <span className="text-xs text-zinc-500">{repairCounts[customer.id]} rep.</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>}
+                        {otherCustomers.length > 0 && <CommandGroup heading={frequentCustomers.length ? 'Todos los clientes' : 'Clientes'}>
+                          {otherCustomers.map((customer) => (
+                            <CommandItem key={customer.id} value={customer.id} onSelect={() => {
+                              handleCustomerChange(customer.id);
+                              setCustomerSearch('');
+                              setCustomerSelectorOpen(false);
+                            }}>
+                              <Check className={`mr-1 h-4 w-4 ${formData.customer_id === customer.id ? 'opacity-100' : 'opacity-0'}`} />
+                              <span className="truncate">{customer.name} — {customer.phone}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex items-end">
                 <Button
