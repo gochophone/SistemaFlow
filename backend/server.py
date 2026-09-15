@@ -15,6 +15,9 @@ from pymongo.errors import DuplicateKeyError
 import re
 import secrets
 import uuid
+import csv
+import io
+import unicodedata
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
@@ -25,6 +28,96 @@ from email_service import send_repair_ready_notification
 from pdf_generator import generate_delivery_pdf
 import billing
 import auth_codes
+
+MAX_IMPORT_ROWS = 5000
+MAX_IMPORT_SIZE = 10 * 1024 * 1024
+
+IMPORT_ALIASES = {
+    "customer_name": ("cliente", "nombre cliente", "cliente nombre", "nombre", "razon social", "contacto"),
+    "phone": ("telefono", "teléfono", "celular", "movil", "móvil", "whatsapp", "telefono cliente"),
+    "email": ("email", "correo", "correo electronico", "correo electrónico", "e-mail"),
+    "rut": ("rut", "dni", "documento", "cuit", "identificacion", "identificación"),
+    "address": ("direccion", "dirección", "domicilio", "direccion cliente", "dirección cliente"),
+    "ticket": ("nro orden", "n° orden", "numero orden", "número orden", "orden", "orden de reparacion", "orden de reparación", "ticket"),
+    "brand": ("marca", "marca equipo"),
+    "model": ("modelo", "modelo equipo"),
+    "device": ("equipo", "dispositivo", "producto", "articulo", "artículo"),
+    "imei": ("imei", "serie", "numero serie", "número serie", "serial"),
+    "issue": ("falla", "problema", "descripcion", "descripción", "detalle", "reporte", "observaciones", "trabajo solicitado"),
+    "diagnosis": ("diagnostico", "diagnóstico"),
+    "status": ("estado", "estatus", "situacion", "situación"),
+    "received_date": ("fecha ingreso", "fecha de ingreso", "fecha recepcion", "fecha recepción", "recibido", "fecha"),
+    "delivery_date": ("fecha entrega", "entregado", "fecha finalizacion", "fecha finalización"),
+}
+
+def normalize_import_key(value):
+    value = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", " ", value).strip()
+
+def import_value(row, field):
+    aliases = {normalize_import_key(alias) for alias in IMPORT_ALIASES[field]}
+    for key, value in row.items():
+        if normalize_import_key(key) in aliases and value is not None:
+            value = str(value).strip()
+            if value and value.lower() not in {"nan", "none", "null"}:
+                return value
+    return ""
+
+def parse_import_date(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=value.tzinfo or timezone.utc)
+    value = str(value).strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M"):
+        try:
+            return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return None
+
+def import_status(value):
+    status = normalize_import_key(value)
+    if any(word in status for word in ("entreg", "retir", "finaliz")):
+        return "delivered"
+    if any(word in status for word in ("termin", "listo", "reparad", "complet")):
+        return "completed"
+    if any(word in status for word in ("proceso", "reparacion", "reparacion")):
+        return "in_progress"
+    if any(word in status for word in ("cancel", "anulad")):
+        return "cancelled"
+    return "received"
+
+async def read_import_rows(upload: UploadFile):
+    content = await upload.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="El archivo está vacío")
+    if len(content) > MAX_IMPORT_SIZE:
+        raise HTTPException(status_code=413, detail="El archivo supera el límite de 10 MB")
+    filename = (upload.filename or "").lower()
+    try:
+        if filename.endswith(".csv"):
+            text = content.decode("utf-8-sig", errors="replace")
+            rows = list(csv.DictReader(io.StringIO(text), dialect=csv.Sniffer().sniff(text[:4096], delimiters=",;\\t|")))
+        elif filename.endswith(".xlsx"):
+            from openpyxl import load_workbook
+            sheet = load_workbook(io.BytesIO(content), read_only=True, data_only=True).active
+            data = list(sheet.iter_rows(values_only=True))
+            rows = [dict(zip(data[0], row)) for row in data[1:] if any(value not in (None, "") for value in row)] if data else []
+        elif filename.endswith(".xls"):
+            import xlrd
+            sheet = xlrd.open_workbook(file_contents=content).sheet_by_index(0)
+            headers = sheet.row_values(0)
+            rows = [dict(zip(headers, sheet.row_values(index))) for index in range(1, sheet.nrows) if any(sheet.row_values(index))]
+        else:
+            raise HTTPException(status_code=400, detail="Usa un archivo CSV, XLS o XLSX")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="No se pudo leer el archivo. Verifica que sea una exportación válida de Gestioo.")
+    if len(rows) > MAX_IMPORT_ROWS:
+        raise HTTPException(status_code=400, detail=f"El archivo supera el máximo de {MAX_IMPORT_ROWS} filas")
+    return rows
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -412,6 +505,96 @@ async def update_team_user(user_id: str, data: TeamUserUpdate, current_user: dic
     if updates:
         await control_db.users.update_one(query, {"$set": updates})
     return public_user(await control_db.users.find_one(query))
+
+@api_router.post("/imports/gestioo/customers")
+async def import_gestioo_customers(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
+    """Import customers from a Gestioo CSV/XLS/XLSX export without overwriting existing data."""
+    rows = await read_import_rows(file)
+    db = await tenant_database(current_user["tenant_id"])
+    tenant_id = current_user["tenant_id"]
+    created = skipped = 0
+    errors = []
+    for row_number, row in enumerate(rows, start=2):
+        name, phone = import_value(row, "customer_name"), import_value(row, "phone")
+        if not name:
+            skipped += 1
+            errors.append(f"Fila {row_number}: falta el nombre del cliente")
+            continue
+        email, rut, address = import_value(row, "email"), import_value(row, "rut"), import_value(row, "address")
+        duplicate_query = {"tenant_id": tenant_id, "$or": [{"name": name}]}
+        if email:
+            duplicate_query["$or"].append({"email": email})
+        if phone:
+            duplicate_query["$or"].append({"phone": phone})
+        if await db.customers.find_one(duplicate_query, {"_id": 1}):
+            skipped += 1
+            continue
+        customer = Customer(tenant_id=tenant_id, name=name, phone=phone or "Sin teléfono", email=email or None, rut=rut or None, address=address or None)
+        doc = customer.model_dump(mode="json")
+        await db.customers.insert_one(doc)
+        created += 1
+    return {"message": "Importación de clientes terminada", "created": created, "skipped": skipped, "errors": errors[:20]}
+
+@api_router.post("/imports/gestioo/repairs")
+async def import_gestioo_repairs(file: UploadFile = File(...), current_user: dict = Depends(require_admin)):
+    """Import Gestioo work orders and associate them to matching or newly created customers."""
+    rows = await read_import_rows(file)
+    db = await tenant_database(current_user["tenant_id"])
+    tenant_id = current_user["tenant_id"]
+    created_repairs = created_customers = skipped = 0
+    errors = []
+    for row_number, row in enumerate(rows, start=2):
+        name = import_value(row, "customer_name")
+        if not name:
+            skipped += 1
+            errors.append(f"Fila {row_number}: falta el cliente para enlazar la reparación")
+            continue
+        phone, email = import_value(row, "phone"), import_value(row, "email")
+        lookup = {"tenant_id": tenant_id, "$or": [{"name": name}]}
+        if email:
+            lookup["$or"].append({"email": email})
+        if phone:
+            lookup["$or"].append({"phone": phone})
+        customer = await db.customers.find_one(lookup)
+        if not customer:
+            customer_model = Customer(tenant_id=tenant_id, name=name, phone=phone or "Sin teléfono", email=email or None, rut=import_value(row, "rut") or None, address=import_value(row, "address") or None)
+            customer = customer_model.model_dump(mode="json")
+            await db.customers.insert_one(customer)
+            created_customers += 1
+        brand, model = import_value(row, "brand"), import_value(row, "model")
+        device = import_value(row, "device")
+        if not model and device:
+            model = device
+        if not brand:
+            brand = "No especificada"
+        if not model:
+            model = "No especificado"
+        external_ticket = import_value(row, "ticket")
+        notes = import_value(row, "issue")
+        if external_ticket:
+            notes = f"Importado desde Gestioo. Orden original: {external_ticket}." + (f" {notes}" if notes else "")
+        counter = await db.counters.find_one_and_update({"_id": "repair_number"}, {"$inc": {"value": 1}}, upsert=True, return_document=ReturnDocument.AFTER)
+        received = parse_import_date(import_value(row, "received_date")) or datetime.now(timezone.utc)
+        repair = Repair(
+            tenant_id=tenant_id,
+            ticket_number=f"REP-{counter['value']:05d}",
+            customer_id=customer["id"],
+            customer_name=customer["name"],
+            device_brand=brand,
+            device_model=model,
+            device_imei=import_value(row, "imei"),
+            reported_issue=import_value(row, "issue") or "Importada desde Gestioo",
+            diagnosis=import_value(row, "diagnosis") or None,
+            notes=notes or None,
+            status=import_status(import_value(row, "status")),
+            received_date=received,
+            delivered_date=parse_import_date(import_value(row, "delivery_date")),
+        )
+        doc = repair.model_dump(mode="json")
+        await db.repairs.insert_one(doc)
+        await control_db.public_links.insert_one({"token": repair.public_token, "tenant_id": tenant_id, "repair_id": repair.id})
+        created_repairs += 1
+    return {"message": "Importación de reparaciones terminada", "created_repairs": created_repairs, "created_customers": created_customers, "skipped": skipped, "errors": errors[:20]}
 
 @api_router.post("/customers", response_model=Customer)
 async def create_customer(customer: CustomerCreate, current_user: dict = Depends(get_current_user)):
