@@ -236,7 +236,7 @@ class Repair(BaseModel):
     customer_name: str
     device_brand: str
     device_model: str
-    device_imei: str
+    device_imei: Optional[str] = None
     device_serial: Optional[str] = None
     reported_issue: str
     diagnosis: Optional[str] = None
@@ -260,7 +260,7 @@ class RepairCreate(BaseModel):
     customer_name: str
     device_brand: str
     device_model: str
-    device_imei: str
+    device_imei: Optional[str] = None
     device_serial: Optional[str] = None
     reported_issue: str
     diagnosis: Optional[str] = None
