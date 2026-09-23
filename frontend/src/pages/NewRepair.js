@@ -256,7 +256,7 @@ const NewRepair = () => {
                       className="mt-1 w-full justify-between border-zinc-200 font-normal"
                       data-testid="customer-select"
                     >
-                      {formData.customer_id ? `${formData.customer_name} — ${customers.find((customer) => customer.id === formData.customer_id)?.phone || ''}` : 'Seleccionar cliente'}
+                      {formData.customer_id ? `${formData.customer_name} — ${customers.find((customer) => customer.id === formData.customer_id)?.rut || customers.find((customer) => customer.id === formData.customer_id)?.phone || ''}` : 'Seleccionar cliente'}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
@@ -278,7 +278,7 @@ const NewRepair = () => {
                               setCustomerSelectorOpen(false);
                             }}>
                               <Check className={`mr-1 h-4 w-4 ${formData.customer_id === customer.id ? 'opacity-100' : 'opacity-0'}`} />
-                              <span className="min-w-0 flex-1 truncate">{customer.name} — {customer.phone}</span>
+                              <span className="min-w-0 flex-1 truncate">{customer.name} — {customer.rut || customer.phone}</span>
                               <span className="text-xs text-zinc-500">{repairCounts[customer.id]} rep.</span>
                             </CommandItem>
                           ))}
@@ -291,7 +291,7 @@ const NewRepair = () => {
                               setCustomerSelectorOpen(false);
                             }}>
                               <Check className={`mr-1 h-4 w-4 ${formData.customer_id === customer.id ? 'opacity-100' : 'opacity-0'}`} />
-                              <span className="truncate">{customer.name} — {customer.phone}</span>
+                              <span className="truncate">{customer.name} — {customer.rut || customer.phone}</span>
                             </CommandItem>
                           ))}
                         </CommandGroup>}
