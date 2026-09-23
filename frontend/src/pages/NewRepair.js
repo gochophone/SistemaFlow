@@ -389,14 +389,13 @@ const NewRepair = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="device_imei" className="text-sm font-medium text-zinc-900">IMEI *</Label>
+                <Label htmlFor="device_imei" className="text-sm font-medium text-zinc-900">IMEI</Label>
                 <Input
                   id="device_imei"
                   value={formData.device_imei}
                   onChange={(e) => updateField('device_imei', e.target.value)}
-                  placeholder="123456789012345"
+                  placeholder="Opcional"
                   className="mt-1 border-zinc-200 font-mono"
-                  required
                   data-testid="device-imei-input"
                 />
               </div>
