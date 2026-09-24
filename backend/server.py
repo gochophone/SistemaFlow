@@ -817,7 +817,7 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
     
     # Generate PDF
     try:
-        pdf_buffer = generate_delivery_pdf(repair, customer)
+        pdf_buffer = generate_delivery_pdf(repair, customer, current_user.get("company_name", "Mi negocio"))
         
         # Return as downloadable file
         filename = f"orden_entrega_{repair['ticket_number']}.pdf"
