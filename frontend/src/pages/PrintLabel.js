@@ -19,6 +19,7 @@ export default function PrintLabel() {
   const { id } = useParams();
   const { user, token } = useAuth();
   const companyName = user.company_name || 'Mi negocio';
+  const companyLogo = user.company_logo_url;
   const key = `ifixflow-label-v1:${user.tenant_id}`;
   const [config, setConfig] = useState(() => saved(key));
   const [customSize, setCustomSize] = useState(false);
@@ -81,7 +82,7 @@ export default function PrintLabel() {
         <div className="repair-print-label" style={{ width: `${width}mm`, height: `${height}mm`, fontSize: `${valid ? config.font : 7}pt` }}>
           <div className="repair-label-content" ref={content}>
             <div className="repair-label-text" ref={text}>
-              <strong>{companyName}</strong>
+              <div className="repair-label-brand">{companyLogo && <img src={companyLogo} alt="" />}<strong>{companyName}</strong></div>
               <strong>Ticket: {repair.ticket_number || '—'}</strong>
               {config.customer && <div>{repair.customer_name || 'Sin cliente'}</div>}
               {config.device && <div>{[repair.device_brand, repair.device_model].filter(Boolean).join(' ') || 'Sin modelo'}</div>}
