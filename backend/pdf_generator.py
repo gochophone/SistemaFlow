@@ -1,11 +1,12 @@
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from datetime import datetime
 from io import BytesIO
+from urllib.request import Request, urlopen
 
 
 def compact(value, fallback="No especificado", limit=150):
@@ -37,7 +38,26 @@ def details(rows, styles, green=False):
     return table
 
 
-def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio"):
+def company_header(company_name, company_logo_url, styles):
+    name = Paragraph(company_name, styles["company"])
+    if not company_logo_url:
+        return name
+    try:
+        request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
+        with urlopen(request, timeout=4) as response:
+            logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=14 * mm, height=14 * mm, kind="proportional")
+        header = Table([[logo, name]], colWidths=[18 * mm, 168 * mm], hAlign="LEFT")
+        header.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
+        ]))
+        return header
+    except Exception:
+        return name
+
+
+def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None):
     """Genera una orden de entrega compacta en una sola hoja."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
@@ -53,7 +73,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio")
     company_name = compact(company_name, "Mi negocio", 90)
     equipment = "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))
     content = [
-        Paragraph(company_name, styles["company"]),
+        company_header(company_name, company_logo_url, styles),
         Paragraph("ORDEN DE ENTREGA", styles["document"]),
         details([("N° de orden", repair_data.get("ticket_number", "")), ("Fecha de entrega", date(repair_data.get("delivered_date") or datetime.now()))], styles),
         Paragraph("Cliente", styles["section"]),
