@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
@@ -48,6 +48,7 @@ const RepairDetail = () => {
   const [updateData, setUpdateData] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [sharingDelivery, setSharingDelivery] = useState(false);
 
   useEffect(() => {
     fetchRepair();
@@ -98,27 +99,76 @@ const RepairDetail = () => {
     }
   };
 
-  const handleDownloadDeliveryPDF = async () => {
+  const getDeliveryPdf = async () => {
+    const response = await axios.get(`${API}/api/repairs/${id}/delivery-pdf`, {
+      headers: getAuthHeader(),
+      responseType: 'blob'
+    });
+    return new Blob([response.data], { type: 'application/pdf' });
+  };
+
+  const handlePrintDelivery = async () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Permite las ventanas emergentes para imprimir la orden');
+      return;
+    }
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/api/repairs/${id}/delivery-pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      });
-      
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `orden_entrega_${repair.ticket_number}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      
-      toast.success('PDF de entrega descargado');
+      const pdf = await getDeliveryPdf();
+      const url = window.URL.createObjectURL(pdf);
+      printWindow.document.title = `Orden de entrega ${repair.ticket_number}`;
+      printWindow.document.body.style.margin = '0';
+      const frame = printWindow.document.createElement('iframe');
+      frame.title = 'Orden de entrega';
+      frame.style.width = '100vw';
+      frame.style.height = '100vh';
+      frame.style.border = '0';
+      frame.src = url;
+      frame.onload = () => setTimeout(() => {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      }, 350);
+      printWindow.document.body.appendChild(frame);
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (error) {
-      toast.error('Error al descargar PDF');
+      printWindow.close();
+      toast.error('No se pudo preparar la orden para imprimir');
       console.error(error);
+    }
+  };
+
+  const handleShareDelivery = async () => {
+    setSharingDelivery(true);
+    try {
+      const [pdf, customerResponse] = await Promise.all([
+        getDeliveryPdf(),
+        axios.get(`${API}/api/customers/${repair.customer_id}`, { headers: getAuthHeader() }),
+      ]);
+      const customer = customerResponse.data;
+      const filename = `orden_entrega_${repair.ticket_number}.pdf`;
+      const file = new File([pdf], filename, { type: 'application/pdf' });
+      const trackingUrl = repair.public_token ? `${window.location.origin}/public/${repair.public_token}` : window.location.origin;
+      const message = `Hola ${customer.name || repair.customer_name}, te enviamos la orden ${repair.ticket_number} de ${repair.device_brand} ${repair.device_model}. Seguimiento: ${trackingUrl}`;
+
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: `Orden ${repair.ticket_number}`, text: message, files: [file] });
+        toast.success('Orden compartida');
+        return;
+      }
+
+      let phone = String(customer.phone || '').replace(/\D/g, '');
+      if (phone.length === 9 && phone.startsWith('9')) phone = `56${phone}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      const opened = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) window.location.href = whatsappUrl;
+      toast.info('WhatsApp se abrió con los datos y el enlace de seguimiento de la orden.');
+    } catch (error) {
+      if (error?.name !== 'AbortError') {
+        toast.error('No se pudo compartir la orden');
+        console.error(error);
+      }
+    } finally {
+      setSharingDelivery(false);
     }
   };
 
@@ -195,17 +245,14 @@ const RepairDetail = () => {
               <Printer size={18} />
             </Button>
             
-            {repair.status === 'delivered' && (
-              <Button
-                variant="outline"
-                onClick={handleDownloadDeliveryPDF}
-                className="border-green-600 text-green-700 hover:bg-green-50"
-                data-testid="download-delivery-pdf-button"
-              >
-                <FileText size={18} className="mr-2" />
-                PDF de Entrega
+            {repair.status === 'delivered' && <>
+              <Button variant="outline" onClick={handlePrintDelivery} className="border-green-600 text-green-700 hover:bg-green-50" data-testid="print-delivery-button">
+                <Printer size={18} className="mr-2" />Imprimir entrega
               </Button>
-            )}
+              <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" data-testid="share-delivery-button">
+                <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Enviar por WhatsApp'}
+              </Button>
+            </>}
             
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
               <DialogTrigger asChild>
