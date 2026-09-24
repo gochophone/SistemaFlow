@@ -45,11 +45,12 @@ def company_header(company_name, company_logo_url, styles):
     try:
         request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
         with urlopen(request, timeout=4) as response:
-            logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=14 * mm, height=14 * mm, kind="proportional")
-        header = Table([[logo, name]], colWidths=[18 * mm, 168 * mm], hAlign="LEFT")
+            logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=16 * mm, height=16 * mm, kind="proportional")
+        header = Table([[logo, name]], colWidths=[20 * mm, 120 * mm], hAlign="CENTER")
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING", (0, 0), (0, 0), 0), ("RIGHTPADDING", (0, 0), (0, 0), 2 * mm),
+            ("LEFTPADDING", (1, 0), (1, 0), 2 * mm), ("RIGHTPADDING", (1, 0), (1, 0), 0),
             ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
         ]))
         return header
@@ -57,13 +58,13 @@ def company_header(company_name, company_logo_url, styles):
         return name
 
 
-def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None):
+def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None, company_rut=""):
     """Genera una orden de entrega compacta en una sola hoja."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
     base = getSampleStyleSheet()
     styles = {
-        "company": ParagraphStyle("company", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=18, leading=20, alignment=TA_CENTER, spaceAfter=1 * mm),
+        "company": ParagraphStyle("company", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=23, leading=25, alignment=TA_CENTER, spaceAfter=1 * mm),
         "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
         "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=2.6 * mm, spaceAfter=1.1 * mm),
         "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
@@ -84,10 +85,25 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     if repair_data.get("budget_estimate"):
         content += [Paragraph("Cobro", styles["section"]), details([("Total del servicio", money(repair_data["budget_estimate"]))], styles, green=True)]
     technician = compact(repair_data.get("assigned_technician"), "_______________________", 45)
-    signatures = Table([["____________________________", "____________________________"], ["Firma del cliente", "Firma del técnico"], ["RUT: _______________________", "Técnico: " + technician]], colWidths=[93 * mm, 93 * mm])
-    signatures.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 1 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm)]))
+    company_rut_text = "RUT empresa: " + compact(company_rut, "No configurado", 25)
+    signatures = Table([
+        ["____________________________", "____________________________"],
+        ["Firma del cliente", "Firma del técnico"],
+        ["RUT: _______________________", "Técnico: " + technician],
+        ["", company_name],
+        ["", company_rut_text],
+    ], colWidths=[93 * mm, 93 * mm])
+    signatures.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+        ("FONTNAME", (1, 3), (1, 3), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (1, 4), (1, 4), 7.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
+    ]))
     footer = "Documento generado por {} el {}".format(company_name, datetime.now().strftime("%d/%m/%Y a las %H:%M"))
-    content += [Spacer(1, 6 * mm), signatures, Spacer(1, 2.5 * mm), Paragraph(footer, styles["footer"])]
+    content += [Spacer(1, 5 * mm), signatures, Spacer(1, 2 * mm), Paragraph(footer, styles["footer"])]
     doc.build(content)
     buffer.seek(0)
     return buffer
