@@ -17,6 +17,9 @@
 .repair-label-content { display: flex; gap: 1.5mm; height: 100%; align-items: flex-start; }
 .repair-label-text { flex: 1; min-width: 0; height: 100%; overflow-wrap: anywhere; }
 .repair-label-text strong { display: block; }
+.repair-label-brand { display: flex; align-items: center; gap: 1mm; min-width: 0; }
+.repair-label-brand img { width: 5mm; height: 5mm; flex-shrink: 0; object-fit: contain; }
+.repair-label-brand strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repair-label-qr { flex-shrink: 0; align-self: center; text-align: center; font-size: 5pt; }
 .repair-label-qr svg { display: block; width: 100%; height: auto; }
 @media print {
