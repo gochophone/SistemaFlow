@@ -25,6 +25,7 @@ const Settings = () => {
   const [rutBusy, setRutBusy] = useState(false);
   const [logoMessage, setLogoMessage] = useState('');
   const [companyRut, setCompanyRut] = useState(user?.company_rut || '');
+  const [companyAddress, setCompanyAddress] = useState(user?.company_address || '');
   const logoInput = useRef(null);
   const customerInput = useRef(null);
   const repairInput = useRef(null);
@@ -35,7 +36,8 @@ const Settings = () => {
 
   useEffect(() => {
     setCompanyRut(user?.company_rut || '');
-  }, [user?.company_rut]);
+    setCompanyAddress(user?.company_address || '');
+  }, [user?.company_rut, user?.company_address]);
 
   const saveCompanyLogo = async (event) => {
     const file = event.target.files?.[0];
@@ -87,17 +89,17 @@ const Settings = () => {
     }
   };
 
-  const saveCompanyRut = async () => {
+  const saveCompanyDetails = async () => {
     setRutBusy(true);
     setLogoMessage('');
     try {
-      await axios.patch(`${API}/api/settings/company`, { company_rut: companyRut.trim() }, {
+      await axios.patch(`${API}/api/settings/company`, { company_rut: companyRut.trim(), company_address: companyAddress.trim() }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       await refreshUser();
-      setLogoMessage('RUT de la empresa guardado. Se mostrará en los PDF de entrega.');
+      setLogoMessage('RUT y dirección guardados. Se mostrarán en los PDF de entrega.');
     } catch (error) {
-      setLogoMessage(error.response?.data?.detail || 'No se pudo guardar el RUT de la empresa.');
+      setLogoMessage(error.response?.data?.detail || 'No se pudieron guardar los datos de la empresa.');
     } finally {
       setRutBusy(false);
     }
@@ -183,11 +185,15 @@ const Settings = () => {
             <p className="text-sm text-zinc-600 dark:text-zinc-400">PNG, JPG o WebP, máximo 3 MB. Se recomienda una imagen cuadrada con fondo transparente.</p>
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
               <label htmlFor="company-rut" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">RUT de la empresa</label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-2 grid gap-3">
                 <Input id="company-rut" value={companyRut} onChange={(event) => setCompanyRut(event.target.value)} placeholder="Ejemplo: 77.322.829-9" className="dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
-                <Button type="button" onClick={saveCompanyRut} disabled={rutBusy || !companyRut.trim()}>{rutBusy ? 'Guardando…' : 'Guardar RUT'}</Button>
+                <div>
+                  <label htmlFor="company-address" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dirección de la empresa</label>
+                  <Input id="company-address" value={companyAddress} onChange={(event) => setCompanyAddress(event.target.value)} placeholder="Ejemplo: Av. Principal 123, Santiago" className="mt-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                </div>
+                <Button type="button" onClick={saveCompanyDetails} disabled={rutBusy || !companyRut.trim()} className="sm:w-fit">{rutBusy ? 'Guardando…' : 'Guardar datos de empresa'}</Button>
               </div>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Aparecerá debajo de la firma del técnico junto al nombre de tu empresa.</p>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">El nombre, RUT y dirección aparecerán debajo de la firma del técnico.</p>
             </div>
             {logoMessage && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{logoMessage}</p>}
           </CardContent>
