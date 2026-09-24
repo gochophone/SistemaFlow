@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Check, FileSpreadsheet, Image as ImageIcon, Moon, Settings as SettingsIcon, Sun, Trash2, Upload } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 
 const THEME_KEY = 'ifixflow-theme';
@@ -21,7 +22,9 @@ const Settings = () => {
   const [importing, setImporting] = useState('');
   const [importResult, setImportResult] = useState('');
   const [logoBusy, setLogoBusy] = useState(false);
+  const [rutBusy, setRutBusy] = useState(false);
   const [logoMessage, setLogoMessage] = useState('');
+  const [companyRut, setCompanyRut] = useState(user?.company_rut || '');
   const logoInput = useRef(null);
   const customerInput = useRef(null);
   const repairInput = useRef(null);
@@ -29,6 +32,10 @@ const Settings = () => {
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    setCompanyRut(user?.company_rut || '');
+  }, [user?.company_rut]);
 
   const saveCompanyLogo = async (event) => {
     const file = event.target.files?.[0];
@@ -77,6 +84,22 @@ const Settings = () => {
       setLogoMessage(error.response?.data?.detail || 'No se pudo eliminar el logo.');
     } finally {
       setLogoBusy(false);
+    }
+  };
+
+  const saveCompanyRut = async () => {
+    setRutBusy(true);
+    setLogoMessage('');
+    try {
+      await axios.patch(`${API}/api/settings/company`, { company_rut: companyRut.trim() }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await refreshUser();
+      setLogoMessage('RUT de la empresa guardado. Se mostrará en los PDF de entrega.');
+    } catch (error) {
+      setLogoMessage(error.response?.data?.detail || 'No se pudo guardar el RUT de la empresa.');
+    } finally {
+      setRutBusy(false);
     }
   };
 
@@ -158,6 +181,14 @@ const Settings = () => {
             </div>
             <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={saveCompanyLogo} />
             <p className="text-sm text-zinc-600 dark:text-zinc-400">PNG, JPG o WebP, máximo 3 MB. Se recomienda una imagen cuadrada con fondo transparente.</p>
+            <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
+              <label htmlFor="company-rut" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">RUT de la empresa</label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Input id="company-rut" value={companyRut} onChange={(event) => setCompanyRut(event.target.value)} placeholder="Ejemplo: 77.322.829-9" className="dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                <Button type="button" onClick={saveCompanyRut} disabled={rutBusy || !companyRut.trim()}>{rutBusy ? 'Guardando…' : 'Guardar RUT'}</Button>
+              </div>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Aparecerá debajo de la firma del técnico junto al nombre de tu empresa.</p>
+            </div>
             {logoMessage && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{logoMessage}</p>}
           </CardContent>
         </Card>
