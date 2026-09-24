@@ -1,160 +1,128 @@
-import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { Check, FileSpreadsheet, Moon, Settings as SettingsIcon, Sun, Upload } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/context/AuthContext';
+tory listing for /", App: Safari.
+0 ventana estándar Directory listing for /, ID: SafariWindow?IsSecure=false&UUID=58686A5E-7FC9-4A7D-81E0-6674805D97AE, Secondary Actions: Raise
+	1 dividir grupo
+		2 divisor (disabled, settable, float) -1
+		3 grupo de pestañas
+			4 área de desplazamiento
+				5 Contenido HTML Description: Directory listing for /, URL: 127.0.0.1:8765/
+					6 encabezado Directory listing for /, Value: 1
+						7 texto Directory listing for /
+					8 lista de contenidos
+						9 container
+							10 marcador de lista •
+							11 link .emergent/, Value: 127.0.0.1:8765/.emergent/
+						12 container
+							13 marcador de lista •
+							14 link .git/, Value: 127.0.0.1:8765/.git/
+						15 container
+							16 marcador de lista •
+							17 link .gitconfig, Value: 127.0.0.1:8765/.gitconfig
+						18 container
+							19 marcador de lista •
+							20 link .gitignore, Value: 127.0.0.1:8765/.gitignore
+						21 container
+							22 marcador de lista •
+							23 link .python-version, Value: 127.0.0.1:8765/.python-version
+						24 container
+							25 marcador de lista •
+							26 link ACCOUNT_DATABASES.md, Value: 127.0.0.1:8765/ACCOUNT_DATABASES.md
+						27 container
+							28 marcador de lista •
+							29 link backend/, Value: 127.0.0.1:8765/backend/
+						30 container
+							31 marcador de lista •
+							32 link backend_test.py, Value: 127.0.0.1:8765/backend_test.py
+						33 container
+							34 marcador de lista •
+							35 link BILLING.md, Value: 127.0.0.1:8765/BILLING.md
+						36 container
+							37 marcador de lista •
+							38 link design_guidelines.json, Value: 127.0.0.1:8765/design_guidelines.json
+						39 container
+							40 marcador de lista •
+							41 link frontend/, Value: 127.0.0.1:8765/frontend/
+						42 container
+							43 marcador de lista •
+							44 link label_new_layout.png, Value: 127.0.0.1:8765/label_new_layout.png
+						45 container
+							46 marcador de lista •
+							47 link label_screenshot.png, Value: 127.0.0.1:8765/label_screenshot.png
+						48 container
+							49 marcador de lista •
+							50 link label_techflow.png, Value: 127.0.0.1:8765/label_techflow.png
+						51 container
+							52 marcador de lista •
+							53 link memory/, Value: 127.0.0.1:8765/memory/
+						54 container
+							55 marcador de lista •
+							56 link RAILWAY.md, Value: 127.0.0.1:8765/RAILWAY.md
+						57 container
+							58 marcador de lista •
+							59 link railway.toml, Value: 127.0.0.1:8765/railway.toml
+						60 container
+							61 marcador de lista •
+							62 link README.md, Value: 127.0.0.1:8765/README.md
+						63 container
+							64 marcador de lista •
+							65 link requirements.txt, Value: 127.0.0.1:8765/requirements.txt
+						66 container
+							67 marcador de lista •
+							68 link screenshot.png, Value: 127.0.0.1:8765/screenshot.png
+						69 container
+							70 marcador de lista •
+							71 link test_reports/, Value: 127.0.0.1:8765/test_reports/
+						72 container
+							73 marcador de lista •
+							74 link test_result.md, Value: 127.0.0.1:8765/test_result.md
+						75 container
+							76 marcador de lista •
+							77 link tests/, Value: 127.0.0.1:8765/tests/
+	78 barra de herramientas
+		79 container
+			80 botón Description: mostrar barra lateral, Help: Mostrar barra lateral, ID: SidebarButton
+			81 botón de menú Description: Selector de grupo de pestañas, ID: TabGroupPickerButton?TabGroup=
+		82 container BackForwardSegmentedControl
+			83 botón Description: Atrás, Help: Mostrar la página anterior, ID: BackButton
+			84 botón (disabled) Description: Avanzar, Help: Mostrar la página siguiente, ID: ForwardButton
+		85 container
+			86 botón Menú de página, ID: AssistantButton
+			87 botón Agregar página a lecturas, ID: OneStepBookmarkingButton
+			88 campo de texto (settable) Description: campo de búsqueda inteligente, Value: 127.0.0.1:8765, ID: WEB_BROWSER_ADDRESS_AND_SEARCH_FIELD
+			89 botón Volver a cargar esta página, ID: ReloadButton
+		90 botón Description: Descargas, ID: DownloadsButton
+			91 botón Description: ventana de descargas, Help: Mostrar descargas, ID: DownloadsButton
+		92 botón Description: Compartir, ID: ShareButton
+		93 botón Description: Nueva pestaña, ID: NewTabButton
+			94 botón Description: nueva pestaña, Help: Nueva pestaña, ID: NewTabButton
+				95 botón Description: agregar, Help: Nueva pestaña
+		96 botón Description: Resumen de pestañas, ID: TabOverviewButton
+	97 container (settable, unknown) barra de pestañas, Description: Barra de pestañas, 5 pestañas, ID: TabBar?isSeparate=true
+		98 pestaña SistemaFlow-Web, Value: off, ID: TabBarTab?isActive=false&isNarrow=false&isPinned=false, Secondary Actions: cerrar pestaña
+			99 botón cerrar pestaña, Description: Cerrar, ID: CloseTabBarItemButton
+			100 imagen FaviconImageView
+		101 pestaña Departamento en Arriendo, 2 dormitorios, 2 baños, Value: off, ID: TabBarTab?isActive=false&isNarrow=false&isPinned=false, Secondary Actions: cerrar pestaña
+			102 botón cerrar pestaña, Description: Cerrar, ID: CloseTabBarItemButton
+			103 imagen FaviconImageView
+		104 pestaña Editing SistemaFlow/backend/server.py at main · gochophone/SistemaFlow, Value: off, ID: TabBarTab?isActive=false&isNarrow=false&isPinned=false, Secondary Actions: cerrar pestaña
+			105 botón cerrar pestaña, Description: Cerrar, ID: CloseTabBarItemButton
+			106 imagen FaviconImageView
+		107 pestaña iFixFlow | Sistema de Gestión, Value: off, ID: TabBarTab?isActive=false&isNarrow=false&isPinned=false, Secondary Actions: cerrar pestaña
+			108 botón cerrar pestaña, Description: Cerrar, ID: CloseTabBarItemButton
+			109 imagen FaviconImageView
+		110 pestaña Directory listing for /, Value: on, ID: TabBarTab?isActive=true&isNarrow=false&isPinned=false, Secondary Actions: cerrar pestaña
+			111 botón cerrar pestaña, Description: Cerrar, ID: CloseTabBarItemButton
+			112 imagen FaviconImageView
+	113 botón de cierre
+	114 botón para pantalla completa Help: este botón también tiene una acción para acercar/alejar la ventana, Secondary Actions: acercar/alejar ventana
+	115 botón de minimización
+116 menu bar
+	117 Safari
+	118 Archivo
+	119 Edición
+	120 Visualización, ID: SafariViewMenu
+	121 Historial
+	122 Marcadores, ID: SafariBookmarksMenu
+	123 Ventana, ID: SafariWindowMenu
+	124 Ayuda, ID: SafariHelpMenu
 
-const THEME_KEY = 'ifixflow-theme';
-
-const applyTheme = (theme) => {
-  document.documentElement.classList.toggle('dark', theme === 'dark');
-  localStorage.setItem(THEME_KEY, theme);
-  window.dispatchEvent(new CustomEvent('ifixflow-theme-changed', { detail: theme }));
-};
-
-const Settings = () => {
-  const { user, token } = useAuth();
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'dark');
-  const [files, setFiles] = useState({ customers: null, repairs: null });
-  const [importing, setImporting] = useState('');
-  const [importResult, setImportResult] = useState('');
-  const customerInput = useRef(null);
-  const repairInput = useRef(null);
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const importGestioo = async (type) => {
-    const file = files[type];
-    if (!file) return;
-    setImporting(type);
-    setImportResult('');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const { data } = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/api/imports/gestioo/${type}`,
-        form,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      const summary = type === 'customers'
-        ? `${data.created} clientes creados${data.skipped ? ` · ${data.skipped} omitidos por estar repetidos o incompletos` : ''}.`
-        : `${data.created_repairs} reparaciones importadas y ${data.created_customers} clientes creados${data.skipped ? ` · ${data.skipped} filas omitidas` : ''}.`;
-      setImportResult(summary + (data.errors?.length ? ` Revisa: ${data.errors[0]}` : ''));
-      setFiles((current) => ({ ...current, [type]: null }));
-      if (type === 'customers' && customerInput.current) customerInput.current.value = '';
-      if (type === 'repairs' && repairInput.current) repairInput.current.value = '';
-    } catch (error) {
-      setImportResult(error.response?.data?.detail || 'No se pudo importar el archivo. Verifica que sea CSV, XLS o XLSX.');
-    } finally {
-      setImporting('');
-    }
-  };
-
-  const options = [
-    {
-      value: 'light',
-      title: 'Fondo blanco',
-      description: 'Interfaz clara para trabajar durante el día.',
-      icon: Sun,
-      preview: 'bg-white border-zinc-200',
-    },
-    {
-      value: 'dark',
-      title: 'Fondo oscuro',
-      description: 'Interfaz oscura para reducir el brillo de la pantalla.',
-      icon: Moon,
-      preview: 'bg-zinc-900 border-zinc-700',
-    },
-  ];
-
-  return (
-    <div className="max-w-3xl space-y-6" data-testid="settings-page">
-      <div>
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-blue-100 p-2 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
-            <SettingsIcon size={24} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Configuración</h1>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Personaliza la apariencia de iFixFlow.</p>
-          </div>
-        </div>
-      </div>
-
-      <Card className="border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900">
-        <CardHeader>
-          <CardTitle className="text-zinc-900 dark:text-zinc-100">Apariencia</CardTitle>
-          <CardDescription className="dark:text-zinc-400">Elige el color de fondo del sistema. El ajuste se guarda en este dispositivo.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {options.map(({ value, title, description, icon: Icon, preview }) => {
-              const selected = theme === value;
-              return (
-                <button
-                  type="button"
-                  key={value}
-                  onClick={() => setTheme(value)}
-                  data-testid={`theme-${value}`}
-                  className={`relative rounded-lg border p-4 text-left transition-colors ${selected ? 'border-blue-600 ring-2 ring-blue-100 dark:ring-blue-900' : 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500'}`}
-                >
-                  <div className={`mb-4 h-20 rounded-md border ${preview} p-3`}>
-                    <div className={`h-2 w-16 rounded ${value === 'dark' ? 'bg-zinc-700' : 'bg-zinc-200'}`} />
-                    <div className={`mt-2 h-2 w-10 rounded ${value === 'dark' ? 'bg-zinc-700' : 'bg-zinc-200'}`} />
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Icon size={20} className="mt-0.5 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <p className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
-                      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
-                    </div>
-                  </div>
-                  {selected && <Check size={18} className="absolute right-3 top-3 text-blue-600 dark:text-blue-400" aria-label="Seleccionado" />}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      {user?.role === 'admin' && (
-        <Card className="border-zinc-200 dark:border-zinc-800 dark:bg-zinc-900" data-testid="gestioo-import">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100"><FileSpreadsheet size={22} className="text-blue-600 dark:text-blue-400" />Importar</CardTitle>
-            <CardDescription className="dark:text-zinc-400">Carga las exportaciones CSV, XLS o XLSX. Primero importa clientes y luego las órdenes: cada reparación quedará enlazada a su cliente por nombre, teléfono o correo.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              {[['customers', '1. Clientes', 'Exportación de clientes de Gestioo', customerInput], ['repairs', '2. Reparaciones', '“Todas las órdenes” descargadas desde Gestioo', repairInput]].map(([type, title, hint, inputRef]) => (
-                <div key={type} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{hint}</p>
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept=".csv,.xls,.xlsx"
-                    className="mt-3 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700 hover:file:bg-blue-100 dark:text-zinc-300 dark:file:bg-blue-500/20 dark:file:text-blue-300"
-                    onChange={(event) => setFiles((current) => ({ ...current, [type]: event.target.files?.[0] || null }))}
-                  />
-                  {files[type] && <p className="mt-2 truncate text-sm text-zinc-600 dark:text-zinc-400">Archivo: {files[type].name}</p>}
-                  <Button className="mt-3 w-full" disabled={!files[type] || Boolean(importing)} onClick={() => importGestioo(type)}>
-                    <Upload size={16} className="mr-2" />{importing === type ? 'Importando…' : `Importar ${type === 'customers' ? 'clientes' : 'reparaciones'}`}
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              La importación no elimina datos existentes. Los clientes repetidos se omiten y las órdenes reciben un nuevo número iFixFlow, conservando el número original en las notas.
-            </div>
-            {importResult && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{importResult}</p>}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-};
-
-export default Settings;
+The focused UI element is 5 Contenido HTML Description: Directory listing for /, URL: 127.0.0.1:8765
