@@ -58,7 +58,7 @@ def company_header(company_name, company_logo_url, styles):
         return name
 
 
-def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None, company_rut=""):
+def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None, company_rut="", company_address=""):
     """Genera una orden de entrega compacta en una sola hoja."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
@@ -86,19 +86,21 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         content += [Paragraph("Cobro", styles["section"]), details([("Total del servicio", money(repair_data["budget_estimate"]))], styles, green=True)]
     technician = compact(repair_data.get("assigned_technician"), "_______________________", 45)
     company_rut_text = "RUT empresa: " + compact(company_rut, "No configurado", 25)
+    company_address_text = "Dirección: " + compact(company_address, "No configurada", 70)
     signatures = Table([
         ["____________________________", "____________________________"],
         ["Firma del cliente", "Firma del técnico"],
         ["RUT: _______________________", "Técnico: " + technician],
         ["", company_name],
         ["", company_rut_text],
+        ["", company_address_text],
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
         ("FONTNAME", (1, 3), (1, 3), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("FONTSIZE", (1, 4), (1, 4), 7.5),
+        ("FONTSIZE", (1, 4), (1, 5), 7.5),
         ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
