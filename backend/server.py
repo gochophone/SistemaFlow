@@ -166,6 +166,7 @@ class User(BaseModel):
     name: str
     role: str
     company_name: str = ""
+    company_rut: str = ""
     company_logo_url: Optional[str] = None
     is_owner: bool = False
     active: bool = True
@@ -193,6 +194,7 @@ class TeamUserUpdate(BaseModel):
 class CompanyBrandUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     company_logo_url: Optional[str] = Field(default=None, max_length=1000)
+    company_rut: Optional[str] = Field(default=None, max_length=20)
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -377,10 +379,11 @@ async def initialize_identity_indexes():
 async def with_company_name(user):
     owner = await control_db.users.find_one(
         {'tenant_id': user['tenant_id'], 'is_owner': True},
-        {'company_name': 1, 'company_logo_url': 1, '_id': 0})
+        {'company_name': 1, 'company_rut': 1, 'company_logo_url': 1, '_id': 0})
     return {
         **user,
         'company_name': (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio',
+        'company_rut': (owner or {}).get('company_rut') or user.get('company_rut') or '',
         'company_logo_url': (owner or {}).get('company_logo_url') or user.get('company_logo_url'),
     }
 
@@ -832,6 +835,7 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
             customer,
             current_user.get("company_name", "Mi negocio"),
             current_user.get("company_logo_url"),
+            current_user.get("company_rut", ""),
         )
         
         # Return as downloadable file
@@ -1049,29 +1053,39 @@ async def generate_cloudinary_signature(
 
 @api_router.patch("/settings/company")
 async def update_company_brand(payload: CompanyBrandUpdate, current_user: dict = Depends(require_admin)):
-    """Store one shared company logo for the owner and every member of the tenant."""
-    logo_url = payload.company_logo_url or None
-    if logo_url:
-        parsed = urlparse(logo_url)
-        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
-        expected_path = f"/{cloud_name}/image/upload/"
-        tenant_folder = f"/{current_user['tenant_id']}/users/"
-        if parsed.scheme != 'https' or parsed.hostname != 'res.cloudinary.com' or expected_path not in parsed.path or tenant_folder not in parsed.path:
-            raise HTTPException(status_code=400, detail="El logo debe cargarse desde Configuración")
+    """Store branding shared by the owner and every member of the tenant."""
+    updates = {}
+    if 'company_logo_url' in payload.model_fields_set:
+        logo_url = payload.company_logo_url or None
+        if logo_url:
+            parsed = urlparse(logo_url)
+            cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+            expected_path = f"/{cloud_name}/image/upload/"
+            tenant_folder = f"/{current_user['tenant_id']}/users/"
+            if parsed.scheme != 'https' or parsed.hostname != 'res.cloudinary.com' or expected_path not in parsed.path or tenant_folder not in parsed.path:
+                raise HTTPException(status_code=400, detail="El logo debe cargarse desde Configuración")
+        updates['company_logo_url'] = logo_url
+    if 'company_rut' in payload.model_fields_set:
+        company_rut = (payload.company_rut or '').strip()
+        if company_rut and not re.fullmatch(r'[0-9Kk.\-]{7,20}', company_rut):
+            raise HTTPException(status_code=400, detail="Ingresa un RUT de empresa válido")
+        updates['company_rut'] = company_rut
+    if not updates:
+        raise HTTPException(status_code=400, detail="No se enviaron cambios")
 
     result = await control_db.users.update_one(
         {'tenant_id': current_user['tenant_id'], 'is_owner': True},
-        {'$set': {'company_logo_url': logo_url}},
+        {'$set': updates},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="No se encontró la cuenta principal del negocio")
     db = await tenant_database(current_user['tenant_id'])
     await db.settings.update_one(
         {'_id': 'account'},
-        {'$set': {'company_logo_url': logo_url}},
+        {'$set': updates},
         upsert=True,
     )
-    return {'company_logo_url': logo_url}
+    return updates
 
 app.include_router(api_router)
 
