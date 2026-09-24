@@ -66,7 +66,7 @@ const Repairs = () => {
     const lowerQuery = query.toLowerCase();
     const filtered = repairs.filter(repair => 
       repair.ticket_number.toLowerCase().includes(lowerQuery) ||
-      repair.device_imei.toLowerCase().includes(lowerQuery) ||
+      (repair.device_imei || '').toLowerCase().includes(lowerQuery) ||
       repair.customer_name.toLowerCase().includes(lowerQuery) ||
       repair.device_brand.toLowerCase().includes(lowerQuery) ||
       repair.device_model.toLowerCase().includes(lowerQuery)
@@ -103,8 +103,8 @@ const Repairs = () => {
     <div className="space-y-6" data-testid="repairs-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900">Reparaciones</h1>
-          <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Reparaciones</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1 uppercase tracking-wider">
             {filteredRepairs.length} {filteredRepairs.length === 1 ? 'orden' : 'órdenes'}
             {searchQuery && ` - Buscando: "${searchQuery}"`}
           </p>
@@ -144,23 +144,23 @@ const Repairs = () => {
         })}
       </div>
 
-      <div className="bg-white border border-zinc-200 rounded-md shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-zinc-50">
-              <TableHead className="font-semibold text-zinc-900">Ticket</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Cliente</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Equipo</TableHead>
-              <TableHead className="font-semibold text-zinc-900">IMEI</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Fecha</TableHead>
-              <TableHead className="font-semibold text-zinc-900 text-right">Acción</TableHead>
+            <TableRow className="bg-zinc-50 hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-800">
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Ticket</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Cliente</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Equipo</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">IMEI</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Estado</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Fecha</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredRepairs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-zinc-500">
+                <TableCell colSpan={7} className="text-center py-12 text-zinc-500 dark:text-zinc-400">
                   {searchQuery ? 'No se encontraron resultados' : 'No hay reparaciones registradas'}
                 </TableCell>
               </TableRow>
@@ -168,7 +168,7 @@ const Repairs = () => {
               filteredRepairs.map((repair) => (
                 <TableRow 
                   key={repair.id} 
-                  className="hover:bg-zinc-50 cursor-pointer transition-colors"
+                  className="cursor-pointer text-zinc-900 transition-colors hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/80"
                   onClick={() => navigate(`/repairs/${repair.id}`)}
                   data-testid={`repair-row-${repair.ticket_number}`}
                 >
@@ -184,7 +184,7 @@ const Repairs = () => {
                       {STATUS_CONFIG[repair.status]?.label || repair.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-zinc-600">{formatDate(repair.received_date)}</TableCell>
+                  <TableCell className="text-sm text-zinc-600 dark:text-zinc-300">{formatDate(repair.received_date)}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="ghost"
