@@ -167,6 +167,7 @@ class User(BaseModel):
     role: str
     company_name: str = ""
     company_rut: str = ""
+    company_address: str = ""
     company_logo_url: Optional[str] = None
     is_owner: bool = False
     active: bool = True
@@ -195,6 +196,7 @@ class CompanyBrandUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     company_logo_url: Optional[str] = Field(default=None, max_length=1000)
     company_rut: Optional[str] = Field(default=None, max_length=20)
+    company_address: Optional[str] = Field(default=None, max_length=200)
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -379,11 +381,12 @@ async def initialize_identity_indexes():
 async def with_company_name(user):
     owner = await control_db.users.find_one(
         {'tenant_id': user['tenant_id'], 'is_owner': True},
-        {'company_name': 1, 'company_rut': 1, 'company_logo_url': 1, '_id': 0})
+        {'company_name': 1, 'company_rut': 1, 'company_address': 1, 'company_logo_url': 1, '_id': 0})
     return {
         **user,
         'company_name': (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio',
         'company_rut': (owner or {}).get('company_rut') or user.get('company_rut') or '',
+        'company_address': (owner or {}).get('company_address') or user.get('company_address') or '',
         'company_logo_url': (owner or {}).get('company_logo_url') or user.get('company_logo_url'),
     }
 
@@ -836,6 +839,7 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
             current_user.get("company_name", "Mi negocio"),
             current_user.get("company_logo_url"),
             current_user.get("company_rut", ""),
+            current_user.get("company_address", ""),
         )
         
         # Return as downloadable file
@@ -1070,6 +1074,9 @@ async def update_company_brand(payload: CompanyBrandUpdate, current_user: dict =
         if company_rut and not re.fullmatch(r'[0-9Kk.\-]{7,20}', company_rut):
             raise HTTPException(status_code=400, detail="Ingresa un RUT de empresa válido")
         updates['company_rut'] = company_rut
+    if 'company_address' in payload.model_fields_set:
+        company_address = (payload.company_address or '').strip()
+        updates['company_address'] = company_address
     if not updates:
         raise HTTPException(status_code=400, detail="No se enviaron cambios")
 
