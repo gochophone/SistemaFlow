@@ -1,7 +1,7 @@
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
 from datetime import datetime
@@ -87,8 +87,9 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     technician = compact(repair_data.get("assigned_technician"), "_______________________", 45)
     company_rut_text = "RUT empresa: " + compact(company_rut, "No configurado", 25)
     company_address_text = "Dirección: " + compact(company_address, "No configurada", 70)
+    signature_line = lambda: HRFlowable(width=50 * mm, thickness=0.6, color=colors.HexColor("#18181B"), spaceBefore=0, spaceAfter=0, hAlign="CENTER")
     signatures = Table([
-        ["____________________________", "____________________________"],
+        [signature_line(), signature_line()],
         ["Firma del cliente", "Firma del técnico"],
         ["RUT: _______________________", "Técnico: " + technician],
         ["", company_name],
@@ -97,6 +98,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, 0), "BOTTOM"),
         ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
         ("FONTNAME", (1, 3), (1, 3), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
