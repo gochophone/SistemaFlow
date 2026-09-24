@@ -56,8 +56,17 @@ export const AuthProvider = ({ children }) => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  const refreshUser = async () => {
+    if (!token) return null;
+    const response = await axios.get(`${API}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setUser(response.data);
+    return response.data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, token, login, register, logout, getAuthHeader }}>
+    <AuthContext.Provider value={{ user, loading, token, login, register, logout, getAuthHeader, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
