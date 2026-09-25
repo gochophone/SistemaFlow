@@ -142,6 +142,23 @@ const RepairDetail = () => {
     }
   };
 
+  const handleQuickStatusChange = async (status) => {
+    if (status === repair.status || updating) return;
+    setUpdating(true);
+    try {
+      const { data } = await axios.patch(`${API}/api/repairs/${id}`, { status }, {
+        headers: getAuthHeader()
+      });
+      setRepair(data);
+      setUpdateData((current) => ({ ...current, status: data.status }));
+      toast.success(`Estado cambiado a ${STATUS_CONFIG[status]?.label || status}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo cambiar el estado');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const getDeliveryPdf = async () => {
     const response = await axios.get(`${API}/api/repairs/${id}/delivery-pdf`, {
       headers: getAuthHeader(),
@@ -609,12 +626,27 @@ const RepairDetail = () => {
               <CardTitle className="text-xl font-medium">Estado</CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge 
-                className={`${STATUS_CONFIG[repair.status]?.color} border font-medium text-base px-3 py-1`}
-                data-testid="current-status-badge"
+              <Select
+                value={repair.status}
+                onValueChange={handleQuickStatusChange}
+                disabled={updating}
               >
-                {STATUS_CONFIG[repair.status]?.label || repair.status}
-              </Badge>
+                <SelectTrigger
+                  className={`w-full border font-medium text-base ${STATUS_CONFIG[repair.status]?.color}`}
+                  data-testid="quick-status-select"
+                  aria-label="Cambiar estado de la reparación"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_CONFIG).map(([value, config]) => (
+                    <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                Selecciona un estado para guardarlo inmediatamente.
+              </p>
             </CardContent>
           </Card>
 
