@@ -64,7 +64,7 @@ const Layout = () => {
         <div className="p-6">
           <div className="flex items-center gap-3" data-testid="app-logo">
             {user?.company_logo_url && <img src={user.company_logo_url} alt="Logo de la empresa" className="h-11 w-11 shrink-0 rounded-md object-contain" />}
-            <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight">{user?.company_name || 'Mi negocio'}</h1>
+            <h1 className="min-w-0 truncate text-2xl font-bold tracking-tight">{user?.company_trade_name || user?.company_name || 'Mi negocio'}</h1>
           </div>
           <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider">Sistema de Gestión</p>
         </div>
