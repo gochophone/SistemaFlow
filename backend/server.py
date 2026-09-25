@@ -853,7 +853,7 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
         pdf_buffer = generate_delivery_pdf(
             repair,
             customer,
-            current_user.get("company_trade_name") or current_user.get("company_name", "Mi negocio"),
+            current_user.get("company_name", "Mi negocio"),
             current_user.get("company_logo_url"),
             current_user.get("company_rut", ""),
             current_user.get("company_address", ""),
