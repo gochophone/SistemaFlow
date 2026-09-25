@@ -4,9 +4,14 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
+from PIL import Image as PILImage, ImageOps
 from datetime import datetime
 from io import BytesIO
 from urllib.request import Request, urlopen
+
+
+MAX_LOGO_BYTES = 10 * 1024 * 1024
+MAX_LOGO_PIXELS = 16_000_000
 
 
 def compact(value, fallback="No especificado", limit=150):
@@ -50,8 +55,29 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
     if company_logo_url:
         try:
             request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
-            with urlopen(request, timeout=4) as response:
-                logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=28 * mm, height=28 * mm, kind="proportional")
+            with urlopen(request, timeout=8) as response:
+                logo_bytes = response.read(MAX_LOGO_BYTES + 1)
+            if len(logo_bytes) > MAX_LOGO_BYTES:
+                raise ValueError("El logo supera el máximo de 10 MB")
+
+            with PILImage.open(BytesIO(logo_bytes)) as source_logo:
+                if source_logo.width * source_logo.height > MAX_LOGO_PIXELS:
+                    raise ValueError("Las dimensiones del logo son demasiado grandes")
+                source_logo.load()
+                source_logo = ImageOps.exif_transpose(source_logo)
+                source_logo.thumbnail((800, 800), PILImage.Resampling.LANCZOS)
+
+                if source_logo.mode in ("RGBA", "LA") or "transparency" in source_logo.info:
+                    rgba_logo = source_logo.convert("RGBA")
+                    prepared_logo = PILImage.new("RGB", rgba_logo.size, "white")
+                    prepared_logo.paste(rgba_logo, mask=rgba_logo.getchannel("A"))
+                else:
+                    prepared_logo = source_logo.convert("RGB")
+
+                logo_buffer = BytesIO()
+                prepared_logo.save(logo_buffer, format="JPEG", quality=88, optimize=True)
+                logo_buffer.seek(0)
+            logo = Image(logo_buffer, width=28 * mm, height=28 * mm, kind="proportional")
         except Exception:
             logo = None
 
