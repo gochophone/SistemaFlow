@@ -18,9 +18,9 @@ def date(value):
     if not value:
         return "No especificada"
     if isinstance(value, datetime):
-        return value.strftime("%d/%m/%Y %H:%M")
+        return value.strftime("%d/%m/%Y")
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).strftime("%d/%m/%Y %H:%M")
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).strftime("%d/%m/%Y")
     except (TypeError, ValueError):
         return str(value)
 
@@ -88,7 +88,6 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=2.6 * mm, spaceAfter=1.1 * mm),
         "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
         "value": ParagraphStyle("value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=9),
-        "footer": ParagraphStyle("footer", parent=base["Normal"], fontName="Helvetica-Oblique", fontSize=7, leading=8, alignment=TA_CENTER, textColor=colors.HexColor("#71717A")),
     }
     company_name = compact(company_name, "Mi negocio", 90)
     equipment = "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))
@@ -119,8 +118,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
-    footer = "Documento generado por {} el {}".format(company_name, datetime.now().strftime("%d/%m/%Y a las %H:%M"))
-    content += [Spacer(1, 10 * mm), signatures, Spacer(1, 2 * mm), Paragraph(footer, styles["footer"])]
+    content += [Spacer(1, 10 * mm), signatures]
     doc.build(content)
     buffer.seek(0)
     return buffer
