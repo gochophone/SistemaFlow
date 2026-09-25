@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
@@ -40,7 +40,7 @@ const STATUS_CONFIG = {
 const RepairDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getAuthHeader } = useAuth();
+  const { user, getAuthHeader } = useAuth();
   const [repair, setRepair] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -49,11 +49,54 @@ const RepairDetail = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [sharingDelivery, setSharingDelivery] = useState(false);
+  const [technicians, setTechnicians] = useState([]);
+  const [techniciansLoading, setTechniciansLoading] = useState(false);
+  const [showCreateTechnician, setShowCreateTechnician] = useState(false);
+  const [creatingTechnician, setCreatingTechnician] = useState(false);
+  const [newTechnician, setNewTechnician] = useState({ name: '', email: '', password: '' });
 
   useEffect(() => {
     fetchRepair();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (editDialogOpen) fetchTechnicians();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editDialogOpen]);
+
+  const fetchTechnicians = async () => {
+    setTechniciansLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/api/team/technicians`, { headers: getAuthHeader() });
+      setTechnicians(data);
+      setUpdateData((current) => {
+        if (!current.assigned_technician || data.some((technician) => technician.name === current.assigned_technician)) return current;
+        return { ...current, assigned_technician: '' };
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo cargar la lista de técnicos');
+    } finally {
+      setTechniciansLoading(false);
+    }
+  };
+
+  const handleCreateTechnician = async (event) => {
+    event.preventDefault();
+    setCreatingTechnician(true);
+    try {
+      const { data } = await axios.post(`${API}/api/team`, { ...newTechnician, role: 'technician' }, { headers: getAuthHeader() });
+      setTechnicians((current) => [...current, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name, 'es')));
+      setUpdateData((current) => ({ ...current, assigned_technician: data.name }));
+      setNewTechnician({ name: '', email: '', password: '' });
+      setShowCreateTechnician(false);
+      toast.success('Técnico creado y seleccionado');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo crear el técnico');
+    } finally {
+      setCreatingTechnician(false);
+    }
+  };
 
   const fetchRepair = async () => {
     try {
@@ -285,12 +328,38 @@ const RepairDetail = () => {
 
                   <div>
                     <Label className="text-sm font-medium text-zinc-900">Técnico Asignado</Label>
-                    <Input
-                      value={updateData.assigned_technician}
-                      onChange={(e) => setUpdateData({ ...updateData, assigned_technician: e.target.value })}
-                      className="mt-1"
-                      data-testid="update-technician-input"
-                    />
+                    <Select
+                      value={updateData.assigned_technician || '__none__'}
+                      onValueChange={(value) => setUpdateData({ ...updateData, assigned_technician: value === '__none__' ? '' : value })}
+                      disabled={techniciansLoading}
+                    >
+                      <SelectTrigger className="mt-1" data-testid="update-technician-select">
+                        <SelectValue placeholder={techniciansLoading ? 'Cargando técnicos…' : 'Selecciona un técnico'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sin técnico asignado</SelectItem>
+                        {technicians.map((technician) => (
+                          <SelectItem key={technician.id} value={technician.name}>{technician.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!techniciansLoading && technicians.length === 0 && (
+                      <p className="mt-2 text-sm text-amber-700">Todavía no hay técnicos activos en el Equipo de trabajo.</p>
+                    )}
+                    {user?.role === 'admin' && (
+                      <Button type="button" variant="link" className="mt-1 h-auto px-0" onClick={() => setShowCreateTechnician((value) => !value)}>
+                        <UserPlus size={16} className="mr-2" />{showCreateTechnician ? 'Cancelar creación' : 'Crear técnico aquí'}
+                      </Button>
+                    )}
+                    {showCreateTechnician && user?.role === 'admin' && (
+                      <form onSubmit={handleCreateTechnician} className="mt-3 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                        <p className="text-sm font-medium">Nuevo técnico</p>
+                        <Input required aria-label="Nombre del nuevo técnico" placeholder="Nombre" value={newTechnician.name} onChange={(event) => setNewTechnician({ ...newTechnician, name: event.target.value })} />
+                        <Input required type="email" aria-label="Correo del nuevo técnico" placeholder="Correo" autoComplete="off" value={newTechnician.email} onChange={(event) => setNewTechnician({ ...newTechnician, email: event.target.value })} />
+                        <Input required type="password" aria-label="Contraseña del nuevo técnico" placeholder="Contraseña de al menos 10 caracteres" minLength={10} maxLength={72} autoComplete="new-password" value={newTechnician.password} onChange={(event) => setNewTechnician({ ...newTechnician, password: event.target.value })} />
+                        <Button type="submit" size="sm" disabled={creatingTechnician}>{creatingTechnician ? 'Creando…' : 'Crear y seleccionar'}</Button>
+                      </form>
+                    )}
                   </div>
 
                   <div>
