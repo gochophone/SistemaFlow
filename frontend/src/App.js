@@ -43,7 +43,7 @@ const SubscriptionGate = ({ children }) => {
     return () => { live = false; clearInterval(timer); axios.interceptors.response.eject(interceptor); };
   }, [token, location.pathname, billingPage, navigate]);
   if (billingPage) return children;
-  if (state === 'loading') return <p className="p-8">Verificando acceso…</p>;
+  if (state === 'loading') return null;
   if (state === 'error') return <div className="p-8">No se pudo verificar el acceso. <button onClick={() => window.location.reload()}>Reintentar</button></div>;
   if (state === 'expired') return <Navigate to="/billing" replace />;
   return children;
