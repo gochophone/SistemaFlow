@@ -56,7 +56,7 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
             logo = None
 
     if logo:
-        header = Table([[logo, name, metadata]], colWidths=[32 * mm, 92 * mm, 62 * mm], hAlign="CENTER")
+        header = Table([[logo, name, metadata]], colWidths=[47 * mm, 92 * mm, 47 * mm], hAlign="CENTER")
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -98,6 +98,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         details([("N° de orden", repair_data.get("ticket_number", ""))], styles),
         Paragraph("Cliente", styles["section"]),
         details([("Nombre", customer_data.get("name") or repair_data.get("customer_name")), ("Teléfono", customer_data.get("phone")), ("RUT", customer_data.get("rut")), ("Correo", customer_data.get("email"))], styles),
+        Spacer(1, 4 * mm),
         Paragraph("Equipo y servicio", styles["section"]),
         details([("Equipo", equipment), ("IMEI / serie", repair_data.get("device_imei") or repair_data.get("device_serial")), ("Problema", compact(repair_data.get("reported_issue"), limit=150)), ("Diagnóstico", compact(repair_data.get("diagnosis"), limit=150)), ("Notas", compact(repair_data.get("notes"), limit=150))], styles),
     ]
