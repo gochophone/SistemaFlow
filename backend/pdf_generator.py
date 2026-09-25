@@ -3,7 +3,7 @@ from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from PIL import Image as PILImage, ImageOps
 from datetime import datetime
 from io import BytesIO
@@ -82,10 +82,10 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
             logo = None
 
     if logo:
-        header = Table([[logo, metadata]], colWidths=[38 * mm, 72 * mm], hAlign="CENTER")
+        header = Table([[logo, metadata]], colWidths=[34 * mm, 152 * mm], hAlign="LEFT")
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("LEFTPADDING", (0, 0), (-1, -1), 1 * mm),
             ("RIGHTPADDING", (0, 0), (-1, -1), 1 * mm),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -108,7 +108,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
     base = getSampleStyleSheet()
     styles = {
-        "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#3F3F46")),
+        "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_LEFT, textColor=colors.HexColor("#3F3F46")),
         "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
         "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=3.5 * mm, spaceAfter=1.8 * mm),
         "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
