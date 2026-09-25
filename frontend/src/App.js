@@ -50,7 +50,7 @@ const SubscriptionGate = ({ children }) => {
 };
 
 const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, token, authError, restoreSession } = useAuth();
   
   if (loading) {
     return (
@@ -58,6 +58,17 @@ const ProtectedRoute = ({ children }) => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-sm text-zinc-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError && token) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-6 dark:bg-zinc-950">
+        <div className="max-w-md rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-zinc-700 dark:text-zinc-200">{authError}</p>
+          <Button type="button" onClick={restoreSession} className="mt-4">Reintentar conexión</Button>
         </div>
       </div>
     );
