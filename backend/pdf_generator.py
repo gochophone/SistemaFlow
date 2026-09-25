@@ -109,7 +109,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     signatures = Table([
         [signature_line(), signature_line()],
         ["Firma del cliente", "Firma del técnico"],
-        ["RUT: _______________________", "Técnico: " + technician],
+        ["", "Técnico: " + technician],
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -120,7 +120,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
     footer = "Documento generado por {} el {}".format(company_name, datetime.now().strftime("%d/%m/%Y a las %H:%M"))
-    content += [Spacer(1, 5 * mm), signatures, Spacer(1, 2 * mm), Paragraph(footer, styles["footer"])]
+    content += [Spacer(1, 10 * mm), signatures, Spacer(1, 2 * mm), Paragraph(footer, styles["footer"])]
     doc.build(content)
     buffer.seek(0)
     return buffer
