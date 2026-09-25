@@ -39,8 +39,8 @@ def details(rows, styles, green=False):
 
 
 def company_header(company_name, company_logo_url, company_rut, company_address, delivery_date, styles):
-    name = Paragraph(company_name, styles["company"])
     meta_lines = [
+        compact(company_name, "Mi negocio", 90),
         "RUT: " + compact(company_rut, "No configurado", 25),
         "Dirección: " + compact(company_address, "No configurada", 90),
         "Fecha: " + date(delivery_date or datetime.now()),
@@ -56,7 +56,7 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
             logo = None
 
     if logo:
-        header = Table([[logo, name, metadata]], colWidths=[47 * mm, 92 * mm, 47 * mm], hAlign="CENTER")
+        header = Table([[logo, metadata]], colWidths=[38 * mm, 72 * mm], hAlign="CENTER")
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -66,7 +66,7 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
             ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm),
         ]))
         return header
-    return Table([[name, metadata]], colWidths=[110 * mm, 76 * mm], hAlign="CENTER", style=TableStyle([
+    return Table([[metadata]], colWidths=[80 * mm], hAlign="CENTER", style=TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("LEFTPADDING", (0, 0), (-1, -1), 1 * mm),
@@ -82,7 +82,6 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
     base = getSampleStyleSheet()
     styles = {
-        "company": ParagraphStyle("company", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=23, leading=25, alignment=TA_CENTER, spaceAfter=1 * mm),
         "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#3F3F46")),
         "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
         "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=2.6 * mm, spaceAfter=1.1 * mm),
