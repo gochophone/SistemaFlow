@@ -204,11 +204,6 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
         </div>
       )}
 
-      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-xs text-blue-900">
-          <strong>Tip:</strong> Las fotos se suben a Cloudinary (CDN global) para carga rápida y almacenamiento seguro. Máximo 10MB por foto.
-        </p>
-      </div>
     </div>
   );
 };
