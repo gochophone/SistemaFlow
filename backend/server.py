@@ -390,7 +390,7 @@ async def with_company_name(user):
     return {
         **user,
         'company_name': (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio',
-        'company_trade_name': (owner or {}).get('company_trade_name') or user.get('company_trade_name') or '',
+        'company_trade_name': (owner or {}).get('company_trade_name') or user.get('company_trade_name') or (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio',
         'company_rut': (owner or {}).get('company_rut') or user.get('company_rut') or '',
         'company_address': (owner or {}).get('company_address') or user.get('company_address') or '',
         'company_logo_url': (owner or {}).get('company_logo_url') or user.get('company_logo_url'),
@@ -853,7 +853,7 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
         pdf_buffer = generate_delivery_pdf(
             repair,
             customer,
-            current_user.get("company_name", "Mi negocio"),
+            current_user.get("company_trade_name") or current_user.get("company_name", "Mi negocio"),
             current_user.get("company_logo_url"),
             current_user.get("company_rut", ""),
             current_user.get("company_address", ""),
