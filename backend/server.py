@@ -514,6 +514,15 @@ async def get_team(current_user: dict = Depends(require_admin)):
     users = await control_db.users.find({"tenant_id": current_user["tenant_id"]}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return [public_user(user) for user in users]
 
+@api_router.get("/team/technicians")
+async def get_active_technicians(current_user: dict = Depends(get_current_user)):
+    """Return the active technicians that can be assigned to an order."""
+    users = await control_db.users.find(
+        {"tenant_id": current_user["tenant_id"], "role": "technician", "active": True},
+        {"_id": 0, "id": 1, "name": 1},
+    ).sort("name", 1).to_list(1000)
+    return users
+
 @api_router.post("/team", response_model=User, status_code=201)
 async def create_team_user(data: TeamUserCreate, current_user: dict = Depends(require_admin)):
     await tenant_database(current_user["tenant_id"])
@@ -765,6 +774,19 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     current_repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not current_repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    if "assigned_technician" in update_data:
+        assigned_technician = (update_data.get("assigned_technician") or "").strip()
+        if assigned_technician and assigned_technician != (current_repair.get("assigned_technician") or "").strip():
+            technician = await control_db.users.find_one({
+                "tenant_id": tenant_id,
+                "role": "technician",
+                "active": True,
+                "name": assigned_technician,
+            }, {"_id": 1})
+            if not technician:
+                raise HTTPException(status_code=400, detail="Selecciona un técnico activo del Equipo de trabajo")
+        update_data["assigned_technician"] = assigned_technician or None
     
     old_status = current_repair.get('status')
     new_status = update_data.get('status', old_status)
