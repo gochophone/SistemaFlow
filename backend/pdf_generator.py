@@ -34,7 +34,7 @@ def details(rows, styles, green=False):
     table = Table(data, colWidths=[35 * mm, 151 * mm], hAlign="LEFT")
     background = "#DCFCE7" if green else "#F4F4F5"
     border = "#86EFAC" if green else "#D4D4D8"
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor(background)), ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor(border)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 2.2 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 2.2 * mm), ("TOPPADDING", (0, 0), (-1, -1), 1.25 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.25 * mm)]))
+    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor(background)), ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor(border)), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 2.5 * mm), ("RIGHTPADDING", (0, 0), (-1, -1), 2.5 * mm), ("TOPPADDING", (0, 0), (-1, -1), 2 * mm), ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm)]))
     return table
 
 
@@ -84,7 +84,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     styles = {
         "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#3F3F46")),
         "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
-        "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=2.6 * mm, spaceAfter=1.1 * mm),
+        "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=3.5 * mm, spaceAfter=1.8 * mm),
         "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
         "value": ParagraphStyle("value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=9),
     }
@@ -96,7 +96,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         details([("N° de orden", repair_data.get("ticket_number", ""))], styles),
         Paragraph("Cliente", styles["section"]),
         details([("Nombre", customer_data.get("name") or repair_data.get("customer_name")), ("Teléfono", customer_data.get("phone")), ("RUT", customer_data.get("rut")), ("Correo", customer_data.get("email"))], styles),
-        Spacer(1, 4 * mm),
+        Spacer(1, 5 * mm),
         Paragraph("Equipo y servicio", styles["section"]),
         details([("Equipo", equipment), ("IMEI / serie", repair_data.get("device_imei") or repair_data.get("device_serial")), ("Problema", compact(repair_data.get("reported_issue"), limit=150)), ("Diagnóstico", compact(repair_data.get("diagnosis"), limit=150)), ("Notas", compact(repair_data.get("notes"), limit=150))], styles),
     ]
@@ -117,7 +117,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
-    content += [Spacer(1, 10 * mm), signatures]
+    content += [Spacer(1, 12 * mm), signatures]
     doc.build(content)
     buffer.seek(0)
     return buffer
