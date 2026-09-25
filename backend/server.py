@@ -166,6 +166,7 @@ class User(BaseModel):
     name: str
     role: str
     company_name: str = ""
+    company_trade_name: str = ""
     company_rut: str = ""
     company_address: str = ""
     company_logo_url: Optional[str] = None
@@ -177,8 +178,10 @@ class User(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=72)
-    name: str = Field(min_length=1)
-    company_name: str  # Name of the business/company
+    name: str = Field(min_length=1, max_length=100)
+    company_name: str = Field(min_length=1, max_length=150)
+    company_rut: str = Field(min_length=7, max_length=20, pattern=r"^[0-9Kk.\-]+$")
+    company_trade_name: str = Field(min_length=1, max_length=100)
 
 class TeamUserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -381,10 +384,11 @@ async def initialize_identity_indexes():
 async def with_company_name(user):
     owner = await control_db.users.find_one(
         {'tenant_id': user['tenant_id'], 'is_owner': True},
-        {'company_name': 1, 'company_rut': 1, 'company_address': 1, 'company_logo_url': 1, '_id': 0})
+        {'company_name': 1, 'company_trade_name': 1, 'company_rut': 1, 'company_address': 1, 'company_logo_url': 1, '_id': 0})
     return {
         **user,
         'company_name': (owner or {}).get('company_name') or user.get('company_name') or 'Mi negocio',
+        'company_trade_name': (owner or {}).get('company_trade_name') or user.get('company_trade_name') or '',
         'company_rut': (owner or {}).get('company_rut') or user.get('company_rut') or '',
         'company_address': (owner or {}).get('company_address') or user.get('company_address') or '',
         'company_logo_url': (owner or {}).get('company_logo_url') or user.get('company_logo_url'),
@@ -466,11 +470,22 @@ async def verify_registration(data: CodeCheck):
     tenant_id = "tenant_" + uuid.uuid4().hex
     user = User(email=email, name=user_data.name, role="admin", tenant_id=tenant_id, is_owner=True)
     doc = user.model_dump(mode="json")
-    doc.update(password_hash=payload['password_hash'], company_name=user_data.company_name, email_verified=True)
+    doc.update(
+        password_hash=payload['password_hash'],
+        company_name=user_data.company_name.strip(),
+        company_rut=user_data.company_rut.strip(),
+        company_trade_name=user_data.company_trade_name.strip(),
+        email_verified=True,
+    )
     # Provision before making the identity visible. Failed duplicate registration
     # may leave an empty, unreachable tenant, but never grants access to another one.
     await client[database_name(tenant_id)].settings.update_one(
-        {"_id": "account"}, {"$setOnInsert": {"owner_id": user.id, "company_name": user_data.company_name}}, upsert=True)
+        {"_id": "account"}, {"$setOnInsert": {
+            "owner_id": user.id,
+            "company_name": user_data.company_name.strip(),
+            "company_rut": user_data.company_rut.strip(),
+            "company_trade_name": user_data.company_trade_name.strip(),
+        }}, upsert=True)
     await control_db.tenants.insert_one({"_id": tenant_id, "owner_id": user.id, "ready": True})
     try:
         await control_db.users.insert_one(doc)
