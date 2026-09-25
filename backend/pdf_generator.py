@@ -51,12 +51,12 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
         try:
             request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
             with urlopen(request, timeout=4) as response:
-                logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=18 * mm, height=18 * mm, kind="proportional")
+                logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=28 * mm, height=28 * mm, kind="proportional")
         except Exception:
             logo = None
 
     if logo:
-        header = Table([[logo, name], [metadata, ""]], colWidths=[22 * mm, 118 * mm], hAlign="CENTER")
+        header = Table([[logo, name], [metadata, ""]], colWidths=[32 * mm, 118 * mm], hAlign="CENTER")
         header.setStyle(TableStyle([
             ("SPAN", (0, 1), (1, 1)),
             ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
