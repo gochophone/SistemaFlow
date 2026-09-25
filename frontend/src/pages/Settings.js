@@ -24,6 +24,8 @@ const Settings = () => {
   const [logoBusy, setLogoBusy] = useState(false);
   const [rutBusy, setRutBusy] = useState(false);
   const [logoMessage, setLogoMessage] = useState('');
+  const [companyName, setCompanyName] = useState(user?.company_name || '');
+  const [companyTradeName, setCompanyTradeName] = useState(user?.company_trade_name || '');
   const [companyRut, setCompanyRut] = useState(user?.company_rut || '');
   const [companyAddress, setCompanyAddress] = useState(user?.company_address || '');
   const logoInput = useRef(null);
@@ -35,9 +37,11 @@ const Settings = () => {
   }, [theme]);
 
   useEffect(() => {
+    setCompanyName(user?.company_name || '');
+    setCompanyTradeName(user?.company_trade_name || '');
     setCompanyRut(user?.company_rut || '');
     setCompanyAddress(user?.company_address || '');
-  }, [user?.company_rut, user?.company_address]);
+  }, [user?.company_name, user?.company_trade_name, user?.company_rut, user?.company_address]);
 
   const saveCompanyLogo = async (event) => {
     const file = event.target.files?.[0];
@@ -93,11 +97,11 @@ const Settings = () => {
     setRutBusy(true);
     setLogoMessage('');
     try {
-      await axios.patch(`${API}/api/settings/company`, { company_rut: companyRut.trim(), company_address: companyAddress.trim() }, {
+      await axios.patch(`${API}/api/settings/company`, { company_name: companyName.trim(), company_trade_name: companyTradeName.trim(), company_rut: companyRut.trim(), company_address: companyAddress.trim() }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       await refreshUser();
-      setLogoMessage('RUT y dirección guardados. Se mostrarán en los PDF de entrega.');
+      setLogoMessage('Datos de la empresa guardados para todo el equipo.');
     } catch (error) {
       setLogoMessage(error.response?.data?.detail || 'No se pudieron guardar los datos de la empresa.');
     } finally {
@@ -184,16 +188,27 @@ const Settings = () => {
             <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={saveCompanyLogo} />
             <p className="text-sm text-zinc-600 dark:text-zinc-400">PNG, JPG o WebP, máximo 3 MB. Se recomienda una imagen cuadrada con fondo transparente.</p>
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
-              <label htmlFor="company-rut" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">RUT de la empresa</label>
+              <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Datos de la empresa</h3>
               <div className="mt-2 grid gap-3">
-                <Input id="company-rut" value={companyRut} onChange={(event) => setCompanyRut(event.target.value)} placeholder="Ejemplo: 77.322.829-9" className="dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                <div>
+                  <label htmlFor="company-name" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nombre de empresa</label>
+                  <Input id="company-name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} maxLength={150} placeholder="Servicios Electrónicos GP SpA" className="mt-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                </div>
+                <div>
+                  <label htmlFor="company-trade-name" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nombre de fantasía</label>
+                  <Input id="company-trade-name" value={companyTradeName} onChange={(event) => setCompanyTradeName(event.target.value)} maxLength={100} placeholder="Mi Servicio Técnico" className="mt-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                </div>
+                <div>
+                  <label htmlFor="company-rut" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">RUT de la empresa</label>
+                  <Input id="company-rut" value={companyRut} onChange={(event) => setCompanyRut(event.target.value)} placeholder="Ejemplo: 77.322.829-9" className="mt-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
+                </div>
                 <div>
                   <label htmlFor="company-address" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Dirección de la empresa</label>
                   <Input id="company-address" value={companyAddress} onChange={(event) => setCompanyAddress(event.target.value)} placeholder="Ejemplo: Av. Principal 123, Santiago" className="mt-2 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100" />
                 </div>
-                <Button type="button" onClick={saveCompanyDetails} disabled={rutBusy || !companyRut.trim()} className="sm:w-fit">{rutBusy ? 'Guardando…' : 'Guardar datos de empresa'}</Button>
+                <Button type="button" onClick={saveCompanyDetails} disabled={rutBusy || !companyName.trim() || !companyTradeName.trim() || !companyRut.trim()} className="sm:w-fit">{rutBusy ? 'Guardando…' : 'Guardar datos de empresa'}</Button>
               </div>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">El nombre, RUT y dirección aparecerán debajo de la firma del técnico.</p>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">El nombre de empresa, RUT y dirección se usarán en los documentos. El nombre de fantasía queda guardado en el perfil del negocio.</p>
             </div>
             {logoMessage && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{logoMessage}</p>}
           </CardContent>
