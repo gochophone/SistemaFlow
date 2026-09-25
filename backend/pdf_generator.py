@@ -38,24 +38,45 @@ def details(rows, styles, green=False):
     return table
 
 
-def company_header(company_name, company_logo_url, styles):
+def company_header(company_name, company_logo_url, company_rut, company_address, delivery_date, styles):
     name = Paragraph(company_name, styles["company"])
-    if not company_logo_url:
-        return name
-    try:
-        request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
-        with urlopen(request, timeout=4) as response:
-            logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=16 * mm, height=16 * mm, kind="proportional")
-        header = Table([[logo, name]], colWidths=[20 * mm, 120 * mm], hAlign="CENTER")
+    meta_lines = [
+        "RUT: " + compact(company_rut, "No configurado", 25),
+        "Dirección: " + compact(company_address, "No configurada", 90),
+        "Fecha: " + date(delivery_date or datetime.now()),
+    ]
+    metadata = Paragraph("<br/>".join(meta_lines), styles["company_meta"])
+    logo = None
+    if company_logo_url:
+        try:
+            request = Request(company_logo_url, headers={"User-Agent": "iFixFlow/1.0"})
+            with urlopen(request, timeout=4) as response:
+                logo = Image(BytesIO(response.read(3 * 1024 * 1024)), width=18 * mm, height=18 * mm, kind="proportional")
+        except Exception:
+            logo = None
+
+    if logo:
+        header = Table([[logo, name], [metadata, ""]], colWidths=[22 * mm, 118 * mm], hAlign="CENTER")
         header.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (0, 0), 0), ("RIGHTPADDING", (0, 0), (0, 0), 2 * mm),
-            ("LEFTPADDING", (1, 0), (1, 0), 2 * mm), ("RIGHTPADDING", (1, 0), (1, 0), 0),
-            ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
+            ("SPAN", (0, 1), (1, 1)),
+            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, 0), "CENTER"),
+            ("ALIGN", (0, 1), (1, 1), "CENTER"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 1 * mm),
+            ("BOTTOMPADDING", (0, 1), (1, 1), 2 * mm),
         ]))
         return header
-    except Exception:
-        return name
+    return Table([[name], [metadata]], colWidths=[140 * mm], hAlign="CENTER", style=TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 1 * mm),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 2 * mm),
+    ]))
 
 
 def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None, company_rut="", company_address=""):
@@ -65,6 +86,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     base = getSampleStyleSheet()
     styles = {
         "company": ParagraphStyle("company", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=23, leading=25, alignment=TA_CENTER, spaceAfter=1 * mm),
+        "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_CENTER, textColor=colors.HexColor("#3F3F46")),
         "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
         "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=2.6 * mm, spaceAfter=1.1 * mm),
         "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
@@ -74,9 +96,9 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     company_name = compact(company_name, "Mi negocio", 90)
     equipment = "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))
     content = [
-        company_header(company_name, company_logo_url, styles),
+        company_header(company_name, company_logo_url, company_rut, company_address, repair_data.get("delivered_date"), styles),
         Paragraph("ORDEN DE ENTREGA", styles["document"]),
-        details([("N° de orden", repair_data.get("ticket_number", "")), ("Fecha de entrega", date(repair_data.get("delivered_date") or datetime.now()))], styles),
+        details([("N° de orden", repair_data.get("ticket_number", ""))], styles),
         Paragraph("Cliente", styles["section"]),
         details([("Nombre", customer_data.get("name") or repair_data.get("customer_name")), ("Teléfono", customer_data.get("phone")), ("RUT", customer_data.get("rut")), ("Correo", customer_data.get("email"))], styles),
         Paragraph("Equipo y servicio", styles["section"]),
@@ -85,24 +107,17 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     if repair_data.get("budget_estimate"):
         content += [Paragraph("Cobro", styles["section"]), details([("Total del servicio", money(repair_data["budget_estimate"]))], styles, green=True)]
     technician = compact(repair_data.get("assigned_technician"), "_______________________", 45)
-    company_rut_text = "RUT empresa: " + compact(company_rut, "No configurado", 25)
-    company_address_text = "Dirección: " + compact(company_address, "No configurada", 70)
     signature_line = lambda: HRFlowable(width=50 * mm, thickness=0.6, color=colors.HexColor("#18181B"), spaceBefore=0, spaceAfter=0, hAlign="CENTER")
     signatures = Table([
         [signature_line(), signature_line()],
         ["Firma del cliente", "Firma del técnico"],
         ["RUT: _______________________", "Técnico: " + technician],
-        ["", company_name],
-        ["", company_rut_text],
-        ["", company_address_text],
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, 0), "BOTTOM"),
         ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-        ("FONTNAME", (1, 3), (1, 3), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("FONTSIZE", (1, 4), (1, 5), 7.5),
         ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
