@@ -198,6 +198,8 @@ class TeamUserUpdate(BaseModel):
 class CompanyBrandUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     company_logo_url: Optional[str] = Field(default=None, max_length=1000)
+    company_name: Optional[str] = Field(default=None, max_length=150)
+    company_trade_name: Optional[str] = Field(default=None, max_length=100)
     company_rut: Optional[str] = Field(default=None, max_length=20)
     company_address: Optional[str] = Field(default=None, max_length=200)
 
@@ -1084,6 +1086,16 @@ async def update_company_brand(payload: CompanyBrandUpdate, current_user: dict =
             if parsed.scheme != 'https' or parsed.hostname != 'res.cloudinary.com' or expected_path not in parsed.path or tenant_folder not in parsed.path:
                 raise HTTPException(status_code=400, detail="El logo debe cargarse desde Configuración")
         updates['company_logo_url'] = logo_url
+    if 'company_name' in payload.model_fields_set:
+        company_name = (payload.company_name or '').strip()
+        if not company_name:
+            raise HTTPException(status_code=400, detail="El nombre de empresa es obligatorio")
+        updates['company_name'] = company_name
+    if 'company_trade_name' in payload.model_fields_set:
+        company_trade_name = (payload.company_trade_name or '').strip()
+        if not company_trade_name:
+            raise HTTPException(status_code=400, detail="El nombre de fantasía es obligatorio")
+        updates['company_trade_name'] = company_trade_name
     if 'company_rut' in payload.model_fields_set:
         company_rut = (payload.company_rut or '').strip()
         if company_rut and not re.fullmatch(r'[0-9Kk.\-]{7,20}', company_rut):
