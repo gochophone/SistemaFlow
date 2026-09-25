@@ -3,7 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -34,6 +40,7 @@ const Repairs = () => {
   const [filteredRepairs, setFilteredRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [savingStatusId, setSavingStatusId] = useState(null);
 
   useEffect(() => {
     fetchRepairs();
@@ -89,6 +96,27 @@ const Repairs = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const handleStatusChange = async (repair, status) => {
+    if (status === repair.status || savingStatusId === repair.id) return;
+
+    const previousStatus = repair.status;
+    setSavingStatusId(repair.id);
+    setRepairs((current) => current.map((item) => item.id === repair.id ? { ...item, status } : item));
+
+    try {
+      const { data } = await axios.patch(`${API}/api/repairs/${repair.id}`, { status }, {
+        headers: getAuthHeader()
+      });
+      setRepairs((current) => current.map((item) => item.id === repair.id ? data : item));
+      toast.success(`Estado cambiado a ${STATUS_CONFIG[status]?.label || status}`);
+    } catch (error) {
+      setRepairs((current) => current.map((item) => item.id === repair.id ? { ...item, status: previousStatus } : item));
+      toast.error(error.response?.data?.detail || 'No se pudo cambiar el estado');
+    } finally {
+      setSavingStatusId(null);
+    }
   };
 
   if (loading) {
@@ -177,12 +205,26 @@ const Repairs = () => {
                   <TableCell>{repair.device_brand} {repair.device_model}</TableCell>
                   <TableCell className="font-mono text-xs">{repair.device_imei}</TableCell>
                   <TableCell>
-                    <Badge 
-                      className={`${STATUS_CONFIG[repair.status]?.color} border font-medium`}
-                      data-testid={`status-badge-${repair.status}`}
+                    <Select
+                      value={repair.status}
+                      onValueChange={(status) => handleStatusChange(repair, status)}
+                      disabled={savingStatusId === repair.id}
                     >
-                      {STATUS_CONFIG[repair.status]?.label || repair.status}
-                    </Badge>
+                      <SelectTrigger
+                        className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[repair.status]?.color}`}
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        data-testid={`quick-status-${repair.ticket_number}`}
+                        aria-label={`Cambiar estado de ${repair.ticket_number}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(STATUS_CONFIG).map(([value, config]) => (
+                          <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-sm text-zinc-600 dark:text-zinc-300">{formatDate(repair.received_date)}</TableCell>
                   <TableCell className="text-right">
