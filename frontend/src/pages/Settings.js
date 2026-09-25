@@ -47,8 +47,8 @@ const Settings = () => {
     const file = event.target.files?.[0];
     if (!file) return;
     setLogoMessage('');
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 3 * 1024 * 1024) {
-      setLogoMessage('Usa una imagen PNG, JPG o WebP de hasta 3 MB. Para un mejor resultado, utiliza fondo transparente.');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setLogoMessage('Usa una imagen PNG, JPG o WebP de hasta 10 MB. Para un mejor resultado, utiliza fondo transparente.');
       event.target.value = '';
       return;
     }
@@ -186,7 +186,7 @@ const Settings = () => {
               </div>
             </div>
             <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={saveCompanyLogo} />
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">PNG, JPG o WebP, máximo 3 MB. Se recomienda una imagen cuadrada con fondo transparente.</p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">PNG, JPG o WebP, máximo 10 MB. Se recomienda una imagen cuadrada con fondo transparente.</p>
             <div className="border-t border-zinc-200 pt-4 dark:border-zinc-700">
               <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Datos de la empresa</h3>
               <div className="mt-2 grid gap-3">
@@ -208,7 +208,7 @@ const Settings = () => {
                 </div>
                 <Button type="button" onClick={saveCompanyDetails} disabled={rutBusy || !companyName.trim() || !companyTradeName.trim() || !companyRut.trim()} className="sm:w-fit">{rutBusy ? 'Guardando…' : 'Guardar datos de empresa'}</Button>
               </div>
-              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">El nombre de empresa, RUT y dirección se usarán en los documentos. El nombre de fantasía queda guardado en el perfil del negocio.</p>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">El nombre de fantasía se mostrará en el sistema, las etiquetas y los PDF. El nombre legal de empresa, RUT y dirección permanecen guardados en el perfil del negocio.</p>
             </div>
             {logoMessage && <p role="status" className="rounded-md bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-500/10 dark:text-blue-100">{logoMessage}</p>}
           </CardContent>
