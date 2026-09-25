@@ -61,7 +61,7 @@ def migrate(client, directory_name, apply=False):
             if target[name].count_documents({"tenant_id": tenant_id}) != counts[name]:
                 raise RuntimeError(f"Conteo diferente: {name}")
         target.counters.update_one({"_id": "repair_number"}, {"$max": {"value": max_ticket}}, upsert=True)
-        target.settings.update_one({"_id": "account"}, {"$set": {"owner_id": owner["id"], "company_name": owner.get("company_name", "")}}, upsert=True)
+        target.settings.update_one({"_id": "account"}, {"$set": {"owner_id": owner["id"], "company_name": owner.get("company_name", ""), "company_trade_name": owner.get("company_trade_name", "")}}, upsert=True)
         for member in members:
             control.users.update_one({"_id": member["_id"]}, {"$set": {
                 "email": member["email"].strip().lower(), "is_owner": member["id"] == owner["id"], "active": member.get("active", True)}})
