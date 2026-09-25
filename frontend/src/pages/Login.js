@@ -22,7 +22,9 @@ const Login = ({ initialTab = 'login' }) => {
     email: '', 
     password: '', 
     name: '', 
-    company_name: ''
+    company_name: '',
+    company_rut: '',
+    company_trade_name: ''
   });
 
   const handleLogin = async (e) => {
@@ -53,7 +55,7 @@ const Login = ({ initialTab = 'login' }) => {
       } else if (typeof detail === 'string') {
         toast.error(detail);
       } else if (Array.isArray(detail)) {
-        const labels = { email: 'Email', password: 'Contraseña', name: 'Nombre', company_name: 'Nombre del negocio' };
+        const labels = { email: 'Email', password: 'Contraseña', name: 'Nombre', company_name: 'Nombre de empresa', company_rut: 'RUT de empresa', company_trade_name: 'Nombre de fantasía' };
         const messages = detail.map(item => {
           const field = item.loc?.[item.loc.length - 1];
           if (field === 'email') return 'Introduce un email válido';
@@ -100,7 +102,7 @@ const Login = ({ initialTab = 'login' }) => {
             <p className="text-sm text-zinc-600">Sistema de Gestión</p>
           </div>
 
-          {(challenge || recovering) ? <EmailCodeForm registration={challenge} onBack={() => { setChallenge(null); setRecovering(false); }} onDone={email => { setChallenge(null); setRecovering(false); setRegisterData({email: '', password: '', name: '', company_name: ''}); setLoginData({ email, password: '' }); setTab('login'); }} /> : <Tabs value={tab} onValueChange={setTab} className="w-full">
+          {(challenge || recovering) ? <EmailCodeForm registration={challenge} onBack={() => { setChallenge(null); setRecovering(false); }} onDone={email => { setChallenge(null); setRecovering(false); setRegisterData({email: '', password: '', name: '', company_name: '', company_rut: '', company_trade_name: ''}); setLoginData({ email, password: '' }); setTab('login'); }} /> : <Tabs value={tab} onValueChange={setTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
               <TabsTrigger value="login" data-testid="login-tab">Iniciar Sesión</TabsTrigger>
               <TabsTrigger value="register" data-testid="register-tab">Registrarse</TabsTrigger>
@@ -220,8 +222,18 @@ const Login = ({ initialTab = 'login' }) => {
                 </div>
 
                 <div>
-                  <Label htmlFor="register-company">Nombre del negocio</Label>
-                  <Input id="register-company" required value={registerData.company_name} onChange={e => setRegisterData({ ...registerData, company_name: e.target.value })} />
+                  <Label htmlFor="register-company">Nombre de empresa</Label>
+                  <Input id="register-company" required maxLength={150} placeholder="Servicios Electrónicos GP SpA" value={registerData.company_name} onChange={e => setRegisterData({ ...registerData, company_name: e.target.value })} />
+                </div>
+
+                <div>
+                  <Label htmlFor="register-company-rut">RUT de empresa</Label>
+                  <Input id="register-company-rut" required minLength={7} maxLength={20} placeholder="77.322.829-9" value={registerData.company_rut} onChange={e => setRegisterData({ ...registerData, company_rut: e.target.value })} />
+                </div>
+
+                <div>
+                  <Label htmlFor="register-trade-name">Nombre de fantasía</Label>
+                  <Input id="register-trade-name" required maxLength={100} placeholder="Mi Servicio Técnico" value={registerData.company_trade_name} onChange={e => setRegisterData({ ...registerData, company_trade_name: e.target.value })} />
                   <p className="text-xs text-zinc-500 mt-2">Crearás la cuenta principal. Después podrás añadir administradores y técnicos en Equipo de trabajo.</p>
                 </div>
 
