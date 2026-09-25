@@ -101,7 +101,7 @@ def router(db, authenticate):
         items = []
         async for owner in db.users.find({'is_owner': True}, {'password_hash': 0}):
             doc = await subscription(db, owner['tenant_id'])
-            items.append({'tenant_id': owner['tenant_id'], 'company': owner.get('company_name', owner['name']),
+            items.append({'tenant_id': owner['tenant_id'], 'company': owner.get('company_trade_name') or owner.get('company_name', owner['name']),
                           'email': owner['email'], 'owner_name': owner['name'],
                           'registered_at': owner.get('created_at'),
                           'trial_started_at': doc['trial_started_at'],
