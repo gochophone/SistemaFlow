@@ -39,7 +39,6 @@ const Inventory = () => {
   const [selectedItemPhotos, setSelectedItemPhotos] = useState({ name: '', photos: [] });
   const [formData, setFormData] = useState({
     name: '',
-    code: '',
     quantity: '',
     price: '',
     location: '',
@@ -68,7 +67,7 @@ const Inventory = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', code: '', quantity: '', price: '', location: '', condition: '10', photos: [], available: true });
+    setFormData({ name: '', quantity: '', price: '', location: '', condition: '10', photos: [], available: true });
     setEditingItem(null);
   };
 
@@ -77,7 +76,6 @@ const Inventory = () => {
       setEditingItem(item);
       setFormData({
         name: item.name,
-        code: item.code,
         quantity: item.quantity.toString(),
         price: new Intl.NumberFormat('es-CL').format(item.price),
         location: item.location || '',
@@ -209,19 +207,6 @@ const Inventory = () => {
                   className="mt-1 border-zinc-200"
                   required
                   data-testid="item-name-input"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="code" className="text-sm font-medium text-zinc-900">Código *</Label>
-                <Input
-                  id="code"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="LCD-001"
-                  className="mt-1 border-zinc-200"
-                  required
-                  data-testid="item-code-input"
                 />
               </div>
 
