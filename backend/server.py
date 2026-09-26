@@ -313,7 +313,7 @@ class InventoryItem(BaseModel):
 
 class InventoryCreate(BaseModel):
     name: str
-    code: str
+    code: str = Field(default_factory=lambda: f"INV-{uuid.uuid4().hex[:8].upper()}")
     quantity: int
     price: float
     location: Optional[str] = None
