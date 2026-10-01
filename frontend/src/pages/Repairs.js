@@ -27,8 +27,17 @@ const STATUS_CONFIG = {
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
+  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
+};
+
+const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
+
+const confirmTerminalStatus = (status) => {
+  if (!TERMINAL_STATUSES.has(status)) return true;
+  const label = STATUS_CONFIG[status].label;
+  return window.confirm(`¿Confirmas cambiar la orden a ${label}? Después de aceptar no podrás modificar nuevamente su estado.`);
 };
 
 const Repairs = () => {
@@ -100,6 +109,11 @@ const Repairs = () => {
 
   const handleStatusChange = async (repair, status) => {
     if (status === repair.status || savingStatusId === repair.id) return;
+    if (TERMINAL_STATUSES.has(repair.status)) {
+      toast.error(`El estado ${STATUS_CONFIG[repair.status].label} es definitivo y está bloqueado.`);
+      return;
+    }
+    if (!confirmTerminalStatus(status)) return;
 
     const previousStatus = repair.status;
     setSavingStatusId(repair.id);
@@ -208,7 +222,7 @@ const Repairs = () => {
                     <Select
                       value={repair.status}
                       onValueChange={(status) => handleStatusChange(repair, status)}
-                      disabled={savingStatusId === repair.id}
+                      disabled={savingStatusId === repair.id || TERMINAL_STATUSES.has(repair.status)}
                     >
                       <SelectTrigger
                         className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[repair.status]?.color}`}
@@ -216,6 +230,7 @@ const Repairs = () => {
                         onPointerDown={(event) => event.stopPropagation()}
                         data-testid={`quick-status-${repair.ticket_number}`}
                         aria-label={`Cambiar estado de ${repair.ticket_number}`}
+                        title={TERMINAL_STATUSES.has(repair.status) ? 'Estado final: no se puede modificar' : 'Cambiar estado'}
                       >
                         <SelectValue />
                       </SelectTrigger>
