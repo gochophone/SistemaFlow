@@ -109,6 +109,17 @@ const Repairs = () => {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('es-CL', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const handleStatusChange = async (repair, status) => {
     if (status === repair.status || savingStatusId === repair.id) return;
     if (TERMINAL_STATUSES.has(repair.status)) {
@@ -218,7 +229,7 @@ const Repairs = () => {
               <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Equipo</TableHead>
               <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">IMEI</TableHead>
               <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Estado</TableHead>
-              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Fecha</TableHead>
+              <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100">Fechas</TableHead>
               <TableHead className="font-semibold text-zinc-900 dark:text-zinc-100 text-right">Acción</TableHead>
             </TableRow>
           </TableHeader>
@@ -284,7 +295,16 @@ const Repairs = () => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-zinc-600 dark:text-zinc-300">{formatDate(repair.received_date)}</TableCell>
+                  <TableCell className="text-sm text-zinc-600 dark:text-zinc-300">
+                    <div className="space-y-1">
+                      <p><span className="font-medium text-zinc-700 dark:text-zinc-200">Ingreso:</span> {formatDate(repair.received_date)}</p>
+                      {repair.paid_at && (
+                        <p className="text-emerald-700 dark:text-emerald-400">
+                          <span className="font-medium">Pagado:</span> {formatDateTime(repair.paid_at)}
+                        </p>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
                       variant="ghost"
