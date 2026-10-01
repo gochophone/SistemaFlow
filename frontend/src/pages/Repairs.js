@@ -219,27 +219,34 @@ const Repairs = () => {
                   <TableCell>{repair.device_brand} {repair.device_model}</TableCell>
                   <TableCell className="font-mono text-xs">{repair.device_imei}</TableCell>
                   <TableCell>
-                    <Select
-                      value={repair.status}
-                      onValueChange={(status) => handleStatusChange(repair, status)}
-                      disabled={savingStatusId === repair.id || TERMINAL_STATUSES.has(repair.status)}
-                    >
-                      <SelectTrigger
-                        className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[repair.status]?.color}`}
-                        onClick={(event) => event.stopPropagation()}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        data-testid={`quick-status-${repair.ticket_number}`}
-                        aria-label={`Cambiar estado de ${repair.ticket_number}`}
-                        title={TERMINAL_STATUSES.has(repair.status) ? 'Estado final: no se puede modificar' : 'Cambiar estado'}
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={repair.status}
+                        onValueChange={(status) => handleStatusChange(repair, status)}
+                        disabled={savingStatusId === repair.id || TERMINAL_STATUSES.has(repair.status)}
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(STATUS_CONFIG).map(([value, config]) => (
-                          <SelectItem key={value} value={value}>{config.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        <SelectTrigger
+                          className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[repair.status]?.color}`}
+                          onClick={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          data-testid={`quick-status-${repair.ticket_number}`}
+                          aria-label={`Cambiar estado de ${repair.ticket_number}`}
+                          title={TERMINAL_STATUSES.has(repair.status) ? 'Estado final: no se puede modificar' : 'Cambiar estado'}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(STATUS_CONFIG).map(([value, config]) => (
+                            <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {repair.status === 'delivered' && (
+                        <span className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${repair.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                          {repair.paid ? 'Pagado' : 'Pendiente'}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-zinc-600 dark:text-zinc-300">{formatDate(repair.received_date)}</TableCell>
                   <TableCell className="text-right">
