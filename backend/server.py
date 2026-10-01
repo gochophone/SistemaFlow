@@ -267,6 +267,9 @@ class Repair(BaseModel):
     estimated_delivery: Optional[datetime] = None
     completed_date: Optional[datetime] = None
     delivered_date: Optional[datetime] = None
+    paid: bool = False
+    payment_receipt_url: Optional[str] = None
+    paid_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -295,6 +298,8 @@ class RepairUpdate(BaseModel):
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
     estimated_delivery: Optional[datetime] = None
+    paid: Optional[bool] = None
+    payment_receipt_url: Optional[str] = None
 
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -791,6 +796,23 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     old_status = current_repair.get('status')
     new_status = update_data.get('status', old_status)
 
+    if ('paid' in update_data or 'payment_receipt_url' in update_data) and old_status != 'delivered':
+        raise HTTPException(status_code=400, detail="El pago solo se puede registrar en una orden entregada")
+
+    if 'payment_receipt_url' in update_data:
+        receipt_url = (update_data.get('payment_receipt_url') or '').strip()
+        if receipt_url:
+            parsed = urlparse(receipt_url)
+            cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+            expected_path = f"/{cloud_name}/image/upload/"
+            tenant_folder = f"/{tenant_id}/payments/"
+            if parsed.scheme != 'https' or parsed.hostname != 'res.cloudinary.com' or expected_path not in parsed.path or tenant_folder not in parsed.path:
+                raise HTTPException(status_code=400, detail="El comprobante debe cargarse desde la orden")
+        update_data['payment_receipt_url'] = receipt_url or None
+
+    if 'paid' in update_data:
+        update_data['paid_at'] = datetime.now(timezone.utc).isoformat() if update_data['paid'] else None
+
     terminal_statuses = {'delivered': 'Entregado', 'not_repaired': 'Sin reparación'}
     if old_status in terminal_statuses and new_status != old_status:
         raise HTTPException(
@@ -825,6 +847,8 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         updated['completed_date'] = datetime.fromisoformat(updated['completed_date'])
     if updated.get('delivered_date') and isinstance(updated['delivered_date'], str):
         updated['delivered_date'] = datetime.fromisoformat(updated['delivered_date'])
+    if updated.get('paid_at') and isinstance(updated['paid_at'], str):
+        updated['paid_at'] = datetime.fromisoformat(updated['paid_at'])
     
     # Send email notification if status changed to completed
     if old_status != 'completed' and new_status == 'completed':
@@ -1073,7 +1097,7 @@ async def generate_cloudinary_signature(
     current_user: dict = Depends(get_current_user)
 ):
     """Generate signed upload parameters for Cloudinary"""
-    ALLOWED_FOLDERS = ("repairs", "users", "inventory")
+    ALLOWED_FOLDERS = ("repairs", "users", "inventory", "payments")
     if folder not in ALLOWED_FOLDERS:
         raise HTTPException(status_code=400, detail="Invalid folder path")
     
