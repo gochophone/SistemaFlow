@@ -830,6 +830,12 @@ const RepairDetail = () => {
                   <p className="text-sm text-zinc-900">{formatDate(repair.delivered_date)}</p>
                 </div>
               )}
+              {repair.paid_at && (
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fecha de Pago</p>
+                  <p className="text-sm font-medium text-emerald-700">{formatDate(repair.paid_at)}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
