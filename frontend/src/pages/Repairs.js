@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -50,6 +51,7 @@ const Repairs = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingStatusId, setSavingStatusId] = useState(null);
+  const [savingPaymentId, setSavingPaymentId] = useState(null);
 
   useEffect(() => {
     fetchRepairs();
@@ -130,6 +132,27 @@ const Repairs = () => {
       toast.error(error.response?.data?.detail || 'No se pudo cambiar el estado');
     } finally {
       setSavingStatusId(null);
+    }
+  };
+
+  const handlePaymentChange = async (repair, paid) => {
+    if (repair.status !== 'delivered' || savingPaymentId === repair.id) return;
+
+    const previousPaid = Boolean(repair.paid);
+    setSavingPaymentId(repair.id);
+    setRepairs((current) => current.map((item) => item.id === repair.id ? { ...item, paid } : item));
+
+    try {
+      const { data } = await axios.patch(`${API}/api/repairs/${repair.id}`, { paid }, {
+        headers: getAuthHeader()
+      });
+      setRepairs((current) => current.map((item) => item.id === repair.id ? data : item));
+      toast.success(paid ? 'Pago marcado como recibido' : 'Pago marcado como pendiente');
+    } catch (error) {
+      setRepairs((current) => current.map((item) => item.id === repair.id ? { ...item, paid: previousPaid } : item));
+      toast.error(error.response?.data?.detail || 'No se pudo cambiar el estado del pago');
+    } finally {
+      setSavingPaymentId(null);
     }
   };
 
@@ -242,9 +265,22 @@ const Repairs = () => {
                         </SelectContent>
                       </Select>
                       {repair.status === 'delivered' && (
-                        <span className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${repair.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {repair.paid ? 'Pagado' : 'Pendiente'}
-                        </span>
+                        <div
+                          className="flex items-center gap-2"
+                          onClick={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => event.stopPropagation()}
+                        >
+                          <Switch
+                            checked={Boolean(repair.paid)}
+                            onCheckedChange={(paid) => handlePaymentChange(repair, paid)}
+                            disabled={savingPaymentId === repair.id}
+                            aria-label={`Marcar pago de ${repair.ticket_number}`}
+                            data-testid={`quick-payment-${repair.ticket_number}`}
+                          />
+                          <span className={`whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ${repair.paid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {repair.paid ? 'Pagado' : 'Pendiente'}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </TableCell>
