@@ -11,8 +11,9 @@ const STATUS_CONFIG = {
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
+  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
 };
 
 const PublicRepairView = () => {
