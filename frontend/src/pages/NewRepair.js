@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { createWorker } from 'tesseract.js';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpDown, Loader2, ScanLine } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { parseCLPInput } from '@/utils/currency';
@@ -63,6 +64,66 @@ const DEVICE_MODELS = {
 
 const DEVICE_BRANDS = Object.keys(DEVICE_MODELS);
 
+const hasValidImeiChecksum = (value) => {
+  if (!/^\d{15}$/.test(value)) return false;
+  const total = value.split('').reduce((sum, digit, index) => {
+    let number = Number(digit);
+    if (index % 2 === 1) {
+      number *= 2;
+      if (number > 9) number -= 9;
+    }
+    return sum + number;
+  }, 0);
+  return total % 10 === 0;
+};
+
+const extractScanCandidates = (text) => {
+  const candidates = new Map();
+  const addCandidate = (rawValue) => {
+    const value = String(rawValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (value.length < 6 || value.length > 24 || !/\d/.test(value)) return;
+    const numeric = /^\d+$/.test(value);
+    const validImei = hasValidImeiChecksum(value);
+    const score = validImei ? 300 : numeric && value.length === 15 ? 240 : numeric && value.length >= 14 && value.length <= 17 ? 180 : 80;
+    const current = candidates.get(value);
+    if (!current || score > current.score) candidates.set(value, { value, numeric, validImei, score });
+  };
+
+  const normalizePossibleImei = (value) => String(value || '')
+    .toUpperCase()
+    .replace(/[OQD]/g, '0')
+    .replace(/[IL]/g, '1')
+    .replace(/Z/g, '2')
+    .replace(/S/g, '5')
+    .replace(/G/g, '6')
+    .replace(/B/g, '8')
+    .replace(/[^0-9]/g, '');
+
+  String(text || '').split(/\r?\n/).forEach((line) => {
+    const upperLine = line.toUpperCase();
+    const labelledImeiPattern = /\bIMEI(?:\s*[12])?\s*[:#-]?\s*([A-Z0-9](?:[\s.-]?[A-Z0-9]){13,16})/g;
+    Array.from(upperLine.matchAll(labelledImeiPattern)).forEach((match) => {
+      const possibleImei = normalizePossibleImei(match[1]);
+      if (possibleImei.length === 15) addCandidate(possibleImei);
+    });
+
+    const separatedImeiPattern = /(?:^|[^0-9])((?:\d[\s.-]*){14}\d)(?=$|[^0-9])/g;
+    Array.from(upperLine.matchAll(separatedImeiPattern)).forEach((match) => addCandidate(match[1]));
+
+    (upperLine.match(/[A-Z0-9]{6,24}/g) || []).forEach((token) => {
+      addCandidate(token);
+      if (token.length === 15 && (token.match(/\d/g) || []).length >= 11) {
+        const possibleImei = normalizePossibleImei(token);
+        if (possibleImei.length === 15) addCandidate(possibleImei);
+      }
+    });
+  });
+
+  return Array.from(candidates.values())
+    .sort((first, second) => second.score - first.score || first.value.localeCompare(second.value))
+    .slice(0, 16);
+};
+
 const NewRepair = () => {
   const { getAuthHeader } = useAuth();
   const navigate = useNavigate();
@@ -76,6 +137,14 @@ const NewRepair = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '', rut: '', address: '' });
   const [brandChoice, setBrandChoice] = useState('');
   const [modelChoice, setModelChoice] = useState('');
+  const [imeiScannerOpen, setImeiScannerOpen] = useState(false);
+  const [imeiScanning, setImeiScanning] = useState(false);
+  const [imeiScanProgress, setImeiScanProgress] = useState(0);
+  const [imeiPreview, setImeiPreview] = useState('');
+  const [imeiCandidates, setImeiCandidates] = useState([]);
+  const [imeiRecognizedText, setImeiRecognizedText] = useState('');
+  const imeiWorkerRef = useRef(null);
+  const imeiScanRunRef = useRef(0);
 
   const createCustomer = async (event) => {
     event.preventDefault();
@@ -130,6 +199,42 @@ const NewRepair = () => {
     fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => () => {
+    imeiScanRunRef.current += 1;
+    if (imeiWorkerRef.current) {
+      imeiWorkerRef.current.terminate();
+      imeiWorkerRef.current = null;
+    }
+  }, []);
+
+  const prepareImeiImage = async (file) => {
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) {
+        bitmap.close();
+        return file;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      return await new Promise((resolve) => canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.9));
+    } catch (error) {
+      return file;
+    }
+  };
+
+  const cancelImeiScan = async () => {
+    imeiScanRunRef.current += 1;
+    const worker = imeiWorkerRef.current;
+    imeiWorkerRef.current = null;
+    setImeiScanning(false);
+    setImeiScannerOpen(false);
+    if (worker) await worker.terminate();
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -216,6 +321,72 @@ const NewRepair = () => {
   const handleModelChange = (value) => {
     setModelChoice(value);
     updateField('device_model', value === CUSTOM_OPTION ? '' : value);
+  };
+
+  const handleImeiPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecciona o toma una fotografía.');
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      toast.error('La fotografía no puede superar los 12 MB.');
+      return;
+    }
+
+    const scanRun = imeiScanRunRef.current + 1;
+    imeiScanRunRef.current = scanRun;
+    const image = await prepareImeiImage(file);
+    const reader = new FileReader();
+    reader.onload = () => setImeiPreview(String(reader.result || ''));
+    reader.readAsDataURL(image);
+    setImeiCandidates([]);
+    setImeiRecognizedText('');
+    setImeiScanProgress(0);
+    setImeiScannerOpen(true);
+    setImeiScanning(true);
+
+    try {
+      if (!imeiWorkerRef.current) {
+        const worker = await createWorker('eng', 1, {
+          logger: (message) => {
+            if (typeof message.progress === 'number') setImeiScanProgress(Math.round(message.progress * 100));
+          },
+        });
+        if (imeiScanRunRef.current !== scanRun) {
+          await worker.terminate();
+          return;
+        }
+        imeiWorkerRef.current = worker;
+        await worker.setParameters({
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-:/# ',
+        });
+      }
+      const worker = imeiWorkerRef.current;
+      const result = await worker.recognize(image);
+      if (imeiScanRunRef.current !== scanRun) return;
+      const recognizedText = result.data?.text || '';
+      const candidates = extractScanCandidates(recognizedText);
+      setImeiRecognizedText(recognizedText.trim());
+      setImeiCandidates(candidates);
+      if (candidates.length === 0) toast.error('No se detectaron números claros. Acerca la cámara y evita reflejos.');
+    } catch (error) {
+      if (imeiScanRunRef.current !== scanRun) return;
+      console.error('Error al escanear IMEI:', error);
+      toast.error('No se pudo leer la imagen. Puedes intentarlo nuevamente o escribir el IMEI.');
+      if (imeiWorkerRef.current) await imeiWorkerRef.current.terminate();
+      imeiWorkerRef.current = null;
+    } finally {
+      if (imeiScanRunRef.current === scanRun) setImeiScanning(false);
+    }
+  };
+
+  const selectImeiCandidate = (candidate) => {
+    updateField('device_imei', candidate.value);
+    setImeiScannerOpen(false);
+    toast.success(`IMEI completado: ${candidate.value}`);
   };
 
   return (
@@ -390,14 +561,34 @@ const NewRepair = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="device_imei" className="text-sm font-medium text-zinc-900">IMEI</Label>
-                <Input
-                  id="device_imei"
-                  value={formData.device_imei}
-                  onChange={(e) => updateField('device_imei', e.target.value)}
-                  placeholder="Opcional"
-                  className="mt-1 border-zinc-200 font-mono"
-                  data-testid="device-imei-input"
-                />
+                <div className="mt-1 flex gap-2">
+                  <Input
+                    id="device_imei"
+                    value={formData.device_imei}
+                    onChange={(e) => updateField('device_imei', e.target.value)}
+                    placeholder="Opcional"
+                    className="border-zinc-200 font-mono"
+                    data-testid="device-imei-input"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => document.getElementById('imei-camera-input')?.click()}
+                    data-testid="scan-imei-button"
+                  >
+                    <ScanLine size={17} className="mr-2" />Escanear
+                  </Button>
+                  <input
+                    id="imei-camera-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleImeiPhoto}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">Abre la cámara, fotografía el IMEI y elige el número correcto.</p>
               </div>
               <div>
                 <Label htmlFor="device_serial" className="text-sm font-medium text-zinc-900">Número de Serie</Label>
@@ -615,6 +806,62 @@ const NewRepair = () => {
           </Button>
         </div>
       </form>
+      <Dialog open={imeiScannerOpen} onOpenChange={(open) => { if (open) setImeiScannerOpen(true); else if (imeiScanning) cancelImeiScan(); else setImeiScannerOpen(false); }}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><ScanLine size={20} />Escanear IMEI</DialogTitle>
+            <DialogDescription>La fotografía se procesa en este dispositivo. Selecciona el dato correcto para copiarlo al campo IMEI.</DialogDescription>
+          </DialogHeader>
+
+          {imeiPreview && <img src={imeiPreview} alt="Fotografía para leer el IMEI" className="max-h-56 w-full rounded-md border border-zinc-200 object-contain" />}
+
+          {imeiScanning ? (
+            <div className="space-y-3 rounded-md border border-blue-200 bg-blue-50 p-4 text-blue-900">
+              <div className="flex items-center gap-2 font-medium"><Loader2 size={18} className="animate-spin" />Leyendo letras y números…</div>
+              <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.max(5, imeiScanProgress)}%` }} />
+              </div>
+              <p className="text-xs">{imeiScanProgress}% — La primera lectura puede tardar unos segundos.</p>
+              <Button type="button" variant="outline" className="w-full border-blue-300 bg-white" onClick={cancelImeiScan}>Cancelar lectura</Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-zinc-900">Datos detectados</p>
+              {imeiCandidates.length > 0 ? (
+                <div className="grid gap-2">
+                  {imeiCandidates.map((candidate) => (
+                    <button
+                      type="button"
+                      key={candidate.value}
+                      onClick={() => selectImeiCandidate(candidate)}
+                      className="flex w-full items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-3 text-left transition-colors hover:border-blue-500 hover:bg-blue-50"
+                    >
+                      <span className="break-all font-mono text-base font-semibold text-zinc-900">{candidate.value}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${candidate.validImei ? 'bg-emerald-100 text-emerald-800' : candidate.numeric ? 'bg-blue-100 text-blue-800' : 'bg-zinc-100 text-zinc-700'}`}>
+                        {candidate.validImei ? 'IMEI válido' : candidate.numeric ? 'Número' : 'Letras y números'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">No se encontraron datos claros en la fotografía.</p>
+              )}
+
+              {imeiRecognizedText && (
+                <details className="rounded-md border border-zinc-200 p-3">
+                  <summary className="cursor-pointer text-sm font-medium text-zinc-700">Ver todo el texto reconocido</summary>
+                  <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-600">{imeiRecognizedText}</pre>
+                </details>
+              )}
+
+              <Button type="button" variant="outline" className="w-full" onClick={() => document.getElementById('imei-camera-input')?.click()}>
+                <Camera size={17} className="mr-2" />Tomar otra fotografía
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={customerOpen} onOpenChange={open => { if (!savingCustomer) setCustomerOpen(open); }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
