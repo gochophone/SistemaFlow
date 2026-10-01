@@ -33,8 +33,17 @@ const STATUS_CONFIG = {
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
+  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
+};
+
+const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
+
+const confirmTerminalStatus = (status) => {
+  if (!TERMINAL_STATUSES.has(status)) return true;
+  const label = STATUS_CONFIG[status].label;
+  return window.confirm(`¿Confirmas cambiar la orden a ${label}? Después de aceptar no podrás modificar nuevamente su estado.`);
 };
 
 const RepairDetail = () => {
@@ -120,6 +129,7 @@ const RepairDetail = () => {
   };
 
   const handleUpdate = async () => {
+    if (updateData.status !== repair.status && !confirmTerminalStatus(updateData.status)) return;
     setUpdating(true);
     try {
       const payload = {
@@ -144,6 +154,11 @@ const RepairDetail = () => {
 
   const handleQuickStatusChange = async (status) => {
     if (status === repair.status || updating) return;
+    if (TERMINAL_STATUSES.has(repair.status)) {
+      toast.error(`El estado ${STATUS_CONFIG[repair.status].label} es definitivo y está bloqueado.`);
+      return;
+    }
+    if (!confirmTerminalStatus(status)) return;
     setUpdating(true);
     try {
       const { data } = await axios.patch(`${API}/api/repairs/${id}`, { status }, {
@@ -331,6 +346,7 @@ const RepairDetail = () => {
                     <Select
                       value={updateData.status}
                       onValueChange={(value) => setUpdateData({ ...updateData, status: value })}
+                      disabled={TERMINAL_STATUSES.has(repair.status)}
                     >
                       <SelectTrigger className="mt-1" data-testid="update-status-select">
                         <SelectValue />
@@ -629,7 +645,7 @@ const RepairDetail = () => {
               <Select
                 value={repair.status}
                 onValueChange={handleQuickStatusChange}
-                disabled={updating}
+                disabled={updating || TERMINAL_STATUSES.has(repair.status)}
               >
                 <SelectTrigger
                   className={`w-full border font-medium text-base ${STATUS_CONFIG[repair.status]?.color}`}
@@ -645,7 +661,9 @@ const RepairDetail = () => {
                 </SelectContent>
               </Select>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Selecciona un estado para guardarlo inmediatamente.
+                {TERMINAL_STATUSES.has(repair.status)
+                  ? 'Estado final confirmado. Ya no se puede modificar.'
+                  : 'Selecciona un estado para guardarlo inmediatamente.'}
               </p>
             </CardContent>
           </Card>
