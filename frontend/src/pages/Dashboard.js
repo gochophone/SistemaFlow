@@ -11,8 +11,18 @@ const STATUS_COLORS = {
   received: '#F59E0B',
   diagnosis: '#8B5CF6',
   in_repair: '#2563EB',
-  completed: '#10B981',
+  completed: '#0891B2',
   delivered: '#059669',
+  not_repaired: '#DC2626',
+};
+
+const STATUS_LABELS = {
+  received: 'Recibido',
+  diagnosis: 'Diagnóstico',
+  in_repair: 'En Reparación',
+  completed: 'Completado',
+  delivered: 'Entregado',
+  not_repaired: 'Sin reparación',
 };
 
 const Dashboard = () => {
@@ -45,10 +55,7 @@ const Dashboard = () => {
   }
 
   const statusPieData = Object.entries(stats?.repairs_by_status || {}).map(([status, count]) => ({
-    name: status === 'received' ? 'Recibido' :
-          status === 'diagnosis' ? 'Diagnóstico' :
-          status === 'in_repair' ? 'En Reparación' :
-          status === 'completed' ? 'Completado' : 'Entregado',
+    name: STATUS_LABELS[status] || status,
     value: count,
     color: STATUS_COLORS[status] || '#94A3B8'
   }));
