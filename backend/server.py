@@ -289,7 +289,7 @@ class RepairCreate(BaseModel):
     device_photos: Optional[List[str]] = None
 
 class RepairUpdate(BaseModel):
-    status: Optional[str] = None
+    status: Optional[Literal["received", "diagnosis", "in_repair", "completed", "delivered", "not_repaired"]] = None
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
@@ -790,6 +790,13 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     
     old_status = current_repair.get('status')
     new_status = update_data.get('status', old_status)
+
+    terminal_statuses = {'delivered': 'Entregado', 'not_repaired': 'Sin reparación'}
+    if old_status in terminal_statuses and new_status != old_status:
+        raise HTTPException(
+            status_code=409,
+            detail=f"La orden está en estado {terminal_statuses[old_status]} y su estado ya no se puede modificar.",
+        )
     
     if 'status' in update_data:
         if update_data['status'] == 'completed':
@@ -970,7 +977,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     tenant_id = current_user['tenant_id']
     
     total_repairs = await db.repairs.count_documents({"tenant_id": tenant_id})
-    active_repairs = await db.repairs.count_documents({"tenant_id": tenant_id, "status": {"$nin": ["delivered", "cancelled"]}})
+    active_repairs = await db.repairs.count_documents({"tenant_id": tenant_id, "status": {"$nin": ["delivered", "not_repaired", "cancelled"]}})
     
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     completed_today = await db.repairs.count_documents({
