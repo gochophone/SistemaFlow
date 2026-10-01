@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -23,7 +24,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import { formatCLP } from '@/utils/currency';
 
@@ -63,6 +64,8 @@ const RepairDetail = () => {
   const [showCreateTechnician, setShowCreateTechnician] = useState(false);
   const [creatingTechnician, setCreatingTechnician] = useState(false);
   const [newTechnician, setNewTechnician] = useState({ name: '', email: '', password: '' });
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   useEffect(() => {
     fetchRepair();
@@ -171,6 +174,61 @@ const RepairDetail = () => {
       toast.error(error.response?.data?.detail || 'No se pudo cambiar el estado');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const updatePayment = async (payload, successMessage) => {
+    setSavingPayment(true);
+    try {
+      const { data } = await axios.patch(`${API}/api/repairs/${id}`, payload, {
+        headers: getAuthHeader()
+      });
+      setRepair(data);
+      toast.success(successMessage);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo actualizar el pago');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const handlePaidChange = (checked) => {
+    updatePayment({ paid: checked }, checked ? 'Orden marcada como pagada' : 'Orden marcada como pendiente de pago');
+  };
+
+  const handleReceiptUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecciona una imagen del comprobante');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('La imagen no puede superar los 10 MB');
+      return;
+    }
+    setUploadingReceipt(true);
+    try {
+      const { data: signed } = await axios.get(`${API}/api/cloudinary/signature`, {
+        params: { folder: 'payments' },
+        headers: getAuthHeader()
+      });
+      const form = new FormData();
+      form.append('file', file);
+      form.append('api_key', signed.api_key);
+      form.append('timestamp', signed.timestamp);
+      form.append('signature', signed.signature);
+      form.append('folder', signed.folder);
+      const { data: uploaded } = await axios.post(
+        `https://api.cloudinary.com/v1_1/${signed.cloud_name}/image/upload`,
+        form
+      );
+      await updatePayment({ payment_receipt_url: uploaded.secure_url }, 'Comprobante guardado');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo subir el comprobante');
+    } finally {
+      setUploadingReceipt(false);
     }
   };
 
@@ -665,6 +723,55 @@ const RepairDetail = () => {
                   ? 'Estado final confirmado. Ya no se puede modificar.'
                   : 'Selecciona un estado para guardarlo inmediatamente.'}
               </p>
+              {repair.status === 'delivered' && (
+                <div className="mt-5 space-y-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label htmlFor="paid-switch" className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Pago</Label>
+                      <p className={`mt-1 text-sm font-medium ${repair.paid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {repair.paid ? 'Pagado' : 'Pendiente'}
+                      </p>
+                    </div>
+                    <Switch
+                      id="paid-switch"
+                      checked={Boolean(repair.paid)}
+                      onCheckedChange={handlePaidChange}
+                      disabled={savingPayment || uploadingReceipt}
+                      aria-label="Marcar orden como pagada"
+                      data-testid="paid-switch"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Comprobante de pago</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button asChild variant="outline" size="sm" disabled={uploadingReceipt || savingPayment}>
+                        <label className="cursor-pointer">
+                          <Upload size={16} className="mr-2" />Galería
+                          <input type="file" accept="image/*" className="hidden" onChange={handleReceiptUpload} disabled={uploadingReceipt || savingPayment} />
+                        </label>
+                      </Button>
+                      <Button asChild variant="outline" size="sm" disabled={uploadingReceipt || savingPayment}>
+                        <label className="cursor-pointer">
+                          <Camera size={16} className="mr-2" />Tomar foto
+                          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptUpload} disabled={uploadingReceipt || savingPayment} />
+                        </label>
+                      </Button>
+                    </div>
+                    {uploadingReceipt && <p className="text-xs text-blue-600">Subiendo comprobante…</p>}
+                    {repair.payment_receipt_url && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPhoto(repair.payment_receipt_url)}
+                        className="flex w-full items-center gap-3 rounded-md border border-zinc-200 p-2 text-left hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        <img src={repair.payment_receipt_url} alt="Comprobante de pago" className="h-14 w-14 rounded object-cover" />
+                        <span className="flex items-center gap-2 text-sm font-medium"><ReceiptText size={16} />Ver comprobante</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
