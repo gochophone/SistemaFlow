@@ -27,6 +27,7 @@ import {
 import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
+import DevicePhotos from '@/components/DevicePhotos';
 import { formatCLP } from '@/utils/currency';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -195,6 +196,13 @@ const RepairDetail = () => {
 
   const handlePaidChange = (checked) => {
     updatePayment({ paid: checked }, checked ? 'Orden marcada como pagada' : 'Orden marcada como pendiente de pago');
+  };
+
+  const handlePhotosChange = async (photos) => {
+    const { data } = await axios.patch(`${API}/api/repairs/${id}`, { device_photos: photos }, {
+      headers: getAuthHeader(),
+    });
+    setRepair(data);
   };
 
   const handleReceiptUpload = async (event) => {
@@ -574,7 +582,7 @@ const RepairDetail = () => {
             </CardContent>
           </Card>
 
-          {repair.device_photos && repair.device_photos.length > 0 && (
+          {(!TERMINAL_STATUSES.has(repair.status) || (repair.device_photos && repair.device_photos.length > 0)) && (
             <Card className="bg-white border border-zinc-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl font-medium">
@@ -583,31 +591,38 @@ const RepairDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-zinc-600 mb-3">
-                  {repair.device_photos.length} foto(s) del estado inicial del equipo
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {repair.device_photos.map((photo, index) => (
-                    <div
-                      key={index}
-                      className="relative group rounded-lg overflow-hidden border-2 border-zinc-200 hover:border-blue-400 transition-colors cursor-pointer"
-                      onClick={() => setSelectedPhoto(photo)}
-                      data-testid={`device-photo-${index}`}
-                    >
-                      <img
-                        src={photo}
-                        alt={`Foto del equipo ${index + 1}`}
-                        className="w-full h-32 object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
-                        <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
+                {!TERMINAL_STATUSES.has(repair.status) ? (
+                  <DevicePhotos
+                    photos={repair.device_photos || []}
+                    onChange={handlePhotosChange}
+                    maxPhotos={5}
+                    authHeader={getAuthHeader()}
+                    onPhotoClick={setSelectedPhoto}
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {repair.device_photos.map((photo, index) => (
+                      <div
+                        key={index}
+                        className="relative group rounded-lg overflow-hidden border-2 border-zinc-200 hover:border-blue-400 transition-colors cursor-pointer"
+                        onClick={() => setSelectedPhoto(photo)}
+                        data-testid={`device-photo-${index}`}
+                      >
+                        <img
+                          src={photo}
+                          alt={`Foto del equipo ${index + 1}`}
+                          className="w-full h-32 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                          <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs py-1 px-2">
+                          Foto {index + 1}
+                        </div>
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs py-1 px-2">
-                        Foto {index + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
