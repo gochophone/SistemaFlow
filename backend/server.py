@@ -300,6 +300,7 @@ class RepairUpdate(BaseModel):
     estimated_delivery: Optional[datetime] = None
     paid: Optional[bool] = None
     payment_receipt_url: Optional[str] = None
+    device_photos: Optional[List[str]] = None
 
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -796,6 +797,27 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     old_status = current_repair.get('status')
     new_status = update_data.get('status', old_status)
 
+    if 'device_photos' in update_data:
+        if old_status in {'delivered', 'not_repaired'}:
+            raise HTTPException(status_code=409, detail='Las fotos solo se pueden modificar mientras la reparación esté abierta')
+        photos = update_data['device_photos']
+        if len(photos) > 5 or len(set(photos)) != len(photos):
+            raise HTTPException(status_code=400, detail='La orden admite hasta 5 fotos diferentes')
+        existing_photos = set(current_repair.get('device_photos') or [])
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+        expected_prefix = f'/{cloud_name}/image/upload/'
+        tenant_folder = f'/{tenant_id}/repairs/'
+        for photo in photos:
+            if not photo or photo != photo.strip():
+                raise HTTPException(status_code=400, detail='Una foto de la orden no es válida')
+            if photo in existing_photos:
+                continue
+            parsed = urlparse(photo)
+            if (parsed.scheme != 'https' or parsed.hostname != 'res.cloudinary.com'
+                    or not cloud_name or not parsed.path.startswith(expected_prefix)
+                    or tenant_folder not in parsed.path or parsed.query or parsed.fragment):
+                raise HTTPException(status_code=400, detail='Las fotos nuevas deben cargarse desde esta cuenta')
+
     if ('paid' in update_data or 'payment_receipt_url' in update_data) and old_status != 'delivered':
         raise HTTPException(status_code=400, detail="El pago solo se puede registrar en una orden entregada")
 
@@ -829,9 +851,14 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     if 'estimated_delivery' in update_data and update_data['estimated_delivery']:
         update_data['estimated_delivery'] = update_data['estimated_delivery'].isoformat()
     
-    result = await db.repairs.update_one({"id": repair_id, "tenant_id": tenant_id}, {"$set": update_data})
+    update_filter = {"id": repair_id, "tenant_id": tenant_id}
+    if 'device_photos' in update_data:
+        update_filter['status'] = {'$nin': ['delivered', 'not_repaired']}
+    result = await db.repairs.update_one(update_filter, {"$set": update_data})
     
     if result.matched_count == 0:
+        if 'device_photos' in update_data:
+            raise HTTPException(status_code=409, detail='La reparación ya no está abierta para modificar fotos')
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
     updated = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
