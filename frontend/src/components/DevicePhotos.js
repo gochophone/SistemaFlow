@@ -6,13 +6,14 @@ import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
+const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhotoClick }) => {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
+    e.target.value = '';
     processFiles(files);
   };
 
@@ -40,18 +41,18 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
     if (validFiles.length === 0) return;
 
     setUploading(true);
-    toast.info(`Subiendo ${validFiles.length} foto(s) a Cloudinary...`);
+    toast.info(`Subiendo ${validFiles.length} foto(s)...`);
 
     try {
       const uploadedUrls = await Promise.all(
         validFiles.map(file => uploadToCloudinary(file))
       );
 
-      onChange([...photos, ...uploadedUrls]);
+      await onChange([...photos, ...uploadedUrls]);
       toast.success(`${validFiles.length} foto(s) subida(s) exitosamente`);
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Error al subir fotos. Intenta nuevamente.');
+      toast.error(error.response?.data?.detail || 'Error al guardar las fotos. Intenta nuevamente.');
     } finally {
       setUploading(false);
     }
@@ -93,10 +94,17 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
     return result.secure_url; // Return the URL
   };
 
-  const removePhoto = (index) => {
+  const removePhoto = async (index) => {
     const newPhotos = photos.filter((_, i) => i !== index);
-    onChange(newPhotos);
-    toast.success('Foto eliminada');
+    setUploading(true);
+    try {
+      await onChange(newPhotos);
+      toast.success('Foto eliminada');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo quitar la foto');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -170,12 +178,23 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader }) => {
                 className="relative group rounded-lg overflow-hidden border-2 border-zinc-200 hover:border-blue-400 transition-colors"
                 data-testid={`photo-preview-${index}`}
               >
-                <img
-                  src={photoUrl}
-                  alt={`Foto del equipo ${index + 1}`}
-                  className="w-full h-32 object-cover"
-                  loading="lazy"
-                />
+                {onPhotoClick ? (
+                  <button type="button" onClick={() => onPhotoClick(photoUrl)} className="block w-full">
+                    <img
+                      src={photoUrl}
+                      alt={`Foto del equipo ${index + 1}`}
+                      className="w-full h-32 object-cover"
+                      loading="lazy"
+                    />
+                  </button>
+                ) : (
+                  <img
+                    src={photoUrl}
+                    alt={`Foto del equipo ${index + 1}`}
+                    className="w-full h-32 object-cover"
+                    loading="lazy"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removePhoto(index)}
