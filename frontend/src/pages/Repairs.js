@@ -8,6 +8,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -19,21 +20,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Eye } from 'lucide-react';
+import { Plus, Eye, CircleDollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
+  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
-  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
 };
 
 const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
+const isUnpaidDelivered = (repair) => repair.status === 'delivered' && !repair.paid;
 
 const confirmTerminalStatus = (status) => {
   if (!TERMINAL_STATUSES.has(status)) return true;
@@ -47,7 +49,6 @@ const Repairs = () => {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('search');
   const [repairs, setRepairs] = useState([]);
-  const [filteredRepairs, setFilteredRepairs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingStatusId, setSavingStatusId] = useState(null);
@@ -57,14 +58,6 @@ const Repairs = () => {
     fetchRepairs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (searchQuery) {
-      performSearch(searchQuery);
-    } else {
-      applyStatusFilter();
-    }
-  }, [repairs, statusFilter, searchQuery]);
 
   const fetchRepairs = async () => {
     try {
@@ -80,25 +73,18 @@ const Repairs = () => {
     }
   };
 
-  const performSearch = (query) => {
-    const lowerQuery = query.toLowerCase();
-    const filtered = repairs.filter(repair => 
-      repair.ticket_number.toLowerCase().includes(lowerQuery) ||
-      (repair.device_imei || '').toLowerCase().includes(lowerQuery) ||
-      repair.customer_name.toLowerCase().includes(lowerQuery) ||
-      repair.device_brand.toLowerCase().includes(lowerQuery) ||
-      repair.device_model.toLowerCase().includes(lowerQuery)
-    );
-    setFilteredRepairs(filtered);
-  };
-
-  const applyStatusFilter = () => {
-    if (statusFilter === 'all') {
-      setFilteredRepairs(repairs);
-    } else {
-      setFilteredRepairs(repairs.filter(r => r.status === statusFilter));
-    }
-  };
+  const unpaidCount = repairs.filter(isUnpaidDelivered).length;
+  const normalizedSearch = (searchQuery || '').trim().toLowerCase();
+  const filteredRepairs = repairs.filter((repair) => {
+    const matchesFilter = statusFilter === 'unpaid'
+      ? isUnpaidDelivered(repair)
+      : statusFilter === 'all' || repair.status === statusFilter;
+    const matchesSearch = !normalizedSearch || [
+      repair.ticket_number, repair.device_imei, repair.customer_name,
+      repair.device_brand, repair.device_model,
+    ].some((value) => String(value || '').toLowerCase().includes(normalizedSearch));
+    return matchesFilter && matchesSearch;
+  });
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -201,8 +187,19 @@ const Repairs = () => {
           onClick={() => setStatusFilter('all')}
           size="sm"
           data-testid="filter-all"
+          aria-pressed={statusFilter === 'all'}
         >
           Todas ({repairs.length})
+        </Button>
+        <Button
+          variant={statusFilter === 'unpaid' ? 'default' : 'outline'}
+          onClick={() => setStatusFilter('unpaid')}
+          size="sm"
+          data-testid="filter-unpaid"
+          aria-pressed={statusFilter === 'unpaid'}
+        >
+          <CircleDollarSign size={16} className="mr-2" />
+          Entregadas sin pagar ({unpaidCount})
         </Button>
         {Object.entries(STATUS_CONFIG).map(([status, config]) => {
           const count = repairs.filter(r => r.status === status).length;
@@ -213,6 +210,7 @@ const Repairs = () => {
               onClick={() => setStatusFilter(status)}
               size="sm"
               data-testid={`filter-${status}`}
+              aria-pressed={statusFilter === status}
             >
               {config.label} ({count})
             </Button>
@@ -237,7 +235,7 @@ const Repairs = () => {
             {filteredRepairs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-zinc-500 dark:text-zinc-400">
-                  {searchQuery ? 'No se encontraron resultados' : 'No hay reparaciones registradas'}
+                  {normalizedSearch ? 'No se encontraron resultados' : statusFilter === 'unpaid' ? 'No hay órdenes entregadas pendientes de pago' : 'No hay reparaciones registradas'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -252,7 +250,8 @@ const Repairs = () => {
                   <TableCell>{repair.customer_name}</TableCell>
                   <TableCell>{repair.device_brand} {repair.device_model}</TableCell>
                   <TableCell className="font-mono text-xs">{repair.device_imei}</TableCell>
-                  <TableCell>
+                  {/* The portalled status menu also bubbles clicks through this cell. */}
+                  <TableCell onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <Select
                         value={repair.status}
@@ -271,7 +270,13 @@ const Repairs = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {Object.entries(STATUS_CONFIG).map(([value, config]) => (
-                            <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                            <React.Fragment key={value}>
+                              <SelectItem
+                                value={value}
+                                className={value === 'not_repaired' ? 'text-red-700 dark:text-red-400 focus:bg-red-50 focus:text-red-800 dark:focus:bg-red-950 dark:focus:text-red-300' : undefined}
+                              >{config.label}</SelectItem>
+                              {value === 'not_repaired' && <SelectSeparator />}
+                            </React.Fragment>
                           ))}
                         </SelectContent>
                       </Select>

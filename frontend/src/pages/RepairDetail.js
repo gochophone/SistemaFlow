@@ -13,6 +13,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -31,12 +32,12 @@ import { formatCLP } from '@/utils/currency';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
+  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
   received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
   in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
   completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
-  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
 };
 
 const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
@@ -411,7 +412,13 @@ const RepairDetail = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(STATUS_CONFIG).map(([value, config]) => (
-                          <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                          <React.Fragment key={value}>
+                            <SelectItem
+                              value={value}
+                              className={value === 'not_repaired' ? 'text-red-700 dark:text-red-400 focus:bg-red-50 focus:text-red-800 dark:focus:bg-red-950 dark:focus:text-red-300' : undefined}
+                            >{config.label}</SelectItem>
+                            {value === 'not_repaired' && <SelectSeparator />}
+                          </React.Fragment>
                         ))}
                       </SelectContent>
                     </Select>
@@ -714,7 +721,13 @@ const RepairDetail = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_CONFIG).map(([value, config]) => (
-                    <SelectItem key={value} value={value}>{config.label}</SelectItem>
+                    <React.Fragment key={value}>
+                      <SelectItem
+                        value={value}
+                        className={value === 'not_repaired' ? 'text-red-700 dark:text-red-400 focus:bg-red-50 focus:text-red-800 dark:focus:bg-red-950 dark:focus:text-red-300' : undefined}
+                      >{config.label}</SelectItem>
+                      {value === 'not_repaired' && <SelectSeparator />}
+                    </React.Fragment>
                   ))}
                 </SelectContent>
               </Select>
