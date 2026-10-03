@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
@@ -20,12 +20,13 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText, FileDown } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { formatCLP } from '@/utils/currency';
@@ -61,6 +62,10 @@ const RepairDetail = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [sharingDelivery, setSharingDelivery] = useState(false);
+  const [openingDelivery, setOpeningDelivery] = useState(false);
+  const [deliveryPreview, setDeliveryPreview] = useState(null);
+  const deliveryFrameRef = useRef(null);
+  const deliveryRequestRef = useRef(0);
   const [technicians, setTechnicians] = useState([]);
   const [techniciansLoading, setTechniciansLoading] = useState(false);
   const [showCreateTechnician, setShowCreateTechnician] = useState(false);
@@ -70,6 +75,9 @@ const RepairDetail = () => {
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   useEffect(() => {
+    deliveryRequestRef.current += 1;
+    setOpeningDelivery(false);
+    setDeliveryPreview(null);
     fetchRepair();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -78,6 +86,12 @@ const RepairDetail = () => {
     if (editDialogOpen) fetchTechnicians();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editDialogOpen]);
+
+  useEffect(() => () => {
+    if (deliveryPreview?.url) window.URL.revokeObjectURL?.(deliveryPreview.url);
+  }, [deliveryPreview?.url]);
+
+  useEffect(() => () => { deliveryRequestRef.current += 1; }, []);
 
   const fetchTechnicians = async () => {
     setTechniciansLoading(true);
@@ -249,33 +263,48 @@ const RepairDetail = () => {
     return new Blob([response.data], { type: 'application/pdf' });
   };
 
-  const handlePrintDelivery = async () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Permite las ventanas emergentes para imprimir la orden');
-      return;
-    }
+  const openDeliveryPreview = async () => {
+    if (!repair || openingDelivery) return;
+    const request = ++deliveryRequestRef.current;
+    setOpeningDelivery(true);
     try {
       const pdf = await getDeliveryPdf();
       const url = window.URL.createObjectURL(pdf);
-      printWindow.document.title = `Orden de entrega ${repair.ticket_number}`;
-      printWindow.document.body.style.margin = '0';
-      const frame = printWindow.document.createElement('iframe');
-      frame.title = 'Orden de entrega';
-      frame.style.width = '100vw';
-      frame.style.height = '100vh';
-      frame.style.border = '0';
-      frame.src = url;
-      frame.onload = () => setTimeout(() => {
-        frame.contentWindow?.focus();
-        frame.contentWindow?.print();
-      }, 350);
-      printWindow.document.body.appendChild(frame);
-      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      if (request !== deliveryRequestRef.current) {
+        window.URL.revokeObjectURL?.(url);
+        return;
+      }
+      setDeliveryPreview({ url, ticketNumber: repair.ticket_number });
     } catch (error) {
-      printWindow.close();
-      toast.error('No se pudo preparar la orden para imprimir');
-      console.error(error);
+      if (request === deliveryRequestRef.current) toast.error(error.response?.data?.detail || 'No se pudo mostrar el PDF de entrega');
+    } finally {
+      if (request === deliveryRequestRef.current) setOpeningDelivery(false);
+    }
+  };
+
+  const closeDeliveryPreview = () => {
+    deliveryRequestRef.current += 1;
+    setOpeningDelivery(false);
+    setDeliveryPreview(null);
+  };
+
+  const saveDeliveryPdf = () => {
+    if (!deliveryPreview) return;
+    const link = document.createElement('a');
+    link.href = deliveryPreview.url;
+    link.download = `orden_entrega_${deliveryPreview.ticketNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const printDeliveryPdf = () => {
+    try {
+      if (!deliveryFrameRef.current?.contentWindow) throw new Error('PDF no disponible');
+      deliveryFrameRef.current.contentWindow.focus();
+      deliveryFrameRef.current.contentWindow.print();
+    } catch {
+      toast.error('No se pudo imprimir el PDF. Prueba con Guardar PDF.');
     }
   };
 
@@ -376,7 +405,7 @@ const RepairDetail = () => {
             </h1>
             <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">Orden de Reparación</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => window.open(`/print-label/${repair.id}`, '_blank')}
@@ -388,8 +417,8 @@ const RepairDetail = () => {
             </Button>
             
             {repair.status === 'delivered' && <>
-              <Button variant="outline" onClick={handlePrintDelivery} className="border-green-600 text-green-700 hover:bg-green-50" data-testid="print-delivery-button">
-                <Printer size={18} className="mr-2" />Imprimir entrega
+              <Button variant="outline" onClick={openDeliveryPreview} disabled={openingDelivery} className="border-green-600 text-green-700 hover:bg-green-50" data-testid="print-delivery-button">
+                <FileText size={18} className="mr-2" />{openingDelivery ? 'Abriendo PDF...' : 'Ver PDF de entrega'}
               </Button>
               <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" data-testid="share-delivery-button">
                 <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Enviar por WhatsApp'}
@@ -868,6 +897,32 @@ const RepairDetail = () => {
           </Card>
         </div>
       </div>
+
+      <Dialog open={Boolean(deliveryPreview)} onOpenChange={(open) => { if (!open) closeDeliveryPreview(); }}>
+        <DialogContent className="flex h-[92vh] w-[calc(100vw-1rem)] max-w-5xl flex-col overflow-hidden p-3 sm:p-5">
+          {deliveryPreview && <>
+            <DialogHeader>
+              <DialogTitle className="pr-8">Orden de entrega · {deliveryPreview.ticketNumber}</DialogTitle>
+              <DialogDescription>Revisa la orden antes de guardarla o imprimirla.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="outline" onClick={closeDeliveryPreview} data-testid="delivery-pdf-back-button">
+                <ArrowLeft size={16} className="mr-2" />Volver a la reparación
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={printDeliveryPdf} data-testid="delivery-pdf-print-button">
+                  <Printer size={16} className="mr-2" />Imprimir
+                </Button>
+                <Button type="button" onClick={saveDeliveryPdf} data-testid="delivery-pdf-save-button">
+                  <FileDown size={16} className="mr-2" />Guardar PDF
+                </Button>
+              </div>
+            </div>
+            <iframe ref={deliveryFrameRef} src={deliveryPreview.url} title={`PDF de entrega ${deliveryPreview.ticketNumber}`}
+              className="min-h-0 w-full flex-1 rounded-md border border-zinc-200 bg-white dark:border-zinc-700" data-testid="delivery-pdf-preview" />
+          </>}
+        </DialogContent>
+      </Dialog>
 
       {/* Photo Viewer Dialog */}
       <Dialog open={selectedPhoto !== null} onOpenChange={() => setSelectedPhoto(null)}>
