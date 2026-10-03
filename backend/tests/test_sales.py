@@ -125,9 +125,26 @@ def payload(**overrides):
 @pytest.mark.parametrize("category", ["phone", "notebook", "macbook", "board", "spare_part", "other"])
 @run_async
 async def test_sale_category_round_trip(db, category):
-    sale = await server.create_sale(payload(category=category), USER)
+    sale = await server.create_sale(payload(category=category, custom_category="  Cámara  " if category == "other" else None), USER)
     assert sale.category == category
+    assert sale.custom_category == ("Cámara" if category == "other" else None)
     assert (await server.get_sale(sale.id, USER))["category"] == category
+    if category == "other":
+        assert (await server.get_sale(sale.id, USER))["custom_category"] == "Cámara"
+        assert len(await server.get_sales(q="Cámara", customer_id=None, current_user=USER)) == 1
+
+
+@run_async
+async def test_other_category_requires_a_name_without_affecting_existing_sales(db):
+    with pytest.raises(HTTPException) as error:
+        await server.create_sale(payload(category="other", custom_category="   "), USER)
+    assert error.value.status_code == 400
+    assert db.sales.documents == []
+
+    sale = await server.create_sale(payload(category="phone", custom_category="No corresponde"), USER)
+    assert sale.custom_category is None
+    db.sales.documents[0].pop("custom_category")
+    assert server.Sale.model_validate(await server.get_sale(sale.id, USER)).custom_category is None
 
 
 @run_async
