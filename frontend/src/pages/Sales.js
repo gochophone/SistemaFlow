@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown, FileDown } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import DevicePhotos from '@/components/DevicePhotos';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,7 @@ const Sales = () => {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', rut: '' });
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const submittingRef = useRef(false);
   const [photoBusy, setPhotoBusy] = useState(false);
 
@@ -211,6 +212,28 @@ const Sales = () => {
     } finally {
       submittingRef.current = false;
       setSaving(false);
+    }
+  };
+
+  const downloadSalePdf = async () => {
+    if (!selectedSale || generatingPdf) return;
+    setGeneratingPdf(true);
+    try {
+      const response = await axios.get(`${API}/api/sales/${selectedSale.id}/delivery-pdf`, {
+        headers: getAuthHeader(), responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `venta_entrega_${selectedSale.sale_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL?.(url), 60000);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo generar el PDF de venta y entrega');
+    } finally {
+      setGeneratingPdf(false);
     }
   };
 
@@ -390,6 +413,11 @@ const Sales = () => {
             <DialogHeader><DialogTitle className="pr-8 text-xl sm:text-2xl">{selectedSale.item_name}</DialogTitle>
               <DialogDescription>{selectedSale.sale_number} · Venta del {selectedSale.sold_on}</DialogDescription>
             </DialogHeader>
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={downloadSalePdf} disabled={generatingPdf} data-testid="sale-delivery-pdf-button">
+                <FileDown size={17} className="mr-2" />{generatingPdf ? 'Generando PDF...' : 'PDF de venta y entrega'}
+              </Button>
+            </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
               <div className="space-y-4">
                 <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">

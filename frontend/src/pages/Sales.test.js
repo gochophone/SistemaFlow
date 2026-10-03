@@ -71,6 +71,7 @@ test('registers an inventory sale linked to a customer', async () => {
     customer_id: 'c1', source: 'inventory', inventory_item_id: 'i1', category: 'macbook',
     quantity: 1, unit_price: 500000,
   }), expect.anything());
+  expect(document.querySelector('[data-testid="sale-delivery-pdf-button"]')).not.toBeNull();
 });
 
 test('registers a manually named article with optional IMEI', async () => {
@@ -157,6 +158,38 @@ test('allows a custom type for Otro and shows it on the saved sale', async () =>
     category: 'other', custom_category: 'Cámara', item_name: 'Cámara Sony',
   }), expect.anything());
   expect(document.body.textContent).toContain('Cámara');
+});
+
+test('downloads the sale and delivery PDF from a saved sale', async () => {
+  const sale = {
+    id: 'sale-pdf', sale_number: 'VEN-20261003-ABC', customer_id: 'c1', customer_name: 'Ana',
+    item_name: 'MacBook Air', source: 'manual', category: 'macbook', quantity: 1,
+    unit_price: 500000, total_price: 500000, condition: 'used', sold_on: '2026-10-03', photos: [],
+  };
+  const originalGet = axios.get.getMockImplementation();
+  axios.get.mockImplementation((url, options) => {
+    if (url.endsWith('/api/sales')) return Promise.resolve({ data: [sale] });
+    if (url.endsWith(`/api/sales/${sale.id}/delivery-pdf`)) return Promise.resolve({ data: new Blob(['%PDF-test']) });
+    return originalGet(url, options);
+  });
+  const originalCreateObjectURL = window.URL.createObjectURL;
+  window.URL.createObjectURL = jest.fn(() => 'blob:sale-pdf');
+  let filename;
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { filename = this.download; });
+  try {
+    await act(async () => root.render(<Sales />));
+    await act(async () => document.querySelector('[data-testid="sale-sale-pdf"]').click());
+    await act(async () => document.querySelector('[data-testid="sale-delivery-pdf-button"]').click());
+    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/sales/sale-pdf/delivery-pdf'), {
+      headers: { Authorization: 'Bearer test' }, responseType: 'blob',
+    });
+    expect(window.URL.createObjectURL).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    expect(filename).toBe('venta_entrega_VEN-20261003-ABC.pdf');
+  } finally {
+    click.mockRestore();
+    window.URL.createObjectURL = originalCreateObjectURL;
+  }
 });
 
 test('selects a frequent repair client with the same picker used in New Repair', async () => {
