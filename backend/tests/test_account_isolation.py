@@ -84,12 +84,22 @@ def test_physical_isolation_roles_and_public_links(api):
     ir=api.post('/api/inventory',headers=adm_h,json=item)
     assert ir.status_code==200,ir.text
     inventory_id=ir.json()['id']
+    sale=api.post('/api/sales',headers=adm_h,json={
+        'customer_id':customer_a['id'],'source':'inventory','inventory_item_id':inventory_id,
+        'category':'spare_part','quantity':1,'unit_price':100,'condition':'new','photos':[]})
+    assert sale.status_code==201,sale.text
+    assert sale.json()['customer_name']=='Alpha customer'
+    assert api.get('/api/inventory/'+inventory_id,headers=adm_h).json()['quantity']==0
+    assert api.get('/api/sales',headers=th).status_code==403
+    assert api.get('/api/sales/'+sale.json()['id'],headers=bh).status_code==404
+    assert len(api.get('/api/sales?customer_id='+customer_a['id'],headers=adm_h).json())==1
     assert api.get('/api/inventory',headers=bh).json()==[]
     assert api.get('/api/inventory/'+inventory_id,headers=bh).status_code==404
     for method,path,payload in [('get','/api/inventory',None),('post','/api/inventory',item),('get','/api/inventory/'+inventory_id,None),('patch','/api/inventory/'+inventory_id,{'quantity':2}),('delete','/api/inventory/'+inventory_id,None)]:
         response=api.request(method,path,headers=th,json=payload)
         assert response.status_code==403,(method,response.text)
     assert api.get('/api/cloudinary/signature?folder=inventory',headers=th).status_code==403
+    assert api.get('/api/cloudinary/signature?folder=sales',headers=th).status_code==403
     search=api.get('/api/search?q=',headers=th).json()
     assert search['inventory']==[] and all(c['tenant_id']==a['tenant_id'] for c in search['customers'])
     assert api.get('/api/dashboard/stats',headers=th).json()['low_stock_items'] is None
