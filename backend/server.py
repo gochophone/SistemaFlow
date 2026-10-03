@@ -26,7 +26,7 @@ import time
 import cloudinary
 import cloudinary.utils
 from email_service import send_repair_ready_notification
-from pdf_generator import generate_delivery_pdf
+from pdf_generator import generate_delivery_pdf, generate_sale_delivery_pdf
 import billing
 import auth_codes
 
@@ -1161,6 +1161,27 @@ async def get_sale(sale_id: str, current_user: dict = Depends(require_admin)):
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
     return sale
+
+
+@api_router.get("/sales/{sale_id}/delivery-pdf")
+async def generate_sale_pdf(sale_id: str, current_user: dict = Depends(require_admin)):
+    sale = await get_sale(sale_id, current_user)
+    try:
+        pdf_buffer = generate_sale_delivery_pdf(
+            sale,
+            current_user.get("company_name", "Mi negocio"),
+            current_user.get("company_logo_url"),
+            current_user.get("company_rut", ""),
+            current_user.get("company_address", ""),
+        )
+    except Exception:
+        logger.exception("No se pudo generar el comprobante de venta")
+        raise HTTPException(status_code=500, detail="No se pudo generar el comprobante de venta")
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="venta_entrega_{sale["sale_number"]}.pdf"'},
+    )
 
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):

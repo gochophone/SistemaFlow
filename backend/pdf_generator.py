@@ -8,6 +8,7 @@ from PIL import Image as PILImage, ImageOps
 from datetime import datetime
 from io import BytesIO
 from urllib.request import Request, urlopen
+from xml.sax.saxutils import escape
 
 
 MAX_LOGO_BYTES = 10 * 1024 * 1024
@@ -35,7 +36,7 @@ def money(value):
 
 
 def details(rows, styles, green=False):
-    data = [[Paragraph("<b>{}</b>".format(label), styles["label"]), Paragraph(compact(value), styles["value"])] for label, value in rows]
+    data = [[Paragraph("<b>{}</b>".format(escape(label)), styles["label"]), Paragraph(escape(compact(value)), styles["value"])] for label, value in rows]
     table = Table(data, colWidths=[35 * mm, 151 * mm], hAlign="LEFT")
     background = "#DCFCE7" if green else "#F4F4F5"
     border = "#86EFAC" if green else "#D4D4D8"
@@ -50,7 +51,7 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
         "Dirección: " + compact(company_address, "No configurada", 90),
         "Fecha: " + date(delivery_date or datetime.now()),
     ]
-    metadata = Paragraph("<br/>".join(meta_lines), styles["company_meta"])
+    metadata = Paragraph("<br/>".join(escape(line) for line in meta_lines), styles["company_meta"])
     logo = None
     if company_logo_url:
         try:
@@ -144,6 +145,83 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
     ]))
     content += [Spacer(1, 12 * mm), signatures]
+    doc.build(content)
+    buffer.seek(0)
+    return buffer
+
+
+SALE_CATEGORIES = {
+    "phone": "Smartphone", "notebook": "Notebook", "macbook": "MacBook",
+    "board": "Placa base", "spare_part": "Repuesto", "other": "Otro",
+}
+SALE_CONDITIONS = {
+    "new": "Nuevo", "used": "Usado", "refurbished": "Reacondicionado",
+    "for_parts": "Para repuestos",
+}
+
+
+def generate_sale_delivery_pdf(sale, company_name="Mi negocio", company_logo_url=None, company_rut="", company_address=""):
+    """Genera un comprobante de venta con espacio para acreditar la entrega."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm,
+                            topMargin=10 * mm, bottomMargin=9 * mm)
+    base = getSampleStyleSheet()
+    styles = {
+        "company_meta": ParagraphStyle("sale_company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_LEFT, textColor=colors.HexColor("#3F3F46")),
+        "document": ParagraphStyle("sale_document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.HexColor("#18181B"), spaceAfter=3 * mm),
+        "section": ParagraphStyle("sale_section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=3 * mm, spaceAfter=1.5 * mm),
+        "label": ParagraphStyle("sale_label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
+        "value": ParagraphStyle("sale_value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=9),
+        "notice": ParagraphStyle("sale_notice", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=colors.HexColor("#52525B")),
+    }
+    category = sale.get("custom_category") if sale.get("category") == "other" else None
+    category = category or SALE_CATEGORIES.get(sale.get("category"), "Otro")
+    article_rows = [
+        ("Artículo", compact(sale.get("item_name"), limit=180)),
+        ("Tipo", compact(category, limit=80)),
+        ("Cantidad", str(sale.get("quantity") or 1)),
+        ("Estado", SALE_CONDITIONS.get(sale.get("condition"), "No especificado")),
+    ]
+    if sale.get("condition_notes"):
+        article_rows.append(("Detalle del estado", compact(sale["condition_notes"], limit=250)))
+    if sale.get("imei"):
+        article_rows.append(("IMEI", sale["imei"]))
+    if sale.get("serial_number"):
+        article_rows.append(("N° de serie", sale["serial_number"]))
+    if sale.get("notes"):
+        article_rows.append(("Observaciones", compact(sale["notes"], limit=250)))
+
+    signature_line = lambda: HRFlowable(width=65 * mm, thickness=0.6,
+                                        color=colors.HexColor("#18181B"), hAlign="CENTER")
+    signatures = Table([
+        [signature_line(), signature_line()],
+        ["Firma del comprador", "Firma de quien entrega"],
+        [compact(sale.get("customer_name"), limit=60), compact(sale.get("sold_by_name"), limit=60)],
+    ], colWidths=[93 * mm, 93 * mm])
+    signatures.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 1 * mm),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
+    ]))
+    content = [
+        company_header(company_name, company_logo_url, company_rut, company_address, sale.get("sold_on"), styles),
+        Paragraph("COMPROBANTE DE VENTA Y ENTREGA", styles["document"]),
+        details([("N° de venta", sale.get("sale_number")), ("Fecha de venta", date(sale.get("sold_on")))], styles),
+        Paragraph("Comprador", styles["section"]),
+        details([("Nombre", sale.get("customer_name")), ("RUT", sale.get("customer_rut")),
+                 ("Teléfono", sale.get("customer_phone"))], styles),
+        Paragraph("Artículo", styles["section"]),
+        details(article_rows, styles),
+        Paragraph("Venta", styles["section"]),
+        details([("Precio unitario", money(sale.get("unit_price"))),
+                 ("Total", money(sale.get("total_price")))], styles, green=True),
+        Spacer(1, 5 * mm),
+        Paragraph("Constancia de entrega", styles["section"]),
+        Paragraph("El comprador confirma la recepción del artículo indicado, con la identificación y el estado detallados en este comprobante.", styles["notice"]),
+        Spacer(1, 12 * mm), signatures,
+    ]
     doc.build(content)
     buffer.seek(0)
     return buffer
