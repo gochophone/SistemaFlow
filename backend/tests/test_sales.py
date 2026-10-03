@@ -227,6 +227,23 @@ async def test_sales_search_and_detail_are_tenant_scoped(db):
 
 
 @run_async
+async def test_sale_delivery_pdf_uses_saved_sale_and_is_tenant_scoped(db):
+    sale = await server.create_sale(payload(category="other", custom_category="Cámara", serial_number="SER-123"), USER)
+    company_user = {**USER, "company_name": "Servicios GP", "company_rut": "77.322.829-9",
+                    "company_address": "Santiago"}
+    response = await server.generate_sale_pdf(sale.id, company_user)
+    pdf = b"".join([chunk async for chunk in response.body_iterator])
+    assert response.media_type == "application/pdf"
+    assert f'venta_entrega_{sale.sale_number}.pdf' in response.headers["content-disposition"]
+    assert pdf.startswith(b"%PDF-")
+
+    db.sales.documents[0]["tenant_id"] = "another-tenant"
+    with pytest.raises(HTTPException) as error:
+        await server.generate_sale_pdf(sale.id, company_user)
+    assert error.value.status_code == 404
+
+
+@run_async
 async def test_technician_cannot_manage_sales_or_upload_sale_photos(db):
     technician = {**USER, "role": "technician"}
     with pytest.raises(HTTPException) as error:
