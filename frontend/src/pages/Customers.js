@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,13 +21,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, User } from 'lucide-react';
+import { Plus, Edit, Trash2, User, ShoppingBag } from 'lucide-react';
 import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const Customers = () => {
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, user } = useAuth();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -295,6 +297,12 @@ const Customers = () => {
                   <TableCell className="max-w-xs truncate">{customer.address || '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      {user?.role === 'admin' && (
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/sales?customer_id=${encodeURIComponent(customer.id)}`)}
+                          title="Ver compras del cliente" aria-label={`Ver compras de ${customer.name}`}>
+                          <ShoppingBag size={16} />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
