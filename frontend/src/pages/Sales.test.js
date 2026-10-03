@@ -160,7 +160,7 @@ test('allows a custom type for Otro and shows it on the saved sale', async () =>
   expect(document.body.textContent).toContain('Cámara');
 });
 
-test('downloads the sale and delivery PDF from a saved sale', async () => {
+test('previews a saved sale PDF and lets the user print or save it', async () => {
   const sale = {
     id: 'sale-pdf', sale_number: 'VEN-20261003-ABC', customer_id: 'c1', customer_name: 'Ana',
     item_name: 'MacBook Air', source: 'manual', category: 'macbook', quantity: 1,
@@ -173,7 +173,9 @@ test('downloads the sale and delivery PDF from a saved sale', async () => {
     return originalGet(url, options);
   });
   const originalCreateObjectURL = window.URL.createObjectURL;
+  const originalRevokeObjectURL = window.URL.revokeObjectURL;
   window.URL.createObjectURL = jest.fn(() => 'blob:sale-pdf');
+  window.URL.revokeObjectURL = jest.fn();
   let filename;
   const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { filename = this.download; });
   try {
@@ -184,11 +186,25 @@ test('downloads the sale and delivery PDF from a saved sale', async () => {
       headers: { Authorization: 'Bearer test' }, responseType: 'blob',
     });
     expect(window.URL.createObjectURL).toHaveBeenCalled();
+    const frame = document.querySelector('[data-testid="sale-pdf-preview"]');
+    expect(frame?.getAttribute('src')).toBe('blob:sale-pdf');
+    expect(click).not.toHaveBeenCalled();
+    const print = jest.fn();
+    const focus = jest.fn();
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: { print, focus } });
+    await act(async () => document.querySelector('[data-testid="sale-pdf-print-button"]').click());
+    expect(print).toHaveBeenCalledTimes(1);
+    expect(focus).toHaveBeenCalledTimes(1);
+    await act(async () => document.querySelector('[data-testid="sale-pdf-save-button"]').click());
     expect(click).toHaveBeenCalled();
     expect(filename).toBe('venta_entrega_VEN-20261003-ABC.pdf');
+    await act(async () => document.querySelector('[data-testid="sale-pdf-back-button"]').click());
+    expect(document.querySelector('[data-testid="sale-pdf-preview"]')).toBeNull();
+    expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:sale-pdf');
   } finally {
     click.mockRestore();
     window.URL.createObjectURL = originalCreateObjectURL;
+    window.URL.revokeObjectURL = originalRevokeObjectURL;
   }
 });
 

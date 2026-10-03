@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown, FileDown, Printer, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import DevicePhotos from '@/components/DevicePhotos';
 import { Button } from '@/components/ui/button';
@@ -67,8 +67,15 @@ const Sales = () => {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState(null);
+  const pdfFrameRef = useRef(null);
+  const pdfRequestRef = useRef(0);
   const submittingRef = useRef(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+
+  useEffect(() => () => {
+    if (pdfPreview?.url) window.URL.revokeObjectURL?.(pdfPreview.url);
+  }, [pdfPreview?.url]);
 
   const loadCatalogs = async () => {
     const headers = getAuthHeader();
@@ -215,26 +222,52 @@ const Sales = () => {
     }
   };
 
-  const downloadSalePdf = async () => {
+  const openSalePdf = async () => {
     if (!selectedSale || generatingPdf) return;
+    const request = ++pdfRequestRef.current;
     setGeneratingPdf(true);
     try {
       const response = await axios.get(`${API}/api/sales/${selectedSale.id}/delivery-pdf`, {
         headers: getAuthHeader(), responseType: 'blob',
       });
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `venta_entrega_${selectedSale.sale_number}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL?.(url), 60000);
+      if (request !== pdfRequestRef.current) {
+        window.URL.revokeObjectURL?.(url);
+        return;
+      }
+      setPdfPreview({ url, saleNumber: selectedSale.sale_number });
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No se pudo generar el PDF de venta y entrega');
+      if (request === pdfRequestRef.current) toast.error(error.response?.data?.detail || 'No se pudo mostrar el PDF de venta y entrega');
     } finally {
-      setGeneratingPdf(false);
+      if (request === pdfRequestRef.current) setGeneratingPdf(false);
     }
+  };
+
+  const saveSalePdf = () => {
+    if (!pdfPreview) return;
+    const link = document.createElement('a');
+    link.href = pdfPreview.url;
+    link.download = `venta_entrega_${pdfPreview.saleNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const printSalePdf = () => {
+    try {
+      if (!pdfFrameRef.current?.contentWindow) throw new Error('PDF no disponible');
+      pdfFrameRef.current.contentWindow.focus();
+      pdfFrameRef.current.contentWindow.print();
+    } catch {
+      toast.error('No se pudo imprimir el PDF. Prueba con Guardar PDF.');
+    }
+  };
+
+  const closeSaleDetail = () => {
+    pdfRequestRef.current += 1;
+    setGeneratingPdf(false);
+    setPdfPreview(null);
+    setSelectedSale(null);
   };
 
   const customerActivity = (customer) => (repairCounts[customer.id] || 0) + (saleCounts[customer.id] || 0);
@@ -407,15 +440,37 @@ const Sales = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(selectedSale)} onOpenChange={(open) => { if (!open) setSelectedSale(null); }}>
-        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto p-4 sm:p-6">
-          {selectedSale && <>
+      <Dialog open={Boolean(selectedSale)} onOpenChange={(open) => { if (!open) closeSaleDetail(); }}>
+        <DialogContent className={pdfPreview
+          ? 'flex h-[92vh] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden p-3 sm:p-5'
+          : 'max-h-[92vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto p-4 sm:p-6'}>
+          {selectedSale && (pdfPreview ? <>
+            <DialogHeader>
+              <DialogTitle className="pr-8">Venta y entrega · {pdfPreview.saleNumber}</DialogTitle>
+              <DialogDescription>Revisa el comprobante antes de guardarlo o imprimirlo.</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="outline" onClick={() => setPdfPreview(null)} data-testid="sale-pdf-back-button">
+                <ArrowLeft size={16} className="mr-2" />Volver a la venta
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={printSalePdf} data-testid="sale-pdf-print-button">
+                  <Printer size={16} className="mr-2" />Imprimir
+                </Button>
+                <Button type="button" onClick={saveSalePdf} data-testid="sale-pdf-save-button">
+                  <FileDown size={16} className="mr-2" />Guardar PDF
+                </Button>
+              </div>
+            </div>
+            <iframe ref={pdfFrameRef} src={pdfPreview.url} title={`PDF de venta y entrega ${pdfPreview.saleNumber}`}
+              className="min-h-0 w-full flex-1 rounded-md border border-zinc-200 bg-white dark:border-zinc-700" data-testid="sale-pdf-preview" />
+          </> : <>
             <DialogHeader><DialogTitle className="pr-8 text-xl sm:text-2xl">{selectedSale.item_name}</DialogTitle>
               <DialogDescription>{selectedSale.sale_number} · Venta del {selectedSale.sold_on}</DialogDescription>
             </DialogHeader>
             <div className="flex justify-end">
-              <Button type="button" variant="outline" onClick={downloadSalePdf} disabled={generatingPdf} data-testid="sale-delivery-pdf-button">
-                <FileDown size={17} className="mr-2" />{generatingPdf ? 'Generando PDF...' : 'PDF de venta y entrega'}
+              <Button type="button" variant="outline" onClick={openSalePdf} disabled={generatingPdf} data-testid="sale-delivery-pdf-button">
+                <Eye size={17} className="mr-2" />{generatingPdf ? 'Abriendo PDF...' : 'Ver PDF de venta y entrega'}
               </Button>
             </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -459,7 +514,7 @@ const Sales = () => {
               </div>
             </div>
             {selectedSale.notes && <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700"><h3 className="mb-2 text-base font-semibold">Notas</h3><p className="whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">{selectedSale.notes}</p></section>}
-          </>}
+          </>)}
         </DialogContent>
       </Dialog>
 
