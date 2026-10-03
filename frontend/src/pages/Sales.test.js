@@ -152,7 +152,7 @@ test('also treats a client with previous sales as frequent', async () => {
   expect(document.querySelector('[cmdk-list]').textContent).not.toContain('Ana');
 });
 
-test('opens a sold article photo in an in-page preview', async () => {
+test('opens a saved sale by clicking its row and previews its photo on the same page', async () => {
   const photo = 'https://example.com/article.jpg';
   axios.get.mockImplementation((url) => {
     if (url.endsWith('/api/customers') || url.endsWith('/api/inventory') || url.endsWith('/api/repairs')) {
@@ -166,10 +166,27 @@ test('opens a sold article photo in an in-page preview', async () => {
     }] });
   });
   await act(async () => root.render(<Sales />));
-  await act(async () => document.querySelector('[data-testid="sale-sale-1"] button').click());
+  const row = document.querySelector('[data-testid="sale-sale-1"]');
+  expect(row.className).toContain('dark:hover:bg-zinc-800');
+  await act(async () => row.querySelector('td').click());
+  expect(document.body.textContent).toContain('Comprador');
+  expect(document.body.textContent).toContain('Artículo');
+  expect(document.body.textContent).toContain('Venta');
   await act(async () => document.querySelector('[aria-label="Ampliar foto 1 de MacBook Air"]').click());
   expect(document.querySelector('img[alt="Foto ampliada del artículo"]')?.getAttribute('src')).toBe(photo);
   expect(document.querySelector('a[target="_blank"]')).toBeNull();
+});
+
+test('opens the saved sale with the keyboard', async () => {
+  axios.get.mockImplementation((url) => url.endsWith('/api/sales')
+    ? Promise.resolve({ data: [{ id: 'sale-1', sale_number: 'VEN-1', customer_name: 'Ana',
+      item_name: 'MacBook Air', source: 'manual', category: 'macbook', condition: 'used',
+      quantity: 1, unit_price: 500000, total_price: 500000, sold_on: '2026-10-02', photos: [] }] })
+    : Promise.resolve({ data: [] }));
+  await act(async () => root.render(<Sales />));
+  const row = document.querySelector('[data-testid="sale-sale-1"]');
+  await act(async () => row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  expect(document.body.textContent).toContain('Comprador');
 });
 
 test('opens a newly uploaded article photo without leaving the sale form', async () => {

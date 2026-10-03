@@ -31,6 +31,14 @@ const emptySale = () => ({
   condition_notes: '', imei: '', serial_number: '', photos: [], notes: '', sold_on: today(),
 });
 const selectClass = 'mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900';
+const SaleField = ({ label, children, mono = false }) => (
+  <div className="min-w-0">
+    <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
+    <dd className={`mt-1 break-words text-sm font-medium text-zinc-900 dark:text-zinc-100 ${mono ? 'font-mono' : ''}`}>
+      {children || '—'}
+    </dd>
+  </div>
+);
 
 const Sales = () => {
   const { getAuthHeader } = useAuth();
@@ -225,8 +233,8 @@ const Sales = () => {
     <div className="space-y-6" data-testid="sales-page">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900">Ventas</h1>
-          <p className="mt-1 text-sm text-zinc-600">Historial de artículos vendidos y de sus compradores</p>
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">Ventas</h1>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Historial de artículos vendidos y de sus compradores</p>
         </div>
         <Button onClick={openCreate} className="bg-blue-600 text-white hover:bg-blue-700" data-testid="new-sale-button">
           <Plus size={18} className="mr-2" /> Registrar venta
@@ -246,9 +254,9 @@ const Sales = () => {
           onChange={(event) => setQuery(event.target.value)} data-testid="sales-search" />
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <table className="w-full min-w-[760px] text-sm">
-          <thead className="bg-zinc-50 text-left text-zinc-700">
+          <thead className="bg-zinc-50 text-left text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
             <tr>
               <th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Artículo</th>
               <th className="px-4 py-3">Cliente</th><th className="px-4 py-3">IMEI / serie</th>
@@ -261,7 +269,9 @@ const Sales = () => {
             ) : sales.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-12 text-center text-zinc-500">Aún no hay ventas para esta búsqueda</td></tr>
             ) : sales.map((sale) => (
-              <tr key={sale.id} className="border-t border-zinc-200 hover:bg-zinc-50" data-testid={`sale-${sale.id}`}>
+              <tr key={sale.id} className="cursor-pointer border-t border-zinc-200 text-zinc-900 transition-colors hover:bg-blue-50/70 focus-visible:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus-visible:bg-zinc-800"
+                onClick={() => setSelectedSale(sale)} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); setSelectedSale(sale); } }}
+                tabIndex={0} aria-label={`Ver venta ${sale.sale_number} de ${sale.customer_name}`} data-testid={`sale-${sale.id}`}>
                 <td className="px-4 py-3 whitespace-nowrap">{sale.sold_on}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 font-medium"><ShoppingBag size={16} className="text-blue-500" />{sale.item_name}</div>
@@ -274,7 +284,7 @@ const Sales = () => {
                   {!sale.imei && !sale.serial_number && '—'}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold">{formatCLP(sale.total_price)}</td>
-                <td className="px-4 py-3 text-right"><Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}><Eye size={15} className="mr-1" /> Ver</Button></td>
+                <td className="px-4 py-3 text-right"><Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setSelectedSale(sale); }}><Eye size={15} className="mr-1" /> Ver</Button></td>
               </tr>
             ))}
           </tbody>
@@ -364,29 +374,52 @@ const Sales = () => {
       </Dialog>
 
       <Dialog open={Boolean(selectedSale)} onOpenChange={(open) => { if (!open) setSelectedSale(null); }}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto p-4 sm:p-6">
           {selectedSale && <>
-            <DialogHeader><DialogTitle>{selectedSale.item_name}</DialogTitle>
-              <DialogDescription>Registro de venta y datos del comprador.</DialogDescription>
+            <DialogHeader><DialogTitle className="pr-8 text-xl sm:text-2xl">{selectedSale.item_name}</DialogTitle>
+              <DialogDescription>{selectedSale.sale_number} · Venta del {selectedSale.sold_on}</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <p><strong>Cliente:</strong> {selectedSale.customer_name}{selectedSale.customer_rut ? ` · ${formatRUT(selectedSale.customer_rut)}` : ''}</p>
-              <p><strong>Teléfono:</strong> {selectedSale.customer_phone || '—'}</p>
-              <p><strong>Venta:</strong> {selectedSale.sale_number}</p>
-              <p><strong>Fecha de venta:</strong> {selectedSale.sold_on}</p>
-              <p><strong>Registrada el:</strong> {selectedSale.created_at ? new Date(selectedSale.created_at).toLocaleString('es-CL') : '—'}</p>
-              <p><strong>Registrado por:</strong> {selectedSale.sold_by_name}</p>
-              <p><strong>Origen:</strong> {selectedSale.source === 'inventory' ? `Inventario (${selectedSale.inventory_code || 'sin código'})` : 'Ingreso manual'}</p>
-              <p><strong>Tipo:</strong> {CATEGORIES[selectedSale.category]}</p>
-              <p><strong>Estado:</strong> {CONDITIONS[selectedSale.condition]}{selectedSale.condition_notes ? ` · ${selectedSale.condition_notes}` : ''}</p>
-              <p><strong>Cantidad:</strong> {selectedSale.quantity}</p>
-              <p><strong>IMEI:</strong> {selectedSale.imei || '—'}</p>
-              <p><strong>Serie:</strong> {selectedSale.serial_number || '—'}</p>
-              <p><strong>Precio unitario:</strong> {formatCLP(selectedSale.unit_price)}</p>
-              <p><strong>Total:</strong> {formatCLP(selectedSale.total_price)}</p>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+              <div className="space-y-4">
+                <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                  <h3 className="mb-4 text-base font-semibold">Comprador</h3>
+                  <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                    <SaleField label="Cliente">{selectedSale.customer_name}</SaleField>
+                    <SaleField label="RUT">{selectedSale.customer_rut ? formatRUT(selectedSale.customer_rut) : '—'}</SaleField>
+                    <SaleField label="Teléfono">{selectedSale.customer_phone}</SaleField>
+                  </dl>
+                </section>
+                <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                  <h3 className="mb-4 text-base font-semibold">Artículo</h3>
+                  <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                    <SaleField label="Tipo">{CATEGORIES[selectedSale.category]}</SaleField>
+                    <SaleField label="Origen">{selectedSale.source === 'inventory' ? `Inventario (${selectedSale.inventory_code || 'sin código'})` : 'Ingreso manual'}</SaleField>
+                    <SaleField label="Estado">{CONDITIONS[selectedSale.condition]}</SaleField>
+                    <SaleField label="Cantidad">{selectedSale.quantity}</SaleField>
+                    <SaleField label="IMEI" mono>{selectedSale.imei}</SaleField>
+                    <SaleField label="Número de serie" mono>{selectedSale.serial_number}</SaleField>
+                    {selectedSale.condition_notes && <div className="sm:col-span-2"><SaleField label="Detalle del estado">{selectedSale.condition_notes}</SaleField></div>}
+                  </dl>
+                </section>
+              </div>
+              <div className="space-y-4">
+                <section className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 dark:border-zinc-700 dark:bg-zinc-800/60">
+                  <h3 className="mb-4 text-base font-semibold">Venta</h3>
+                  <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                    <SaleField label="Precio unitario">{formatCLP(selectedSale.unit_price)}</SaleField>
+                    <SaleField label="Total"><span className="text-lg font-bold text-blue-700 dark:text-blue-300">{formatCLP(selectedSale.total_price)}</span></SaleField>
+                    <SaleField label="Fecha de venta">{selectedSale.sold_on}</SaleField>
+                    <SaleField label="Registrada el">{selectedSale.created_at ? new Date(selectedSale.created_at).toLocaleString('es-CL') : '—'}</SaleField>
+                    <SaleField label="Registrada por">{selectedSale.sold_by_name}</SaleField>
+                  </dl>
+                </section>
+                <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                  <h3 className="mb-3 text-base font-semibold">Fotos del artículo</h3>
+                  {selectedSale.photos?.length ? <div className="grid grid-cols-3 gap-2">{selectedSale.photos.map((photo, index) => <button key={`${photo}-${index}`} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1} de ${selectedSale.item_name}`} className="overflow-hidden rounded-md border border-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-zinc-700"><img src={photo} alt={`Foto ${index + 1} de ${selectedSale.item_name}`} className="h-24 w-full object-cover sm:h-28" /></button>)}</div> : <p className="text-sm text-zinc-500 dark:text-zinc-400">Sin fotos</p>}
+                </section>
+              </div>
             </div>
-            {selectedSale.notes && <p className="rounded-md bg-zinc-50 p-3 text-sm"><strong>Notas:</strong> {selectedSale.notes}</p>}
-            <div><h3 className="mb-2 font-semibold">Fotos del artículo</h3>{selectedSale.photos.length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{selectedSale.photos.map((photo, index) => <button key={photo} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1} de ${selectedSale.item_name}`}><img src={photo} alt={`Foto ${index + 1} de ${selectedSale.item_name}`} className="h-32 w-full rounded-md border border-zinc-200 object-cover" /></button>)}</div> : <p className="text-sm text-zinc-500">Sin fotos</p>}</div>
+            {selectedSale.notes && <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700"><h3 className="mb-2 text-base font-semibold">Notas</h3><p className="whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">{selectedSale.notes}</p></section>}
           </>}
         </DialogContent>
       </Dialog>
