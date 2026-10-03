@@ -343,7 +343,7 @@ class SaleCreate(BaseModel):
     source: Literal["inventory", "manual"]
     inventory_item_id: Optional[str] = None
     item_name: Optional[str] = Field(default=None, max_length=180)
-    category: Literal["phone", "macbook", "board", "spare_part", "other"]
+    category: Literal["phone", "notebook", "macbook", "board", "spare_part", "other"]
     quantity: int = Field(ge=1, le=100)
     unit_price: int = Field(ge=0)
     condition: Literal["new", "used", "refurbished", "for_parts"]
