@@ -18,7 +18,7 @@ import uuid
 import csv
 import io
 import unicodedata
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta
 from urllib.parse import urlparse
 import bcrypt
 import jwt
@@ -336,6 +336,37 @@ class InventoryUpdate(BaseModel):
     condition: Optional[int] = Field(default=None, ge=1, le=10)
     photos: Optional[List[str]] = None
     available: Optional[bool] = None
+
+class SaleCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    customer_id: str
+    source: Literal["inventory", "manual"]
+    inventory_item_id: Optional[str] = None
+    item_name: Optional[str] = Field(default=None, max_length=180)
+    category: Literal["phone", "macbook", "board", "spare_part", "other"]
+    quantity: int = Field(ge=1, le=100)
+    unit_price: int = Field(ge=0)
+    condition: Literal["new", "used", "refurbished", "for_parts"]
+    condition_notes: Optional[str] = Field(default=None, max_length=500)
+    imei: Optional[str] = Field(default=None, max_length=80)
+    serial_number: Optional[str] = Field(default=None, max_length=80)
+    photos: List[str] = Field(default_factory=list, max_length=5)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    sold_on: date = Field(default_factory=lambda: datetime.now(timezone.utc).date())
+
+class Sale(SaleCreate):
+    id: str
+    sale_number: str
+    tenant_id: str
+    customer_name: str
+    customer_rut: Optional[str] = None
+    customer_phone: Optional[str] = None
+    item_name: str
+    inventory_code: Optional[str] = None
+    sold_by_id: str
+    sold_by_name: str
+    total_price: int
+    created_at: datetime
 
 class DashboardStats(BaseModel):
     total_repairs: int
@@ -1022,6 +1053,111 @@ async def delete_inventory_item(item_id: str, current_user: dict = Depends(requi
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     return {"message": "Artículo eliminado"}
 
+def validate_sale_photos(photos: List[str], tenant_id: str):
+    if len(photos) != len(set(photos)):
+        raise HTTPException(status_code=400, detail="No repitas fotos en una venta")
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
+    for photo in photos:
+        parsed = urlparse(photo)
+        expected = f"/{cloud_name}/image/upload/"
+        public_id = re.sub(r"^v[0-9]+/", "", parsed.path[len(expected):])
+        allowed_prefixes = (f"{tenant_id}/sales/", f"{tenant_id}/inventory/")
+        if (not cloud_name or parsed.scheme != "https" or parsed.netloc != "res.cloudinary.com"
+                or not parsed.path.startswith(expected) or parsed.query or parsed.fragment
+                or not any(public_id.startswith(prefix) and len(public_id) > len(prefix) for prefix in allowed_prefixes)):
+            raise HTTPException(status_code=400, detail="Las fotos deben pertenecer a este negocio")
+
+@api_router.post("/sales", response_model=Sale, status_code=201)
+async def create_sale(payload: SaleCreate, current_user: dict = Depends(require_admin)):
+    tenant_id = current_user["tenant_id"]
+    db = await tenant_database(tenant_id)
+    customer = await db.customers.find_one({"id": payload.customer_id, "tenant_id": tenant_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Selecciona un cliente de este negocio")
+    if payload.sold_on > datetime.now(timezone.utc).date():
+        raise HTTPException(status_code=400, detail="La fecha de venta no puede ser futura")
+    if payload.quantity > 1 and ((payload.imei or "").strip() or (payload.serial_number or "").strip()):
+        raise HTTPException(status_code=400, detail="Registra por separado los artículos con IMEI o serie")
+    validate_sale_photos(payload.photos, tenant_id)
+
+    if payload.source == "manual":
+        if payload.inventory_item_id or not (payload.item_name or "").strip():
+            raise HTTPException(status_code=400, detail="Escribe el nombre del artículo manual")
+        item_name = payload.item_name.strip()
+        inventory_code = None
+        reserved_item = None
+    else:
+        if not payload.inventory_item_id:
+            raise HTTPException(status_code=400, detail="Selecciona un artículo del inventario")
+        # The stock check and decrement happen in one MongoDB operation, so two sales cannot use the last unit.
+        reserved_item = await db.inventory.find_one_and_update(
+            {"id": payload.inventory_item_id, "tenant_id": tenant_id,
+             "quantity": {"$gte": payload.quantity}, "available": {"$ne": False}},
+            {"$inc": {"quantity": -payload.quantity},
+             "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
+            return_document=ReturnDocument.BEFORE,
+        )
+        if not reserved_item:
+            raise HTTPException(status_code=409, detail="El artículo no tiene stock disponible")
+        item_name = reserved_item["name"]
+        inventory_code = reserved_item.get("code")
+
+    try:
+        if reserved_item and reserved_item["quantity"] == payload.quantity:
+            await db.inventory.update_one(
+                {"id": payload.inventory_item_id, "tenant_id": tenant_id, "quantity": 0},
+                {"$set": {"available": False}},
+            )
+        sale = Sale(
+            **{**payload.model_dump(),
+               "item_name": item_name,
+               "condition_notes": (payload.condition_notes or "").strip() or None,
+               "imei": (payload.imei or "").strip() or None,
+               "serial_number": (payload.serial_number or "").strip() or None,
+               "notes": (payload.notes or "").strip() or None},
+            id=str(uuid.uuid4()), sale_number=f"VEN-{datetime.now(timezone.utc):%Y%m%d}-{uuid.uuid4().hex[:8].upper()}",
+            tenant_id=tenant_id,
+            customer_name=customer["name"], customer_rut=customer.get("rut"),
+            customer_phone=customer.get("phone"), inventory_code=inventory_code,
+            sold_by_id=current_user["id"], sold_by_name=current_user["name"],
+            total_price=payload.quantity * payload.unit_price,
+            created_at=datetime.now(timezone.utc),
+        )
+        await db.sales.insert_one(sale.model_dump(mode="json"))
+    except Exception:
+        if reserved_item:
+            await db.inventory.update_one(
+                {"id": payload.inventory_item_id, "tenant_id": tenant_id},
+                {"$inc": {"quantity": payload.quantity}, "$set": {"available": True}},
+            )
+        raise
+    return sale
+
+@api_router.get("/sales", response_model=List[Sale])
+async def get_sales(
+    q: str = Query(default="", max_length=100), customer_id: Optional[str] = None,
+    current_user: dict = Depends(require_admin),
+):
+    tenant_id = current_user["tenant_id"]
+    query = {"tenant_id": tenant_id}
+    if customer_id:
+        query["customer_id"] = customer_id
+    if q.strip():
+        pattern = re.escape(q.strip())
+        query["$or"] = [{field: {"$regex": pattern, "$options": "i"}} for field in
+                        ("sale_number", "item_name", "customer_name", "customer_rut", "imei", "serial_number", "inventory_code")]
+    db = await tenant_database(tenant_id)
+    return await db.sales.find(query, {"_id": 0}).sort("sold_on", -1).to_list(1000)
+
+@api_router.get("/sales/{sale_id}", response_model=Sale)
+async def get_sale(sale_id: str, current_user: dict = Depends(require_admin)):
+    tenant_id = current_user["tenant_id"]
+    db = await tenant_database(tenant_id)
+    sale = await db.sales.find_one({"id": sale_id, "tenant_id": tenant_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+    return sale
+
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     db = await tenant_database(current_user["tenant_id"])
@@ -1124,11 +1260,11 @@ async def generate_cloudinary_signature(
     current_user: dict = Depends(get_current_user)
 ):
     """Generate signed upload parameters for Cloudinary"""
-    ALLOWED_FOLDERS = ("repairs", "users", "inventory", "payments")
+    ALLOWED_FOLDERS = ("repairs", "users", "inventory", "payments", "sales")
     if folder not in ALLOWED_FOLDERS:
         raise HTTPException(status_code=400, detail="Invalid folder path")
     
-    if folder == "inventory" and current_user["role"] != "admin":
+    if folder in ("inventory", "sales") and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     folder = f"{current_user['tenant_id']}/{folder}"
     timestamp = int(time.time())
