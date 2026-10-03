@@ -53,3 +53,15 @@ test('reports a save failure instead of claiming the photo was added', async () 
   expect(toast.error).toHaveBeenCalledWith('La orden ya está cerrada');
   expect(toast.success).not.toHaveBeenCalled();
 });
+
+test('uploads sale photos to the sales folder and reports busy state', async () => {
+  const onChange = jest.fn().mockResolvedValue();
+  const onBusyChange = jest.fn();
+  await act(async () => root.render(<DevicePhotos photos={[]} onChange={onChange} folder="sales"
+    onBusyChange={onBusyChange} authHeader={{ Authorization: 'Bearer test' }} />));
+  await uploadPhoto();
+  expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/cloudinary/signature'), expect.objectContaining({
+    params: expect.objectContaining({ folder: 'sales' }),
+  }));
+  expect(onBusyChange.mock.calls.map(([busy]) => busy)).toEqual([true, false]);
+});

@@ -6,7 +6,8 @@ import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhotoClick }) => {
+const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhotoClick, folder = 'repairs', onBusyChange,
+  subjectLabel = 'equipo', emptyHint = 'Documenta el estado del dispositivo al recibirlo' }) => {
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -41,6 +42,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
     if (validFiles.length === 0) return;
 
     setUploading(true);
+    onBusyChange?.(true);
     toast.info(`Subiendo ${validFiles.length} foto(s)...`);
 
     try {
@@ -55,6 +57,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
       toast.error(error.response?.data?.detail || 'Error al guardar las fotos. Intenta nuevamente.');
     } finally {
       setUploading(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -64,11 +67,11 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
       headers: authHeader,
       params: {
         resource_type: 'image',
-        folder: 'repairs'
+        folder
       }
     });
 
-    const { signature, timestamp, cloud_name, api_key, folder } = sigResponse.data;
+    const { signature, timestamp, cloud_name, api_key, folder: signedFolder } = sigResponse.data;
 
     // Upload to Cloudinary
     const formData = new FormData();
@@ -76,7 +79,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
     formData.append('api_key', api_key);
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
-    formData.append('folder', folder);
+    formData.append('folder', signedFolder);
 
     const uploadResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
@@ -97,6 +100,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
   const removePhoto = async (index) => {
     const newPhotos = photos.filter((_, i) => i !== index);
     setUploading(true);
+    onBusyChange?.(true);
     try {
       await onChange(newPhotos);
       toast.success('Foto eliminada');
@@ -104,6 +108,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
       toast.error(error.response?.data?.detail || 'No se pudo quitar la foto');
     } finally {
       setUploading(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -182,7 +187,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
                   <button type="button" onClick={() => onPhotoClick(photoUrl)} className="block w-full">
                     <img
                       src={photoUrl}
-                      alt={`Foto del equipo ${index + 1}`}
+                      alt={`Foto del ${subjectLabel} ${index + 1}`}
                       className="w-full h-32 object-cover"
                       loading="lazy"
                     />
@@ -190,7 +195,7 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
                 ) : (
                   <img
                     src={photoUrl}
-                    alt={`Foto del equipo ${index + 1}`}
+                    alt={`Foto del ${subjectLabel} ${index + 1}`}
                     className="w-full h-32 object-cover"
                     loading="lazy"
                   />
@@ -215,10 +220,10 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
         <div className="border-2 border-dashed border-zinc-300 rounded-lg p-8 text-center">
           <ImageIcon size={40} className="mx-auto text-zinc-400 mb-3" />
           <p className="text-sm text-zinc-600 mb-1">
-            No hay fotos del equipo
+            No hay fotos del {subjectLabel}
           </p>
           <p className="text-xs text-zinc-500">
-            Documenta el estado del dispositivo al recibirlo
+            {emptyHint}
           </p>
         </div>
       )}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, LayoutDashboard, Wrench, Users, Package, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
+import { Search, LayoutDashboard, Wrench, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +39,7 @@ const Layout = () => {
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
     ...(user?.role === 'admin' ? [
       { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },
+      { path: '/sales', icon: ShoppingBag, label: 'Ventas', testId: 'nav-sales' },
       { path: '/team', icon: Users, label: 'Equipo de trabajo', testId: 'nav-team' },
     ] : []),
     { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
