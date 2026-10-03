@@ -20,8 +20,12 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   axios.get.mockImplementation((url) => {
-    if (url.endsWith('/api/customers')) return Promise.resolve({ data: [{ id: 'c1', name: 'Ana', phone: '123' }] });
+    if (url.endsWith('/api/customers')) return Promise.resolve({ data: [
+      { id: 'c1', name: 'Ana', phone: '123' },
+      { id: 'c2', name: 'Bruno', phone: '456' },
+    ] });
     if (url.endsWith('/api/inventory')) return Promise.resolve({ data: [{ id: 'i1', name: 'MacBook Air', code: 'INV-1', price: 500000, quantity: 1, available: true, photos: [] }] });
+    if (url.endsWith('/api/repairs')) return Promise.resolve({ data: [{ customer_id: 'c1' }] });
     return Promise.resolve({ data: [] });
   });
   container = document.createElement('div');
@@ -44,6 +48,7 @@ test('registers an inventory sale linked to a customer', async () => {
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
   expect(form).not.toBeNull();
+  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
   const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Ana') && button.textContent.includes('123'));
   await act(async () => customer.click());
   await act(async () => {
@@ -74,6 +79,7 @@ test('registers a manually named article with optional IMEI', async () => {
   await act(async () => root.render(<Sales />));
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
+  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
   const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Ana') && button.textContent.includes('123'));
   await act(async () => customer.click());
   const fill = async (selector, value) => {
@@ -97,4 +103,47 @@ test('registers a manually named article with optional IMEI', async () => {
     source: 'manual', inventory_item_id: null, item_name: 'Placa MacBook', imei: '123',
     unit_price: 80000, category: 'board',
   }), expect.anything());
+});
+
+test('keeps customers hidden until search focus, then shows frequent clients and searches all', async () => {
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
+  const form = document.querySelector('[data-testid="sale-form"]');
+  expect(form.querySelector('#sale-customer-options')).toBeNull();
+
+  const search = form.querySelector('[data-testid="sale-customer-search"]');
+  await act(async () => search.focus());
+  expect(form.querySelector('#sale-customer-options').textContent).toContain('Clientes frecuentes');
+  expect(form.querySelector('#sale-customer-options').textContent).toContain('Ana');
+  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Bruno');
+
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, 'Bruno');
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(form.querySelector('#sale-customer-options').textContent).toContain('Bruno');
+  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Ana');
+  const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Bruno'));
+  await act(async () => customer.click());
+  expect(form.querySelector('#sale-customer-options')).toBeNull();
+  expect(form.textContent).toContain('Seleccionado: Bruno');
+});
+
+test('also treats a client with previous sales as frequent', async () => {
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/customers')) return Promise.resolve({ data: [
+      { id: 'c1', name: 'Ana', phone: '123' }, { id: 'c2', name: 'Bruno', phone: '456' },
+    ] });
+    if (url.endsWith('/api/repairs')) return Promise.resolve({ data: [] });
+    if (url.endsWith('/api/inventory')) return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: [{ id: 'sale-1', customer_id: 'c2', customer_name: 'Bruno',
+      item_name: 'iPhone', category: 'phone', source: 'manual', quantity: 1, total_price: 100000,
+      sold_on: '2026-10-02', photos: [] }] });
+  });
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
+  const form = document.querySelector('[data-testid="sale-form"]');
+  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
+  expect(form.querySelector('#sale-customer-options').textContent).toContain('Bruno');
+  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Ana');
 });

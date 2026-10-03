@@ -38,12 +38,15 @@ const Sales = () => {
   const [sales, setSales] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [inventory, setInventory] = useState([]);
+  const [repairCounts, setRepairCounts] = useState({});
+  const [saleCounts, setSaleCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [form, setForm] = useState(emptySale);
   const [customerQuery, setCustomerQuery] = useState('');
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [inventoryQuery, setInventoryQuery] = useState('');
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', rut: '' });
@@ -54,12 +57,17 @@ const Sales = () => {
 
   const loadCatalogs = async () => {
     const headers = getAuthHeader();
-    const [customerResponse, inventoryResponse] = await Promise.all([
+    const [customerResponse, inventoryResponse, repairResponse] = await Promise.all([
       axios.get(`${API}/api/customers`, { headers }),
       axios.get(`${API}/api/inventory`, { headers }),
+      axios.get(`${API}/api/repairs`, { headers }).catch(() => ({ data: [] })),
     ]);
     setCustomers(customerResponse.data);
     setInventory(inventoryResponse.data);
+    setRepairCounts(repairResponse.data.reduce((counts, repair) => {
+      counts[repair.customer_id] = (counts[repair.customer_id] || 0) + 1;
+      return counts;
+    }, {}));
   };
 
   const loadSales = async (search = query, customerId = customerFilter) => {
@@ -67,6 +75,12 @@ const Sales = () => {
       headers: getAuthHeader(), params: { q: search.trim(), ...(customerId ? { customer_id: customerId } : {}) },
     });
     setSales(data);
+    if (!search.trim() && !customerId) {
+      setSaleCounts(data.reduce((counts, sale) => {
+        counts[sale.customer_id] = (counts[sale.customer_id] || 0) + 1;
+        return counts;
+      }, {}));
+    }
   };
 
   useEffect(() => {
@@ -93,6 +107,7 @@ const Sales = () => {
   const openCreate = () => {
     setForm({ ...emptySale(), customer_id: customerFilter });
     setCustomerQuery('');
+    setCustomerPickerOpen(false);
     setInventoryQuery('');
     setShowNewCustomer(false);
     setCreateOpen(true);
@@ -129,6 +144,7 @@ const Sales = () => {
       setCustomers((current) => [...current, data]);
       setForm((current) => ({ ...current, customer_id: data.id }));
       setCustomerQuery('');
+      setCustomerPickerOpen(false);
       setNewCustomer({ name: '', phone: '', rut: '' });
       setShowNewCustomer(false);
       toast.success('Cliente creado y seleccionado');
@@ -159,6 +175,7 @@ const Sales = () => {
       };
       const { data } = await axios.post(`${API}/api/sales`, payload, { headers: getAuthHeader() });
       setSales((current) => customerFilter && data.customer_id !== customerFilter ? current : [data, ...current]);
+      setSaleCounts((current) => ({ ...current, [data.customer_id]: (current[data.customer_id] || 0) + 1 }));
       setCreateOpen(false);
       setSelectedSale(data);
       toast.success('Venta registrada con trazabilidad');
@@ -172,9 +189,13 @@ const Sales = () => {
     }
   };
 
-  const matchingCustomers = customers.filter((customer) =>
-    `${customer.name} ${customer.rut || ''} ${customer.phone || ''}`.toLowerCase().includes(customerQuery.toLowerCase())
-  ).slice(0, 8);
+  const customerActivity = (customer) => (repairCounts[customer.id] || 0) + (saleCounts[customer.id] || 0);
+  const normalizedCustomerQuery = customerQuery.trim().toLocaleLowerCase('es');
+  const matchingCustomers = customers.filter((customer) => {
+    if (!normalizedCustomerQuery) return customerActivity(customer) > 0;
+    return `${customer.name} ${customer.rut || ''} ${customer.phone || ''} ${customer.email || ''}`
+      .toLocaleLowerCase('es').includes(normalizedCustomerQuery);
+  }).sort((first, second) => customerActivity(second) - customerActivity(first) || first.name.localeCompare(second.name, 'es')).slice(0, 8);
   const matchingInventory = inventory.filter((item) =>
     item.available !== false && item.quantity > 0 &&
     `${item.name} ${item.code || ''}`.toLowerCase().includes(inventoryQuery.toLowerCase())
@@ -252,15 +273,24 @@ const Sales = () => {
             <section className="space-y-2">
               <div className="flex items-center justify-between"><Label>Cliente *</Label><Button type="button" variant="outline" size="sm" onClick={() => setShowNewCustomer(!showNewCustomer)}><UserPlus size={15} className="mr-1" /> Nuevo cliente</Button></div>
               {chosenCustomer && <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">Seleccionado: {chosenCustomer.name}{chosenCustomer.rut ? ` · ${formatRUT(chosenCustomer.rut)}` : ''}</p>}
-              <Input placeholder="Buscar cliente por nombre, RUT o teléfono" value={customerQuery} onChange={(event) => setCustomerQuery(event.target.value)} data-testid="sale-customer-search" />
-              <div className="max-h-32 overflow-y-auto rounded-md border border-zinc-200">
-                {matchingCustomers.map((customer) => (
-                  <button key={customer.id} type="button" onClick={() => setForm((current) => ({ ...current, customer_id: customer.id }))}
-                    className={`block w-full border-b border-zinc-100 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-zinc-800 ${form.customer_id === customer.id ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}`}>
-                    {customer.name}{customer.rut ? ` · ${formatRUT(customer.rut)}` : ''} · {customer.phone}
-                  </button>
-                ))}
-                {matchingCustomers.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">No se encontraron clientes</p>}
+              <div onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setCustomerPickerOpen(false); }}>
+                <Input placeholder="Buscar cliente por nombre, RUT, teléfono o correo" value={customerQuery}
+                  onFocus={() => setCustomerPickerOpen(true)} onChange={(event) => setCustomerQuery(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Escape') setCustomerPickerOpen(false); }}
+                  aria-expanded={customerPickerOpen} aria-controls="sale-customer-options" data-testid="sale-customer-search" />
+                {customerPickerOpen && <div id="sale-customer-options" className="mt-1 max-h-32 overflow-y-auto rounded-md border border-zinc-200">
+                  <p className="border-b border-zinc-100 px-3 py-1 text-xs text-zinc-500">{normalizedCustomerQuery ? 'Resultados' : 'Clientes frecuentes'}</p>
+                  {matchingCustomers.map((customer) => (
+                    <button key={customer.id} type="button" onClick={() => {
+                      setForm((current) => ({ ...current, customer_id: customer.id }));
+                      setCustomerQuery('');
+                      setCustomerPickerOpen(false);
+                    }} className={`block w-full border-b border-zinc-100 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-zinc-800 ${form.customer_id === customer.id ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}`}>
+                      {customer.name}{customer.rut ? ` · ${formatRUT(customer.rut)}` : ''} · {customer.phone}
+                    </button>
+                  ))}
+                  {matchingCustomers.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">{normalizedCustomerQuery ? 'No se encontraron clientes' : 'Escribe para buscar entre todos los clientes'}</p>}
+                </div>}
               </div>
               {showNewCustomer && <div className="grid gap-2 rounded-md border border-zinc-200 p-3 sm:grid-cols-3">
                 <Input placeholder="Nombre *" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
