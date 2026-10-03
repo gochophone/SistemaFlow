@@ -122,6 +122,14 @@ def payload(**overrides):
     return server.SaleCreate(**{**data, **overrides})
 
 
+@pytest.mark.parametrize("category", ["phone", "notebook", "macbook", "board", "spare_part", "other"])
+@run_async
+async def test_sale_category_round_trip(db, category):
+    sale = await server.create_sale(payload(category=category), USER)
+    assert sale.category == category
+    assert (await server.get_sale(sale.id, USER))["category"] == category
+
+
 @run_async
 async def test_manual_sale_preserves_buyer_and_serial_history(db):
     sale = await server.create_sale(payload(serial_number="SERIAL-1"), USER)
