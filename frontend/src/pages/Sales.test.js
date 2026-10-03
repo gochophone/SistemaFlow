@@ -125,6 +125,40 @@ test('offers generalized article types including notebooks while keeping existin
   expect(category.value).toBe('notebook');
 });
 
+test('allows a custom type for Otro and shows it on the saved sale', async () => {
+  axios.post.mockResolvedValue({ data: {
+    id: 'sale-other', sale_number: 'VEN-OTHER', customer_id: 'c1', customer_name: 'Ana',
+    item_name: 'Cámara Sony', source: 'manual', category: 'other', custom_category: 'Cámara',
+    quantity: 1, unit_price: 90000, total_price: 90000, condition: 'used',
+    sold_on: '2026-10-02', photos: [], sold_by_name: 'Admin',
+  } });
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
+  const form = document.querySelector('[data-testid="sale-form"]');
+  expect(form.querySelector('#sale-custom-category')).toBeNull();
+  await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
+  await act(async () => Array.from(document.querySelectorAll('[cmdk-item]'))
+    .find((item) => item.textContent.includes('Ana')).click());
+  await act(async () => {
+    const category = form.querySelector('#sale-category');
+    category.value = 'other';
+    category.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const fill = async (selector, value) => act(async () => {
+    const input = form.querySelector(selector);
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await fill('#sale-custom-category', '  Cámara  ');
+  await fill('#sale-name', 'Cámara Sony');
+  await fill('#sale-price', '90000');
+  await act(async () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/sales'), expect.objectContaining({
+    category: 'other', custom_category: 'Cámara', item_name: 'Cámara Sony',
+  }), expect.anything());
+  expect(document.body.textContent).toContain('Cámara');
+});
+
 test('selects a frequent repair client with the same picker used in New Repair', async () => {
   await act(async () => root.render(<Sales />));
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());

@@ -19,6 +19,8 @@ const CATEGORIES = {
   phone: 'Smartphone', notebook: 'Notebook', macbook: 'MacBook',
   board: 'Placa base', spare_part: 'Repuesto', other: 'Otro',
 };
+const categoryLabel = (sale) => sale.category === 'other' && sale.custom_category
+  ? sale.custom_category : CATEGORIES[sale.category] || 'Otro';
 const CONDITIONS = {
   new: 'Nuevo', used: 'Usado', refurbished: 'Reacondicionado', for_parts: 'Para repuestos',
 };
@@ -28,7 +30,7 @@ const today = () => {
 };
 const emptySale = () => ({
   customer_id: '', source: 'manual', inventory_item_id: '', item_name: '',
-  category: 'phone', quantity: '1', unit_price: '', condition: 'used',
+  category: 'phone', custom_category: '', quantity: '1', unit_price: '', condition: 'used',
   condition_notes: '', imei: '', serial_number: '', photos: [], notes: '', sold_on: today(),
 });
 const selectClass = 'mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900';
@@ -183,6 +185,7 @@ const Sales = () => {
     if (!form.customer_id) { toast.error('Selecciona un cliente'); return; }
     if (form.source === 'inventory' && !form.inventory_item_id) { toast.error('Selecciona un artículo del inventario'); return; }
     if (form.source === 'manual' && !form.item_name.trim()) { toast.error('Escribe el nombre del artículo'); return; }
+    if (form.category === 'other' && !form.custom_category.trim()) { toast.error('Escribe el tipo de artículo'); return; }
     if (Number(form.quantity) > 1 && (form.imei.trim() || form.serial_number.trim())) {
       toast.error('Registra por separado cada artículo con IMEI o serie'); return;
     }
@@ -192,6 +195,7 @@ const Sales = () => {
       const payload = {
         ...form, inventory_item_id: form.source === 'inventory' ? form.inventory_item_id : null,
         item_name: form.source === 'manual' ? form.item_name.trim() : null,
+        custom_category: form.category === 'other' ? form.custom_category.trim() : null,
         quantity: Number(form.quantity), unit_price: Number(form.unit_price),
       };
       const { data } = await axios.post(`${API}/api/sales`, payload, { headers: getAuthHeader() });
@@ -276,7 +280,7 @@ const Sales = () => {
                 <td className="px-4 py-3 whitespace-nowrap">{sale.sold_on}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 font-medium"><ShoppingBag size={16} className="text-blue-500" />{sale.item_name}</div>
-                  <span className="text-xs text-zinc-500">{sale.sale_number} · {CATEGORIES[sale.category]} · {sale.source === 'inventory' ? 'Inventario' : 'Ingreso manual'} · {sale.quantity} ud.</span>
+                  <span className="text-xs text-zinc-500">{sale.sale_number} · {categoryLabel(sale)} · {sale.source === 'inventory' ? 'Inventario' : 'Ingreso manual'} · {sale.quantity} ud.</span>
                 </td>
                 <td className="px-4 py-3">{sale.customer_name}<div className="text-xs text-zinc-500">{sale.customer_rut ? formatRUT(sale.customer_rut) : ''}</div></td>
                 <td className="px-4 py-3 font-mono text-xs">
@@ -337,8 +341,14 @@ const Sales = () => {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div><Label htmlFor="sale-source">Origen *</Label><select id="sale-source" className={selectClass} value={form.source} onChange={(e) => switchSource(e.target.value)}><option value="manual">Ingresar directamente</option><option value="inventory">Tomar del inventario</option></select></div>
-              <div><Label htmlFor="sale-category">Tipo de artículo *</Label><select id="sale-category" className={selectClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>{Object.entries(CATEGORIES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+              <div><Label htmlFor="sale-category">Tipo de artículo *</Label><select id="sale-category" className={selectClass} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, custom_category: e.target.value === 'other' ? form.custom_category : '' })}>{Object.entries(CATEGORIES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             </div>
+            {form.category === 'other' && <div>
+              <Label htmlFor="sale-custom-category">Especifica el tipo de artículo *</Label>
+              <Input id="sale-custom-category" required maxLength={80} value={form.custom_category}
+                onChange={(event) => setForm((current) => ({ ...current, custom_category: event.target.value }))}
+                placeholder="Ej.: cámara, consola, monitor" className="mt-1" />
+            </div>}
             {form.source === 'inventory' ? <section className="space-y-2">
               <Label>Artículo del inventario *</Label>
               {chosenItem && <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">Seleccionado: {chosenItem.name} · Stock: {chosenItem.quantity}</p>}
@@ -393,7 +403,7 @@ const Sales = () => {
                 <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                   <h3 className="mb-4 text-base font-semibold">Artículo</h3>
                   <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-                    <SaleField label="Tipo">{CATEGORIES[selectedSale.category]}</SaleField>
+                    <SaleField label="Tipo">{categoryLabel(selectedSale)}</SaleField>
                     <SaleField label="Origen">{selectedSale.source === 'inventory' ? `Inventario (${selectedSale.inventory_code || 'sin código'})` : 'Ingreso manual'}</SaleField>
                     <SaleField label="Estado">{CONDITIONS[selectedSale.condition]}</SaleField>
                     <SaleField label="Cantidad">{selectedSale.quantity}</SaleField>
