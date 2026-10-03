@@ -107,6 +107,22 @@ test('registers a manually named article with optional IMEI', async () => {
     source: 'manual', inventory_item_id: null, item_name: 'Placa MacBook', imei: '123',
     unit_price: 80000, category: 'board',
   }), expect.anything());
+  expect(document.body.textContent).toContain('Placa base');
+});
+
+test('offers generalized article types including notebooks while keeping existing category values', async () => {
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
+  const category = document.querySelector('#sale-category');
+  expect(Array.from(category.options, ({ value, label }) => [value, label])).toEqual([
+    ['phone', 'Smartphone'], ['notebook', 'Notebook'], ['macbook', 'MacBook'],
+    ['board', 'Placa base'], ['spare_part', 'Repuesto'], ['other', 'Otro'],
+  ]);
+  await act(async () => {
+    category.value = 'notebook';
+    category.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(category.value).toBe('notebook');
 });
 
 test('selects a frequent repair client with the same picker used in New Repair', async () => {
@@ -150,6 +166,7 @@ test('also treats a client with previous sales as frequent', async () => {
   await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
   expect(document.querySelector('[cmdk-list]').textContent).toContain('Bruno');
   expect(document.querySelector('[cmdk-list]').textContent).not.toContain('Ana');
+  expect(document.querySelector('[data-testid="sale-sale-1"]').textContent).toContain('Smartphone');
 });
 
 test('opens a saved sale by clicking its row and previews its photo on the same page', async () => {

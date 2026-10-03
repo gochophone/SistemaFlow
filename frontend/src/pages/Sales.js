@@ -16,7 +16,8 @@ import { cleanRUT, formatRUT, validateRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const CATEGORIES = {
-  phone: 'Celular', macbook: 'MacBook', board: 'Placa', spare_part: 'Repuesto', other: 'Otro',
+  phone: 'Smartphone', notebook: 'Notebook', macbook: 'MacBook',
+  board: 'Placa base', spare_part: 'Repuesto', other: 'Otro',
 };
 const CONDITIONS = {
   new: 'Nuevo', used: 'Usado', refurbished: 'Reacondicionado', for_parts: 'Para repuestos',
@@ -349,7 +350,7 @@ const Sales = () => {
                 </button>)}
                 {matchingInventory.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">No hay artículos con stock disponible</p>}
               </div>
-            </section> : <div><Label htmlFor="sale-name">Nombre del artículo *</Label><Input id="sale-name" required maxLength={180} value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} placeholder="Ej.: iPhone 13 Pro, placa MacBook, batería" /></div>}
+            </section> : <div><Label htmlFor="sale-name">Nombre del artículo *</Label><Input id="sale-name" required maxLength={180} value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} placeholder="Ej.: smartphone, notebook, placa base o repuesto" /></div>}
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div><Label htmlFor="sale-quantity">Cantidad *</Label><Input id="sale-quantity" type="number" min="1" max="100" required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></div>
