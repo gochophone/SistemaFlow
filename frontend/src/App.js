@@ -11,6 +11,7 @@ import RepairDetail from '@/pages/RepairDetail';
 import NewRepair from '@/pages/NewRepair';
 import Customers from '@/pages/Customers';
 import Inventory from '@/pages/Inventory';
+import Sales from '@/pages/Sales';
 import Team from '@/pages/Team';
 import PrintLabel from '@/pages/PrintLabel';
 import PublicRepairView from '@/pages/PublicRepairView';
@@ -108,6 +109,7 @@ function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="settings" element={<Settings />} />
             <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
+            <Route path="sales" element={<AdminRoute><Sales /></AdminRoute>} />
             <Route path="team" element={<AdminRoute><Team /></AdminRoute>} />
           </Route>
         </Routes>
