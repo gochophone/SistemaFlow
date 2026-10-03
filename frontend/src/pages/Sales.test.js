@@ -4,10 +4,13 @@ import axios from 'axios';
 import Sales from './Sales';
 
 jest.mock('axios');
+jest.mock('@radix-ui/primitive/is-development', () => ({ isDevelopment: false }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ getAuthHeader: () => ({ Authorization: 'Bearer test' }) }) }));
 jest.mock('react-router-dom', () => ({ useSearchParams: () => [new URLSearchParams(), jest.fn()] }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
-jest.mock('@/components/DevicePhotos', () => () => <div data-testid="photos" />);
+jest.mock('@/components/DevicePhotos', () => ({ onPhotoClick }) => <div data-testid="photos">
+  <button type="button" onClick={() => onPhotoClick?.('https://example.com/new.jpg')}>Vista previa de foto</button>
+</div>);
 
 let container;
 let root;
@@ -15,6 +18,7 @@ let root;
 beforeAll(() => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
   global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+  Element.prototype.scrollIntoView = jest.fn();
 });
 
 beforeEach(() => {
@@ -48,8 +52,8 @@ test('registers an inventory sale linked to a customer', async () => {
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
   expect(form).not.toBeNull();
-  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
-  const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Ana') && button.textContent.includes('123'));
+  await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
+  const customer = Array.from(document.querySelectorAll('[cmdk-item]')).find((item) => item.textContent.includes('Ana'));
   await act(async () => customer.click());
   await act(async () => {
     const source = form.querySelector('#sale-source');
@@ -79,8 +83,8 @@ test('registers a manually named article with optional IMEI', async () => {
   await act(async () => root.render(<Sales />));
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
-  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
-  const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Ana') && button.textContent.includes('123'));
+  await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
+  const customer = Array.from(document.querySelectorAll('[cmdk-item]')).find((item) => item.textContent.includes('Ana'));
   await act(async () => customer.click());
   const fill = async (selector, value) => {
     await act(async () => {
@@ -105,28 +109,28 @@ test('registers a manually named article with optional IMEI', async () => {
   }), expect.anything());
 });
 
-test('keeps customers hidden until search focus, then shows frequent clients and searches all', async () => {
+test('selects a frequent repair client with the same picker used in New Repair', async () => {
   await act(async () => root.render(<Sales />));
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
-  expect(form.querySelector('#sale-customer-options')).toBeNull();
+  expect(document.querySelector('[cmdk-item]')).toBeNull();
 
-  const search = form.querySelector('[data-testid="sale-customer-search"]');
-  await act(async () => search.focus());
-  expect(form.querySelector('#sale-customer-options').textContent).toContain('Clientes frecuentes');
-  expect(form.querySelector('#sale-customer-options').textContent).toContain('Ana');
-  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Bruno');
+  await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
+  expect(document.body.textContent).toContain('Clientes frecuentes');
+  expect(document.querySelector('[cmdk-list]').textContent).toContain('Ana');
+  expect(document.querySelector('[cmdk-list]').textContent).not.toContain('Bruno');
 
+  const search = document.querySelector('[data-testid="sale-customer-search"]');
   await act(async () => {
     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, 'Bruno');
     search.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  expect(form.querySelector('#sale-customer-options').textContent).toContain('Bruno');
-  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Ana');
-  const customer = Array.from(form.querySelectorAll('button')).find((button) => button.textContent.includes('Bruno'));
+  expect(document.querySelector('[cmdk-list]').textContent).toContain('Bruno');
+  expect(document.querySelector('[cmdk-list]').textContent).not.toContain('Ana');
+  const customer = Array.from(document.querySelectorAll('[cmdk-item]')).find((item) => item.textContent.includes('Bruno'));
   await act(async () => customer.click());
-  expect(form.querySelector('#sale-customer-options')).toBeNull();
-  expect(form.textContent).toContain('Seleccionado: Bruno');
+  expect(document.querySelector('[cmdk-item]')).toBeNull();
+  expect(form.querySelector('[data-testid="sale-customer-select"]').textContent).toContain('Bruno');
 });
 
 test('also treats a client with previous sales as frequent', async () => {
@@ -143,7 +147,36 @@ test('also treats a client with previous sales as frequent', async () => {
   await act(async () => root.render(<Sales />));
   await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
   const form = document.querySelector('[data-testid="sale-form"]');
-  await act(async () => form.querySelector('[data-testid="sale-customer-search"]').focus());
-  expect(form.querySelector('#sale-customer-options').textContent).toContain('Bruno');
-  expect(form.querySelector('#sale-customer-options').textContent).not.toContain('Ana');
+  await act(async () => form.querySelector('[data-testid="sale-customer-select"]').click());
+  expect(document.querySelector('[cmdk-list]').textContent).toContain('Bruno');
+  expect(document.querySelector('[cmdk-list]').textContent).not.toContain('Ana');
+});
+
+test('opens a sold article photo in an in-page preview', async () => {
+  const photo = 'https://example.com/article.jpg';
+  axios.get.mockImplementation((url) => {
+    if (url.endsWith('/api/customers') || url.endsWith('/api/inventory') || url.endsWith('/api/repairs')) {
+      return Promise.resolve({ data: [] });
+    }
+    return Promise.resolve({ data: [{
+      id: 'sale-1', sale_number: 'VEN-1', customer_id: 'c1', customer_name: 'Ana',
+      item_name: 'MacBook Air', source: 'manual', category: 'macbook', condition: 'used',
+      quantity: 1, unit_price: 500000, total_price: 500000, sold_on: '2026-10-02',
+      photos: [photo],
+    }] });
+  });
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="sale-sale-1"] button').click());
+  await act(async () => document.querySelector('[aria-label="Ampliar foto 1 de MacBook Air"]').click());
+  expect(document.querySelector('img[alt="Foto ampliada del artículo"]')?.getAttribute('src')).toBe(photo);
+  expect(document.querySelector('a[target="_blank"]')).toBeNull();
+});
+
+test('opens a newly uploaded article photo without leaving the sale form', async () => {
+  await act(async () => root.render(<Sales />));
+  await act(async () => document.querySelector('[data-testid="new-sale-button"]').click());
+  await act(async () => document.querySelector('[data-testid="photos"] button').click());
+  expect(document.querySelector('img[alt="Foto ampliada del artículo"]')?.getAttribute('src'))
+    .toBe('https://example.com/new.jpg');
+  expect(document.querySelector('[data-testid="sale-form"]')).not.toBeNull();
 });

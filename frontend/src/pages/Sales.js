@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Search, ShoppingBag, Package, UserPlus, Eye } from 'lucide-react';
+import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import DevicePhotos from '@/components/DevicePhotos';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { formatCLP } from '@/utils/currency';
 import { cleanRUT, formatRUT, validateRUT } from '@/utils/rut';
 
@@ -44,9 +45,11 @@ const Sales = () => {
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [form, setForm] = useState(emptySale);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const customerPickerRef = useRef(null);
   const [inventoryQuery, setInventoryQuery] = useState('');
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', rut: '' });
@@ -103,6 +106,15 @@ const Sales = () => {
     return () => { live = false; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, customerFilter, loading]);
+
+  useEffect(() => {
+    if (!customerPickerOpen) return undefined;
+    const closeOutside = (event) => {
+      if (!customerPickerRef.current?.contains(event.target)) setCustomerPickerOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, [customerPickerOpen]);
 
   const openCreate = () => {
     setForm({ ...emptySale(), customer_id: customerFilter });
@@ -203,6 +215,11 @@ const Sales = () => {
   const chosenCustomer = customers.find((customer) => customer.id === form.customer_id);
   const chosenItem = inventory.find((item) => item.id === form.inventory_item_id);
   const filteredCustomerName = customers.find((customer) => customer.id === customerFilter)?.name;
+  const chooseCustomer = (customer) => {
+    setForm((current) => ({ ...current, customer_id: customer.id }));
+    setCustomerQuery('');
+    setCustomerPickerOpen(false);
+  };
 
   return (
     <div className="space-y-6" data-testid="sales-page">
@@ -272,24 +289,31 @@ const Sales = () => {
           <form onSubmit={submitSale} className="space-y-5" data-testid="sale-form">
             <section className="space-y-2">
               <div className="flex items-center justify-between"><Label>Cliente *</Label><Button type="button" variant="outline" size="sm" onClick={() => setShowNewCustomer(!showNewCustomer)}><UserPlus size={15} className="mr-1" /> Nuevo cliente</Button></div>
-              {chosenCustomer && <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">Seleccionado: {chosenCustomer.name}{chosenCustomer.rut ? ` · ${formatRUT(chosenCustomer.rut)}` : ''}</p>}
-              <div onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setCustomerPickerOpen(false); }}>
-                <Input placeholder="Buscar cliente por nombre, RUT, teléfono o correo" value={customerQuery}
-                  onFocus={() => setCustomerPickerOpen(true)} onChange={(event) => setCustomerQuery(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === 'Escape') setCustomerPickerOpen(false); }}
-                  aria-expanded={customerPickerOpen} aria-controls="sale-customer-options" data-testid="sale-customer-search" />
-                {customerPickerOpen && <div id="sale-customer-options" className="mt-1 max-h-32 overflow-y-auto rounded-md border border-zinc-200">
-                  <p className="border-b border-zinc-100 px-3 py-1 text-xs text-zinc-500">{normalizedCustomerQuery ? 'Resultados' : 'Clientes frecuentes'}</p>
-                  {matchingCustomers.map((customer) => (
-                    <button key={customer.id} type="button" onClick={() => {
-                      setForm((current) => ({ ...current, customer_id: customer.id }));
-                      setCustomerQuery('');
-                      setCustomerPickerOpen(false);
-                    }} className={`block w-full border-b border-zinc-100 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-zinc-800 ${form.customer_id === customer.id ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}`}>
-                      {customer.name}{customer.rut ? ` · ${formatRUT(customer.rut)}` : ''} · {customer.phone}
-                    </button>
-                  ))}
-                  {matchingCustomers.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">{normalizedCustomerQuery ? 'No se encontraron clientes' : 'Escribe para buscar entre todos los clientes'}</p>}
+              <div ref={customerPickerRef}>
+                <Button type="button" variant="outline" role="combobox" aria-expanded={customerPickerOpen}
+                  aria-controls="sale-customer-options" onClick={() => setCustomerPickerOpen((open) => !open)}
+                  className="w-full justify-between border-zinc-200 font-normal" data-testid="sale-customer-select">
+                  <span className="truncate">{chosenCustomer
+                    ? `${chosenCustomer.name} — ${chosenCustomer.rut ? formatRUT(chosenCustomer.rut) : chosenCustomer.phone}`
+                    : 'Seleccionar cliente'}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+                {customerPickerOpen && <div id="sale-customer-options" className="mt-1 rounded-md border border-zinc-200 bg-white shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+                  <Command shouldFilter={false} onKeyDown={(event) => { if (event.key === 'Escape') setCustomerPickerOpen(false); }}>
+                    <CommandInput placeholder="Buscar cliente por nombre, teléfono, correo o RUT..."
+                      value={customerQuery} onValueChange={setCustomerQuery} data-testid="sale-customer-search" autoFocus />
+                    <CommandList>
+                      <CommandEmpty>{normalizedCustomerQuery ? 'No se encontraron clientes' : 'Escribe para buscar entre todos los clientes'}</CommandEmpty>
+                      {matchingCustomers.length > 0 && <CommandGroup heading={normalizedCustomerQuery ? 'Resultados' : 'Clientes frecuentes'}>
+                        {matchingCustomers.map((customer) => (
+                          <CommandItem key={customer.id} value={customer.id} onSelect={() => chooseCustomer(customer)}>
+                            <Check className={`mr-1 h-4 w-4 ${form.customer_id === customer.id ? 'opacity-100' : 'opacity-0'}`} />
+                            <span className="min-w-0 flex-1 truncate">{customer.name} — {customer.rut ? formatRUT(customer.rut) : customer.phone}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>}
+                    </CommandList>
+                  </Command>
                 </div>}
               </div>
               {showNewCustomer && <div className="grid gap-2 rounded-md border border-zinc-200 p-3 sm:grid-cols-3">
@@ -331,7 +355,7 @@ const Sales = () => {
             </div>
             <p className="text-xs text-zinc-500">Si tiene IMEI o número de serie, registra una unidad por venta para mantener la trazabilidad.</p>
             <div><Label>Fotos del artículo (hasta 5)</Label><div className="mt-2"><DevicePhotos photos={form.photos} onChange={(photos) => setForm((current) => ({ ...current, photos }))}
-              authHeader={getAuthHeader()} folder="sales" onBusyChange={setPhotoBusy} subjectLabel="artículo"
+              authHeader={getAuthHeader()} folder="sales" onBusyChange={setPhotoBusy} onPhotoClick={setSelectedPhoto} subjectLabel="artículo"
               emptyHint="Documenta el estado del artículo al momento de la venta" /></div></div>
             <div><Label htmlFor="sale-notes">Notas de la venta</Label><Textarea id="sale-notes" maxLength={1000} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Accesorios incluidos u otros detalles" /></div>
             <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={saving || photoBusy}>Cancelar</Button><Button type="submit" disabled={saving || savingCustomer || photoBusy} className="bg-blue-600 text-white hover:bg-blue-700" data-testid="save-sale-button">{saving ? 'Guardando...' : 'Guardar venta'}</Button></div>
@@ -362,8 +386,17 @@ const Sales = () => {
               <p><strong>Total:</strong> {formatCLP(selectedSale.total_price)}</p>
             </div>
             {selectedSale.notes && <p className="rounded-md bg-zinc-50 p-3 text-sm"><strong>Notas:</strong> {selectedSale.notes}</p>}
-            <div><h3 className="mb-2 font-semibold">Fotos del artículo</h3>{selectedSale.photos.length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{selectedSale.photos.map((photo, index) => <a key={photo} href={photo} target="_blank" rel="noopener noreferrer"><img src={photo} alt={`Foto ${index + 1} de ${selectedSale.item_name}`} className="h-32 w-full rounded-md border border-zinc-200 object-cover" /></a>)}</div> : <p className="text-sm text-zinc-500">Sin fotos</p>}</div>
+            <div><h3 className="mb-2 font-semibold">Fotos del artículo</h3>{selectedSale.photos.length ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{selectedSale.photos.map((photo, index) => <button key={photo} type="button" onClick={() => setSelectedPhoto(photo)} aria-label={`Ampliar foto ${index + 1} de ${selectedSale.item_name}`}><img src={photo} alt={`Foto ${index + 1} de ${selectedSale.item_name}`} className="h-32 w-full rounded-md border border-zinc-200 object-cover" /></button>)}</div> : <p className="text-sm text-zinc-500">Sin fotos</p>}</div>
           </>}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedPhoto)} onOpenChange={(open) => { if (!open) setSelectedPhoto(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader><DialogTitle>Foto del artículo</DialogTitle>
+            <DialogDescription>Vista ampliada sin salir de Ventas.</DialogDescription>
+          </DialogHeader>
+          {selectedPhoto && <img src={selectedPhoto} alt="Foto ampliada del artículo" className="max-h-[75vh] w-full rounded-md object-contain" />}
         </DialogContent>
       </Dialog>
     </div>
