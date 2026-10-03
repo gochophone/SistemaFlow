@@ -344,6 +344,7 @@ class SaleCreate(BaseModel):
     inventory_item_id: Optional[str] = None
     item_name: Optional[str] = Field(default=None, max_length=180)
     category: Literal["phone", "notebook", "macbook", "board", "spare_part", "other"]
+    custom_category: Optional[str] = Field(default=None, max_length=80)
     quantity: int = Field(ge=1, le=100)
     unit_price: int = Field(ge=0)
     condition: Literal["new", "used", "refurbished", "for_parts"]
@@ -1078,6 +1079,8 @@ async def create_sale(payload: SaleCreate, current_user: dict = Depends(require_
         raise HTTPException(status_code=400, detail="La fecha de venta no puede ser futura")
     if payload.quantity > 1 and ((payload.imei or "").strip() or (payload.serial_number or "").strip()):
         raise HTTPException(status_code=400, detail="Registra por separado los artículos con IMEI o serie")
+    if payload.category == "other" and not (payload.custom_category or "").strip():
+        raise HTTPException(status_code=400, detail="Escribe el tipo de artículo al seleccionar Otro")
     validate_sale_photos(payload.photos, tenant_id)
 
     if payload.source == "manual":
@@ -1111,6 +1114,7 @@ async def create_sale(payload: SaleCreate, current_user: dict = Depends(require_
         sale = Sale(
             **{**payload.model_dump(),
                "item_name": item_name,
+               "custom_category": (payload.custom_category or "").strip() if payload.category == "other" else None,
                "condition_notes": (payload.condition_notes or "").strip() or None,
                "imei": (payload.imei or "").strip() or None,
                "serial_number": (payload.serial_number or "").strip() or None,
@@ -1145,7 +1149,7 @@ async def get_sales(
     if q.strip():
         pattern = re.escape(q.strip())
         query["$or"] = [{field: {"$regex": pattern, "$options": "i"}} for field in
-                        ("sale_number", "item_name", "customer_name", "customer_rut", "imei", "serial_number", "inventory_code")]
+                        ("sale_number", "item_name", "custom_category", "customer_name", "customer_rut", "imei", "serial_number", "inventory_code")]
     db = await tenant_database(tenant_id)
     return await db.sales.find(query, {"_id": 0}).sort("sold_on", -1).to_list(1000)
 
