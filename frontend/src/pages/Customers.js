@@ -21,16 +21,18 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, User, ShoppingBag } from 'lucide-react';
+import { Plus, Edit, Trash2, User, ShoppingBag, Search, Wrench } from 'lucide-react';
 import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+const normalizeSearch = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 const Customers = () => {
   const { getAuthHeader, user } = useAuth();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [formData, setFormData] = useState({
@@ -131,6 +133,15 @@ const Customers = () => {
     }
   };
 
+  const searchTerm = normalizeSearch(search.trim());
+  const compactTerm = searchTerm.replace(/[^a-z0-9]/g, '');
+  const filteredCustomers = customers.filter((customer) => !searchTerm || [
+    customer.name, customer.rut, customer.phone, customer.email, customer.address,
+  ].some((value) => {
+    const normalized = normalizeSearch(value);
+    return normalized.includes(searchTerm) || (compactTerm && normalized.replace(/[^a-z0-9]/g, '').includes(compactTerm));
+  }));
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -145,7 +156,7 @@ const Customers = () => {
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900">Clientes</h1>
           <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">
-            {customers.length} {customers.length === 1 ? 'cliente' : 'clientes'} registrados
+            {searchTerm ? `${filteredCustomers.length} de ${customers.length} clientes` : `${customers.length} ${customers.length === 1 ? 'cliente' : 'clientes'} registrados`}
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -257,6 +268,18 @@ const Customers = () => {
         </Dialog>
       </div>
 
+      <div className="relative max-w-xl">
+        <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por nombre, RUT, teléfono, correo o dirección"
+          aria-label="Buscar clientes"
+          className="pl-10"
+          data-testid="customer-search"
+        />
+      </div>
+
       <div className="bg-white border border-zinc-200 rounded-md shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
@@ -276,8 +299,14 @@ const Customers = () => {
                   No hay clientes registrados
                 </TableCell>
               </TableRow>
+            ) : filteredCustomers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-zinc-500 dark:text-zinc-400">
+                  No se encontraron clientes para esta búsqueda
+                </TableCell>
+              </TableRow>
             ) : (
-              customers.map((customer) => (
+              filteredCustomers.map((customer) => (
                 <TableRow 
                   key={customer.id} 
                   className="hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors"
@@ -303,6 +332,11 @@ const Customers = () => {
                           <ShoppingBag size={16} />
                         </Button>
                       )}
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/repairs?customer_id=${encodeURIComponent(customer.id)}`)}
+                        title="Ver historial de reparaciones" aria-label={`Ver reparaciones de ${customer.name}`}
+                        data-testid={`customer-repairs-${customer.id}`}>
+                        <Wrench size={16} />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

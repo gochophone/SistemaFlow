@@ -48,30 +48,37 @@ const Repairs = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('search');
+  const customerFilter = searchParams.get('customer_id') || '';
   const [repairs, setRepairs] = useState([]);
+  const [customerName, setCustomerName] = useState('');
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingStatusId, setSavingStatusId] = useState(null);
   const [savingPaymentId, setSavingPaymentId] = useState(null);
 
   useEffect(() => {
-    fetchRepairs();
+    let live = true;
+    setLoading(true);
+    const headers = getAuthHeader();
+    Promise.all([
+      axios.get(`${API}/api/repairs`, {
+        headers, ...(customerFilter ? { params: { customer_id: customerFilter } } : {}),
+      }),
+      customerFilter
+        ? axios.get(`${API}/api/customers/${encodeURIComponent(customerFilter)}`, { headers }).catch(() => null)
+        : Promise.resolve(null),
+    ]).then(([repairResponse, customerResponse]) => {
+      if (!live) return;
+      setRepairs(repairResponse.data);
+      setCustomerName(customerResponse?.data?.name || repairResponse.data[0]?.customer_name || 'este cliente');
+    }).catch((error) => {
+      if (live) toast.error(error.response?.data?.detail || 'Error al cargar reparaciones');
+    }).finally(() => {
+      if (live) setLoading(false);
+    });
+    return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchRepairs = async () => {
-    try {
-      const response = await axios.get(`${API}/api/repairs`, {
-        headers: getAuthHeader()
-      });
-      setRepairs(response.data);
-    } catch (error) {
-      toast.error('Error al cargar reparaciones');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [customerFilter]);
 
   const unpaidCount = repairs.filter(isUnpaidDelivered).length;
   const normalizedSearch = (searchQuery || '').trim().toLowerCase();
@@ -181,6 +188,13 @@ const Repairs = () => {
         </Button>
       </div>
 
+      {customerFilter && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100" data-testid="customer-repairs-banner">
+          <span>Historial de reparaciones de <strong>{customerName}</strong></span>
+          <Button variant="outline" size="sm" onClick={() => navigate('/repairs')}>Ver todas las reparaciones</Button>
+        </div>
+      )}
+
       <div className="flex gap-2 flex-wrap">
         <Button
           variant={statusFilter === 'all' ? 'default' : 'outline'}
@@ -235,7 +249,7 @@ const Repairs = () => {
             {filteredRepairs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-zinc-500 dark:text-zinc-400">
-                  {normalizedSearch ? 'No se encontraron resultados' : statusFilter === 'unpaid' ? 'No hay órdenes entregadas pendientes de pago' : 'No hay reparaciones registradas'}
+                  {normalizedSearch ? 'No se encontraron resultados' : statusFilter === 'unpaid' ? 'No hay órdenes entregadas pendientes de pago' : customerFilter ? 'Este cliente aún no tiene reparaciones registradas' : 'No hay reparaciones registradas'}
                 </TableCell>
               </TableRow>
             ) : (

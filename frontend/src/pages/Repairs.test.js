@@ -87,6 +87,34 @@ test('choosing a state in the portalled menu saves it without opening the order'
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
+test('shows only one customer’s repair history from the customer wrench action', async () => {
+  mockSearchQuery = 'customer_id=c2';
+  axios.get.mockImplementation((url) => url.endsWith('/api/customers/c2')
+    ? Promise.resolve({ data: { id: 'c2', name: 'Ana Rojas' } })
+    : Promise.resolve({ data: [{ ...repair, customer_id: 'c2', customer_name: 'Ana Rojas' }] }));
+  await renderRepairs();
+  expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/repairs'), {
+    headers: { Authorization: 'Bearer test-token' }, params: { customer_id: 'c2' },
+  });
+  expect(document.querySelector('[data-testid="customer-repairs-banner"]').textContent).toContain('Ana Rojas');
+  expect(document.querySelector('[data-testid="repair-row-REP-TEST"]')).not.toBeNull();
+  await act(async () => document.querySelector('[data-testid="repair-row-REP-TEST"]').click());
+  expect(mockNavigate).toHaveBeenCalledWith('/repairs/repair-1');
+});
+
+test('shows an empty history and a way back to all repairs', async () => {
+  mockSearchQuery = 'customer_id=c2';
+  axios.get.mockImplementation((url) => url.endsWith('/api/customers/c2')
+    ? Promise.resolve({ data: { id: 'c2', name: 'Ana Rojas' } })
+    : Promise.resolve({ data: [] }));
+  await renderRepairs();
+  expect(document.body.textContent).toContain('Este cliente aún no tiene reparaciones registradas');
+  const allButton = Array.from(document.querySelectorAll('button'))
+    .find((button) => button.textContent.includes('Ver todas las reparaciones'));
+  await act(async () => allButton.click());
+  expect(mockNavigate).toHaveBeenCalledWith('/repairs');
+});
+
 test('a failed update restores the previous status and stays in the list', async () => {
   axios.patch.mockRejectedValue({ response: { data: { detail: 'No se pudo guardar' } } });
   await renderRepairs();
