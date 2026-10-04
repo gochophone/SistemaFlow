@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -208,6 +209,7 @@ const NewRepair = () => {
     diagnosis: '',
     budget_estimate: '',
     notes: '',
+    notes_private: false,
     unlock_type: 'none',
     unlock_password: '',
     unlock_pattern: [],
@@ -733,10 +735,14 @@ const NewRepair = () => {
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => updateField('notes', e.target.value)}
-                placeholder="Notas internas, accesorios incluidos, condiciones especiales..."
+                placeholder="Accesorios incluidos, condiciones especiales..."
                 className="mt-1 border-zinc-200"
                 data-testid="notes-input"
               />
+              <div className="mt-3 flex items-center gap-3">
+                <Switch id="notes-private" checked={formData.notes_private} onCheckedChange={(checked) => updateField('notes_private', checked)} data-testid="notes-private-switch" />
+                <Label htmlFor="notes-private" className="text-sm dark:text-zinc-100">Nota privada: no aparece en el PDF de entrega</Label>
+              </div>
             </div>
           </CardContent>
         </Card>

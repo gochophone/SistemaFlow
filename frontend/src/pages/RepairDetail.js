@@ -73,6 +73,10 @@ const RepairDetail = () => {
   const [newTechnician, setNewTechnician] = useState({ name: '', email: '', password: '' });
   const [savingPayment, setSavingPayment] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [newNotePrivate, setNewNotePrivate] = useState(true);
+  const [savingNote, setSavingNote] = useState(false);
+  const [changingNoteId, setChangingNoteId] = useState(null);
 
   useEffect(() => {
     deliveryRequestRef.current += 1;
@@ -137,6 +141,7 @@ const RepairDetail = () => {
         diagnosis: response.data.diagnosis || '',
         budget_estimate: response.data.budget_estimate || '',
         notes: response.data.notes || '',
+        notes_private: response.data.notes_private || false,
         assigned_technician: response.data.assigned_technician || '',
       });
     } catch (error) {
@@ -168,6 +173,41 @@ const RepairDetail = () => {
       console.error(error);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleAddNote = async (event) => {
+    event.preventDefault();
+    if (!newNote.trim() || savingNote) return;
+    setSavingNote(true);
+    try {
+      const { data } = await axios.post(`${API}/api/repairs/${id}/notes`, {
+        text: newNote.trim(), is_private: newNotePrivate,
+      }, { headers: getAuthHeader() });
+      setRepair(data);
+      setNewNote('');
+      setNewNotePrivate(true);
+      toast.success('Nota guardada');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo guardar la nota');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleNoteVisibility = async (note) => {
+    if (changingNoteId) return;
+    setChangingNoteId(note.id);
+    try {
+      const { data } = await axios.patch(`${API}/api/repairs/${id}/notes/${note.id}`, {
+        is_private: !note.is_private,
+      }, { headers: getAuthHeader() });
+      setRepair(data);
+      toast.success(note.is_private ? 'Nota visible en el PDF' : 'Nota privada, excluida del PDF');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo cambiar la privacidad');
+    } finally {
+      setChangingNoteId(null);
     }
   };
 
@@ -520,13 +560,17 @@ const RepairDetail = () => {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-zinc-900">Notas</Label>
+                    <Label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nota inicial</Label>
                     <Textarea
                       value={updateData.notes}
                       onChange={(e) => setUpdateData({ ...updateData, notes: e.target.value })}
                       className="mt-1"
                       data-testid="update-notes-input"
                     />
+                    <div className="mt-3 flex items-center gap-3">
+                      <Switch id="initial-note-private" checked={!!updateData.notes_private} onCheckedChange={(checked) => setUpdateData({ ...updateData, notes_private: checked })} data-testid="initial-note-private-switch" />
+                      <Label htmlFor="initial-note-private" className="text-sm dark:text-zinc-100">Privada: no aparece en el PDF de entrega</Label>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 pt-4">
@@ -674,12 +718,57 @@ const RepairDetail = () => {
                   <p className="text-base text-zinc-900" data-testid="diagnosis">{repair.diagnosis}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border border-zinc-200 shadow-sm dark:bg-zinc-900 dark:border-zinc-700">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl font-medium">
+                <FileText size={20} /> Notas de la orden
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               {repair.notes && (
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Notas</p>
-                  <p className="text-base text-zinc-900">{repair.notes}</p>
+                <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold uppercase text-zinc-500">Nota inicial</span>
+                    <Badge variant="outline" className={repair.notes_private ? 'border-amber-300 text-amber-700 dark:text-amber-300' : 'border-green-300 text-green-700 dark:text-green-300'}>
+                      {repair.notes_private ? 'Privada · no sale en PDF' : 'Visible en PDF'}
+                    </Badge>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words text-sm text-zinc-900 dark:text-zinc-100">{repair.notes}</p>
+                  <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setEditDialogOpen(true)}>Editar nota o privacidad</Button>
                 </div>
               )}
+              {(repair.note_entries || []).map((note) => (
+                <div key={note.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700" data-testid="repair-note">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className={note.is_private ? 'border-amber-300 text-amber-700 dark:text-amber-300' : 'border-green-300 text-green-700 dark:text-green-300'}>
+                        {note.is_private ? 'Privada · no sale en PDF' : 'Visible en PDF'}
+                      </Badge>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{note.created_by} · {formatDate(note.created_at)}</span>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" disabled={!!changingNoteId} onClick={() => handleNoteVisibility(note)} data-testid={`toggle-note-${note.id}`}>
+                      {note.is_private ? 'Incluir en PDF' : 'Hacer privada'}
+                    </Button>
+                  </div>
+                  <p className="whitespace-pre-wrap break-words text-sm text-zinc-900 dark:text-zinc-100">{note.text}</p>
+                </div>
+              ))}
+              <form onSubmit={handleAddNote} className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                <Label htmlFor="new-repair-note" className="dark:text-zinc-100">Agregar nota</Label>
+                <Textarea id="new-repair-note" value={newNote} onChange={(event) => setNewNote(event.target.value)} maxLength={500} placeholder="Escribe una nota para esta orden..." data-testid="new-repair-note" />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Switch id="new-note-private" checked={newNotePrivate} onCheckedChange={setNewNotePrivate} data-testid="new-note-private-switch" />
+                    <Label htmlFor="new-note-private" className="text-sm dark:text-zinc-100">Privada: no aparece en el PDF</Label>
+                  </div>
+                  <Button type="submit" disabled={!newNote.trim() || savingNote} data-testid="save-repair-note">
+                    {savingNote ? 'Guardando...' : 'Guardar nota'}
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
 

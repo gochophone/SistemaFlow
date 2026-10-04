@@ -90,3 +90,38 @@ test('shows the repair delivery PDF in place before saving or printing', async (
     window.URL.revokeObjectURL = originalRevokeObjectURL;
   }
 });
+
+test('adds a private note to a saved order and can include it in the PDF', async () => {
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'delivered',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla rota',
+    note_entries: [],
+  };
+  axios.get.mockResolvedValue({ data: repair });
+  axios.post.mockResolvedValue({ data: {
+    ...repair, note_entries: [{ id: 'note-1', text: 'Revisar batería', is_private: true, created_by: 'Técnica', created_at: '2026-09-12T12:00:00Z' }],
+  } });
+  axios.patch.mockResolvedValue({ data: {
+    ...repair, note_entries: [{ id: 'note-1', text: 'Revisar batería', is_private: false, created_by: 'Técnica', created_at: '2026-09-12T12:00:00Z' }],
+  } });
+
+  await act(async () => root.render(<RepairDetail />));
+  const input = document.querySelector('[data-testid="new-repair-note"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, 'Revisar batería');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => document.querySelector('[data-testid="save-repair-note"]').click());
+
+  expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1/notes'), {
+    text: 'Revisar batería', is_private: true,
+  }, { headers: { Authorization: 'Bearer test' } });
+  expect(document.querySelector('[data-testid="repair-note"]').textContent).toContain('Privada · no sale en PDF');
+
+  await act(async () => document.querySelector('[data-testid="toggle-note-note-1"]').click());
+  expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1/notes/note-1'), {
+    is_private: false,
+  }, { headers: { Authorization: 'Bearer test' } });
+  expect(document.querySelector('[data-testid="repair-note"]').textContent).toContain('Visible en PDF');
+});
