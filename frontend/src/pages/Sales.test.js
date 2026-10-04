@@ -254,6 +254,7 @@ test('also treats a client with previous sales as frequent', async () => {
 
 test('opens a saved sale by clicking its row and previews its photo on the same page', async () => {
   const photo = 'https://example.com/article.jpg';
+  const secondPhoto = 'https://example.com/article-back.jpg';
   axios.get.mockImplementation((url) => {
     if (url.endsWith('/api/customers') || url.endsWith('/api/inventory') || url.endsWith('/api/repairs')) {
       return Promise.resolve({ data: [] });
@@ -262,12 +263,14 @@ test('opens a saved sale by clicking its row and previews its photo on the same 
       id: 'sale-1', sale_number: 'VEN-1', customer_id: 'c1', customer_name: 'Ana',
       item_name: 'MacBook Air', source: 'manual', category: 'macbook', condition: 'used',
       quantity: 1, unit_price: 500000, total_price: 500000, sold_on: '2026-10-02',
-      photos: [photo],
+      photos: [photo, secondPhoto],
     }] });
   });
   await act(async () => root.render(<Sales />));
   const row = document.querySelector('[data-testid="sale-sale-1"]');
   expect(row.className).toContain('dark:hover:bg-zinc-800');
+  expect(row.querySelector('[data-testid="sale-thumbnail-sale-1"]')?.getAttribute('src')).toBe(photo);
+  expect(row.querySelector(`img[src="${secondPhoto}"]`)).toBeNull();
   await act(async () => row.querySelector('td').click());
   expect(document.body.textContent).toContain('Comprador');
   expect(document.body.textContent).toContain('Artículo');

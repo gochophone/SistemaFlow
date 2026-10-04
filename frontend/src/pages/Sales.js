@@ -335,8 +335,20 @@ const Sales = () => {
                 tabIndex={0} aria-label={`Ver venta ${sale.sale_number} de ${sale.customer_name}`} data-testid={`sale-${sale.id}`}>
                 <td className="px-4 py-3 whitespace-nowrap">{sale.sold_on}</td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2 font-medium"><ShoppingBag size={16} className="text-blue-500" />{sale.item_name}</div>
-                  <span className="text-xs text-zinc-500">{sale.sale_number} · {categoryLabel(sale)} · {sale.source === 'inventory' ? 'Inventario' : 'Ingreso manual'} · {sale.quantity} ud.</span>
+                  <div className="flex items-center gap-3">
+                    {sale.photos?.[0] ? (
+                      <img src={sale.photos[0]} alt={`Primera foto de ${sale.item_name}`} loading="lazy"
+                        className="h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700" data-testid={`sale-thumbnail-${sale.id}`} />
+                    ) : (
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800" aria-hidden="true">
+                        <ShoppingBag size={20} className="text-zinc-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-medium">{sale.item_name}</div>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{sale.sale_number} · {categoryLabel(sale)} · {sale.source === 'inventory' ? 'Inventario' : 'Ingreso manual'} · {sale.quantity} ud.</span>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-3">{sale.customer_name}<div className="text-xs text-zinc-500">{sale.customer_rut ? formatRUT(sale.customer_rut) : ''}</div></td>
                 <td className="px-4 py-3 font-mono text-xs">
