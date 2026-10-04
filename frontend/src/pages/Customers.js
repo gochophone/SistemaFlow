@@ -280,7 +280,7 @@ const Customers = () => {
               customers.map((customer) => (
                 <TableRow 
                   key={customer.id} 
-                  className="hover:bg-zinc-50 transition-colors"
+                  className="hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors"
                   data-testid={`customer-row-${customer.name}`}
                 >
                   <TableCell className="font-medium">
@@ -315,7 +315,7 @@ const Customers = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(customer.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/40"
                         data-testid={`delete-customer-${customer.name}`}
                       >
                         <Trash2 size={16} />

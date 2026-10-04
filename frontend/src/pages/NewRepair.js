@@ -884,7 +884,7 @@ const NewRepair = () => {
                       type="button"
                       key={candidate.value}
                       onClick={() => selectScanCandidate(candidate)}
-                      className="flex w-full items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-3 text-left transition-colors hover:border-blue-500 hover:bg-blue-50"
+                      className="flex w-full items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-3 text-left transition-colors hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40"
                     >
                       <span className="break-all font-mono text-base font-semibold text-zinc-900">{candidate.value}</span>
                       <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${(scanTarget === 'device_imei' && candidate.validImei) || candidate.labelledSerial ? 'bg-emerald-100 text-emerald-800' : candidate.numeric ? 'bg-blue-100 text-blue-800' : 'bg-zinc-100 text-zinc-700'}`}>

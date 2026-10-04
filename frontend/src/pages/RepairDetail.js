@@ -457,10 +457,10 @@ const RepairDetail = () => {
             </Button>
             
             {repair.status === 'delivered' && <>
-              <Button variant="outline" onClick={openDeliveryPreview} disabled={openingDelivery} className="border-green-600 text-green-700 hover:bg-green-50" data-testid="print-delivery-button">
+              <Button variant="outline" onClick={openDeliveryPreview} disabled={openingDelivery} className="border-green-600 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-950/40" data-testid="print-delivery-button">
                 <FileText size={18} className="mr-2" />{openingDelivery ? 'Abriendo PDF...' : 'Ver PDF de entrega'}
               </Button>
-              <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50" data-testid="share-delivery-button">
+              <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40" data-testid="share-delivery-button">
                 <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Enviar por WhatsApp'}
               </Button>
             </>}

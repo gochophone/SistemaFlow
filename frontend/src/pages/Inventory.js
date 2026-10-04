@@ -383,8 +383,8 @@ const Inventory = () => {
                 return (
                   <TableRow 
                     key={item.id} 
-                    className={`hover:bg-zinc-50 transition-colors ${
-                      isOutOfStock ? 'bg-red-50/50' : isLowStock ? 'bg-orange-50/50' : ''
+                    className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors ${
+                      isOutOfStock ? 'bg-red-50/50 dark:bg-red-950/30' : isLowStock ? 'bg-orange-50/50 dark:bg-orange-950/30' : ''
                     }`}
                     data-testid={`inventory-row-${item.code}`}
                   >
@@ -418,7 +418,7 @@ const Inventory = () => {
                       {item.photos && item.photos.length > 0 ? (
                         <button
                           onClick={() => handleViewPhotos(item)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-zinc-100 transition-colors group"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors group"
                           data-testid={`view-photos-${item.code}`}
                         >
                           <div className="relative">
@@ -427,7 +427,7 @@ const Inventory = () => {
                               {item.photos.length}
                             </Badge>
                           </div>
-                          <span className="text-sm text-zinc-700 group-hover:text-zinc-900">Ver fotos</span>
+                          <span className="text-sm text-zinc-700 group-hover:text-zinc-900 dark:group-hover:text-zinc-100">Ver fotos</span>
                         </button>
                       ) : (
                         <span className="text-xs text-zinc-400 italic">Sin fotos</span>
@@ -462,7 +462,7 @@ const Inventory = () => {
                       ) : (
                         <button
                           onClick={() => handleToggleAvailability(item)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700"
                           data-testid={`toggle-availability-${item.code}`}
                         >
                           {item.available !== undefined && item.available ? (
@@ -493,7 +493,7 @@ const Inventory = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/40"
                           data-testid={`delete-inventory-${item.code}`}
                         >
                           <Trash2 size={16} />
