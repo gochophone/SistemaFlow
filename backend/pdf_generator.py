@@ -117,6 +117,22 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     }
     company_name = compact(company_name, "Mi negocio", 90)
     equipment = "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))
+    public_notes = []
+    if repair_data.get("notes") and not repair_data.get("notes_private", False):
+        public_notes.append(str(repair_data["notes"]).strip())
+    public_notes.extend(
+        str(note.get("text", "")).strip()
+        for note in repair_data.get("note_entries", [])
+        if not note.get("is_private", True) and str(note.get("text", "")).strip()
+    )
+    service_rows = [
+        ("Equipo", equipment),
+        ("IMEI / serie", repair_data.get("device_imei") or repair_data.get("device_serial")),
+        ("Problema", compact(repair_data.get("reported_issue"), limit=150)),
+        ("Diagnóstico", compact(repair_data.get("diagnosis"), limit=150)),
+    ]
+    if public_notes:
+        service_rows.append(("Notas", compact(" · ".join(public_notes), limit=350)))
     content = [
         company_header(company_name, company_logo_url, company_rut, company_address, repair_data.get("delivered_date"), styles),
         Paragraph("ORDEN DE ENTREGA", styles["document"]),
@@ -125,7 +141,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         details([("Nombre", customer_data.get("name") or repair_data.get("customer_name")), ("Teléfono", customer_data.get("phone")), ("RUT", customer_data.get("rut")), ("Correo", customer_data.get("email"))], styles),
         Spacer(1, 5 * mm),
         Paragraph("Equipo y servicio", styles["section"]),
-        details([("Equipo", equipment), ("IMEI / serie", repair_data.get("device_imei") or repair_data.get("device_serial")), ("Problema", compact(repair_data.get("reported_issue"), limit=150)), ("Diagnóstico", compact(repair_data.get("diagnosis"), limit=150)), ("Notas", compact(repair_data.get("notes"), limit=150))], styles),
+        details(service_rows, styles),
     ]
     if repair_data.get("budget_estimate"):
         content += [Paragraph("Cobro", styles["section"]), details([("Total del servicio", money(repair_data["budget_estimate"]))], styles, green=True)]

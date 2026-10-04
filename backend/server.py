@@ -241,6 +241,23 @@ class DeviceCreate(BaseModel):
     imei: str
     serial_number: Optional[str] = None
 
+class RepairNote(BaseModel):
+    id: str
+    text: str
+    is_private: bool
+    created_at: datetime
+    created_by: str
+
+
+class RepairNoteCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    is_private: bool = True
+
+
+class RepairNoteVisibility(BaseModel):
+    is_private: bool
+
+
 class Repair(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -259,6 +276,8 @@ class Repair(BaseModel):
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
+    notes_private: bool = False
+    note_entries: List[RepairNote] = Field(default_factory=list)
     unlock_type: Optional[str] = None
     unlock_password: Optional[str] = None
     unlock_pattern: Optional[str] = None
@@ -285,6 +304,7 @@ class RepairCreate(BaseModel):
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
+    notes_private: bool = False
     estimated_delivery: Optional[datetime] = None
     unlock_type: Optional[str] = None
     unlock_password: Optional[str] = None
@@ -297,6 +317,7 @@ class RepairUpdate(BaseModel):
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
     notes: Optional[str] = None
+    notes_private: Optional[bool] = None
     estimated_delivery: Optional[datetime] = None
     paid: Optional[bool] = None
     payment_receipt_url: Optional[str] = None
@@ -929,6 +950,42 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
                 # Don't fail the request if email fails
     
     return Repair(**updated)
+
+@api_router.post("/repairs/{repair_id}/notes", response_model=Repair)
+async def add_repair_note(repair_id: str, note: RepairNoteCreate, current_user: dict = Depends(get_current_user)):
+    text = note.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Escribe una nota antes de guardarla")
+    db = await tenant_database(current_user["tenant_id"])
+    now = datetime.now(timezone.utc)
+    entry = RepairNote(
+        id=str(uuid.uuid4()), text=text, is_private=note.is_private,
+        created_at=now, created_by=current_user.get("name") or "Equipo de trabajo",
+    ).model_dump()
+    entry["created_at"] = now.isoformat()
+    result = await db.repairs.update_one(
+        {"id": repair_id, "tenant_id": current_user["tenant_id"]},
+        {"$push": {"note_entries": entry}, "$set": {"updated_at": now.isoformat()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    return await get_repair(repair_id, current_user)
+
+
+@api_router.patch("/repairs/{repair_id}/notes/{note_id}", response_model=Repair)
+async def set_repair_note_visibility(
+    repair_id: str, note_id: str, visibility: RepairNoteVisibility,
+    current_user: dict = Depends(get_current_user),
+):
+    db = await tenant_database(current_user["tenant_id"])
+    result = await db.repairs.update_one(
+        {"id": repair_id, "tenant_id": current_user["tenant_id"], "note_entries.id": note_id},
+        {"$set": {"note_entries.$.is_private": visibility.is_private,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Nota no encontrada")
+    return await get_repair(repair_id, current_user)
 
 @api_router.delete("/repairs/{repair_id}")
 async def delete_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
