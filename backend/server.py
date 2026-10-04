@@ -784,12 +784,18 @@ async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_c
     return repair_obj
 
 @api_router.get("/repairs", response_model=List[Repair])
-async def get_repairs(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+async def get_repairs(
+    status: Optional[str] = None,
+    customer_id: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
+):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     query = {"tenant_id": tenant_id}
     if status:
         query['status'] = status
+    if customer_id:
+        query['customer_id'] = customer_id
     
     repairs = await db.repairs.find(query, {"_id": 0}).sort("received_date", -1).to_list(1000)
     for r in repairs:
