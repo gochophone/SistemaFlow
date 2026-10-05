@@ -21,6 +21,8 @@ Abre `frontend/android` en Android Studio o ejecuta `npm run mobile:android` con
 
 Abre `frontend/ios/App/App.xcodeproj` con Xcode o ejecuta `npm run mobile:ios` con `REACT_APP_BACKEND_URL` configurada. Para instalar en teléfonos de prueba mediante TestFlight hay que configurar la cuenta Apple Developer, firma, identificador `com.ifixflow.app` y App Store Connect. La publicación en App Store requiere además revisión de Apple. No hay credenciales ni certificados de firma en este repositorio.
 
+La acción manual **iOS simulator check** de GitHub comprueba que el proyecto compile para un simulador sin firma. No genera un instalador para iPhone ni reemplaza TestFlight.
+
 ## Comprobaciones antes de distribuir
 
 Prueba en teléfonos reales el inicio de sesión, las fotos de cámara y galería, el escaneo de IMEI/serie, el visor y la función de compartir PDF, los enlaces de seguimiento, las etiquetas y el aspecto de cada pantalla. La impresión directa de etiquetas todavía depende de `window.print()` y requiere validación en los dispositivos y las impresoras que se utilizarán.

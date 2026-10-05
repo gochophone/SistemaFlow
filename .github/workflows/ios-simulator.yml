@@ -1,0 +1,27 @@
+name: iOS simulator check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - name: Install dependencies
+        working-directory: frontend
+        run: npx -y yarn@1.22.22 install --frozen-lockfile
+      - name: Build and sync mobile app
+        working-directory: frontend
+        env:
+          REACT_APP_BACKEND_URL: https://sistemaflow-production.up.railway.app
+          CI: 'false'
+        run: npm run mobile:sync
+      - name: Build iOS simulator app
+        working-directory: frontend/ios/App
+        run: xcodebuild -project App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
