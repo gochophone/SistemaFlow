@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { formatCLP } from '@/utils/currency';
 import { cleanRUT, formatRUT, validateRUT } from '@/utils/rut';
+import { cacheNativePdf, isNativeApp, openNativePdf, shareNativePdf } from '@/utils/nativePdf';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const CATEGORIES = {
@@ -68,6 +69,7 @@ const Sales = () => {
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfPreview, setPdfPreview] = useState(null);
+  const [nativePdfUri, setNativePdfUri] = useState(null);
   const pdfFrameRef = useRef(null);
   const pdfRequestRef = useRef(0);
   const submittingRef = useRef(false);
@@ -230,6 +232,14 @@ const Sales = () => {
       const response = await axios.get(`${API}/api/sales/${selectedSale.id}/delivery-pdf`, {
         headers: getAuthHeader(), responseType: 'blob',
       });
+      if (request !== pdfRequestRef.current) return;
+      if (isNativeApp()) {
+        const uri = await cacheNativePdf(response.data, `venta_entrega_${selectedSale.sale_number}`);
+        if (request !== pdfRequestRef.current) return;
+        setNativePdfUri(uri);
+        await openNativePdf(uri);
+        return;
+      }
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       if (request !== pdfRequestRef.current) {
         window.URL.revokeObjectURL?.(url);
@@ -267,6 +277,7 @@ const Sales = () => {
     pdfRequestRef.current += 1;
     setGeneratingPdf(false);
     setPdfPreview(null);
+    setNativePdfUri(null);
     setSelectedSale(null);
   };
 
@@ -484,6 +495,9 @@ const Sales = () => {
               <Button type="button" variant="outline" onClick={openSalePdf} disabled={generatingPdf} data-testid="sale-delivery-pdf-button">
                 <Eye size={17} className="mr-2" />{generatingPdf ? 'Abriendo PDF...' : 'Ver PDF de venta y entrega'}
               </Button>
+              {isNativeApp() && nativePdfUri && <Button type="button" variant="outline" className="ml-2" onClick={() => shareNativePdf(nativePdfUri, `Venta ${selectedSale.sale_number}`).catch(() => toast.error('No se pudo compartir el PDF'))}>
+                <FileDown size={17} className="mr-2" />Guardar o imprimir
+              </Button>}
             </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
               <div className="space-y-4">

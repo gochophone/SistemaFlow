@@ -1466,10 +1466,17 @@ async def get_public_repair(public_token: str):
 
 app.include_router(public_router)
 
+cors_origins = list(dict.fromkeys(
+    origin.strip() for origin in (
+        os.environ.get('CORS_ORIGINS', '*').split(',')
+        + ['capacitor://localhost', 'https://localhost']
+    ) if origin.strip()
+))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

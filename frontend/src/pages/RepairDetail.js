@@ -30,6 +30,8 @@ import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Ey
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import { formatCLP } from '@/utils/currency';
+import { cacheNativePdf, isNativeApp, openNativePdf, shareNativePdf } from '@/utils/nativePdf';
+import { publicSiteUrl } from '@/utils/publicSiteUrl';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -64,6 +66,7 @@ const RepairDetail = () => {
   const [sharingDelivery, setSharingDelivery] = useState(false);
   const [openingDelivery, setOpeningDelivery] = useState(false);
   const [deliveryPreview, setDeliveryPreview] = useState(null);
+  const [nativeDeliveryPdfUri, setNativeDeliveryPdfUri] = useState(null);
   const deliveryFrameRef = useRef(null);
   const deliveryRequestRef = useRef(0);
   const [technicians, setTechnicians] = useState([]);
@@ -309,6 +312,14 @@ const RepairDetail = () => {
     setOpeningDelivery(true);
     try {
       const pdf = await getDeliveryPdf();
+      if (request !== deliveryRequestRef.current) return;
+      if (isNativeApp()) {
+        const uri = await cacheNativePdf(pdf, `orden_entrega_${repair.ticket_number}`);
+        if (request !== deliveryRequestRef.current) return;
+        setNativeDeliveryPdfUri(uri);
+        await openNativePdf(uri);
+        return;
+      }
       const url = window.URL.createObjectURL(pdf);
       if (request !== deliveryRequestRef.current) {
         window.URL.revokeObjectURL?.(url);
@@ -357,10 +368,17 @@ const RepairDetail = () => {
       ]);
       const customer = customerResponse.data;
       const filename = `orden_entrega_${repair.ticket_number}.pdf`;
-      const file = new File([pdf], filename, { type: 'application/pdf' });
-      const trackingUrl = repair.public_token ? `${window.location.origin}/public/${repair.public_token}` : window.location.origin;
+      const trackingUrl = repair.public_token ? `${publicSiteUrl()}/public/${repair.public_token}` : publicSiteUrl();
       const message = `Hola ${customer.name || repair.customer_name}, te enviamos la orden ${repair.ticket_number} de ${repair.device_brand} ${repair.device_model}. Seguimiento: ${trackingUrl}`;
 
+      if (isNativeApp()) {
+        const uri = await cacheNativePdf(pdf, `orden_entrega_${repair.ticket_number}`);
+        setNativeDeliveryPdfUri(uri);
+        await shareNativePdf(uri, `Orden ${repair.ticket_number}`, message);
+        return;
+      }
+
+      const file = new File([pdf], filename, { type: 'application/pdf' });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: `Orden ${repair.ticket_number}`, text: message, files: [file] });
         toast.success('Orden compartida');
@@ -448,7 +466,7 @@ const RepairDetail = () => {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              onClick={() => window.open(`/print-label/${repair.id}`, '_blank')}
+              onClick={() => isNativeApp() ? navigate(`/print-label/${repair.id}`) : window.open(`/print-label/${repair.id}`, '_blank')}
               data-testid="print-label-button"
               title="Imprimir Etiqueta"
             >
@@ -460,6 +478,9 @@ const RepairDetail = () => {
               <Button variant="outline" onClick={openDeliveryPreview} disabled={openingDelivery} className="border-green-600 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-950/40" data-testid="print-delivery-button">
                 <FileText size={18} className="mr-2" />{openingDelivery ? 'Abriendo PDF...' : 'Ver PDF de entrega'}
               </Button>
+              {isNativeApp() && nativeDeliveryPdfUri && <Button variant="outline" onClick={() => shareNativePdf(nativeDeliveryPdfUri, `Orden ${repair.ticket_number}`).catch(() => toast.error('No se pudo compartir el PDF'))}>
+                <FileDown size={18} className="mr-2" />Guardar o imprimir
+              </Button>}
               <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40" data-testid="share-delivery-button">
                 <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Enviar por WhatsApp'}
               </Button>

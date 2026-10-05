@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import './PrintLabel.css';
+import { publicSiteUrl } from '@/utils/publicSiteUrl';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const defaults = { width: 62, height: 29, font: 7, customer: true, device: true, imei: false, issue: true, date: false, qr: true };
@@ -53,7 +54,7 @@ export default function PrintLabel() {
   }, [config, repair]);
   const change = (name, value) => { setConfig(c => ({ ...c, [name]: value })); setNotice(''); };
   const store = () => { try { localStorage.setItem(key, JSON.stringify(config)); setNotice('Preferencias guardadas para este negocio en este navegador.'); } catch { setNotice('El navegador no permite guardar preferencias. Puedes imprimir igualmente.'); } };
-  const publicUrl = repair?.public_token ? `${window.location.origin}/public/${repair.public_token}` : null;
+  const publicUrl = repair?.public_token ? `${publicSiteUrl()}/public/${repair.public_token}` : null;
   return <div className="label-editor">
     <div className="label-settings">
       <h1>Configurar etiqueta</h1>

@@ -4,6 +4,7 @@ import { CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { isNativeApp } from '@/utils/nativePdf';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/billing`;
 const date = value => value ? new Date(value).toLocaleString('es-CL') : 'No disponible';
@@ -34,6 +35,15 @@ export default function Billing() {
     catch (e) { setError(typeof e.response?.data?.detail === 'string' ? e.response.data.detail : 'No se pudo guardar. Revisa los datos e inténtalo nuevamente.'); }
     finally { setBusy(false); }
   };
+  if (isNativeApp()) return <div className="max-w-4xl space-y-6">
+    <h1 className="flex items-center gap-3 text-2xl font-bold"><CreditCard className="text-blue-600" aria-hidden="true" />Suscripción</h1>
+    {error && <p role="alert" className="rounded bg-red-50 p-4 text-red-800">{error}</p>}
+    {status && <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-6 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+      <p className={status.active ? 'font-semibold text-green-600' : 'font-semibold text-red-600'}>{status.suspended ? 'Acceso suspendido' : status.active ? 'Acceso activo' : 'Suscripción vencida'}</p>
+      <p>Vencimiento: {date(status.expires_at)}</p>
+      {!status.active && <p>Contacta al responsable de tu negocio para consultar tu acceso.</p>}
+    </section>}
+  </div>;
   return <div className="max-w-4xl space-y-6">
     <h1 className="text-2xl font-bold flex items-center gap-3"><CreditCard className="text-blue-600" aria-hidden="true" />Suscripción</h1>
     {error && <p role="alert" className="p-4 bg-red-50 text-red-800 rounded">{error}</p>}
