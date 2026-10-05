@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, User, ShoppingBag, Search, Wrench } from 'lucide-react';
+import { Plus, Edit, Trash2, User, ShoppingBag, Search, History } from 'lucide-react';
 import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -333,9 +333,9 @@ const Customers = () => {
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" onClick={() => navigate(`/repairs?customer_id=${encodeURIComponent(customer.id)}`)}
-                        title="Ver historial de reparaciones" aria-label={`Ver reparaciones de ${customer.name}`}
+                        title="Ver historial de reparaciones" aria-label={`Ver historial de reparaciones de ${customer.name}`}
                         data-testid={`customer-repairs-${customer.id}`}>
-                        <Wrench size={16} />
+                        <History size={16} />
                       </Button>
                       <Button
                         variant="ghost"

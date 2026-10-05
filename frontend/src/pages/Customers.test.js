@@ -31,7 +31,7 @@ afterEach(async () => {
   container.remove();
 });
 
-test('searches customers and opens the selected customer repair history from the wrench icon', async () => {
+test('searches customers and opens the selected customer repair history from the history icon', async () => {
   await act(async () => root.render(<Customers />));
   const search = document.querySelector('[data-testid="customer-search"]');
   await act(async () => {
@@ -42,6 +42,7 @@ test('searches customers and opens the selected customer repair history from the
   expect(document.querySelector('[data-testid="customer-row-José Pérez"]')).toBeNull();
   const actions = document.querySelector('[data-testid="customer-row-Ana Rojas"]');
   expect(actions.querySelector('[aria-label="Ver compras de Ana Rojas"]')).not.toBeNull();
+  expect(actions.querySelector('[aria-label="Ver historial de reparaciones de Ana Rojas"] .lucide-history')).not.toBeNull();
   await act(async () => actions.querySelector('[data-testid="customer-repairs-c2"]').click());
   expect(mockNavigate).toHaveBeenCalledWith('/repairs?customer_id=c2');
 
