@@ -1,7 +1,7 @@
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable, KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from PIL import Image as PILImage, ImageOps
@@ -44,14 +44,17 @@ def details(rows, styles, green=False):
     return table
 
 
-def company_header(company_name, company_logo_url, company_rut, company_address, delivery_date, styles):
+def company_header(company_name, company_logo_url, company_rut, company_address, delivery_date, styles,
+                   logo_size_mm=28, date_label="Fecha"):
     meta_lines = [
         compact(company_name, "Mi negocio", 90),
         "RUT: " + compact(company_rut, "No configurado", 25),
         "Dirección: " + compact(company_address, "No configurada", 90),
-        "Fecha: " + date(delivery_date or datetime.now()),
+        date_label + ": " + date(delivery_date),
     ]
-    metadata = Paragraph("<br/>".join(escape(line) for line in meta_lines), styles["company_meta"])
+    metadata = Paragraph("<b>{}</b><br/>{}".format(
+        escape(meta_lines[0]), "<br/>".join(escape(line) for line in meta_lines[1:])
+    ), styles["company_meta"])
     logo = None
     if company_logo_url:
         try:
@@ -78,12 +81,12 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
                 logo_buffer = BytesIO()
                 prepared_logo.save(logo_buffer, format="JPEG", quality=88, optimize=True)
                 logo_buffer.seek(0)
-            logo = Image(logo_buffer, width=28 * mm, height=28 * mm, kind="proportional")
+            logo = Image(logo_buffer, width=logo_size_mm * mm, height=logo_size_mm * mm, kind="proportional")
         except Exception:
             logo = None
 
     if logo:
-        header = Table([[logo, metadata]], colWidths=[34 * mm, 152 * mm], hAlign="LEFT")
+        header = Table([[logo, metadata]], colWidths=[(logo_size_mm + 6) * mm, (186 - logo_size_mm - 6) * mm], hAlign="LEFT")
         header.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
@@ -104,19 +107,41 @@ def company_header(company_name, company_logo_url, company_rut, company_address,
 
 
 def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio", company_logo_url=None, company_rut="", company_address=""):
-    """Genera una orden de entrega compacta en una sola hoja."""
+    """Genera un comprobante de retiro A4 con la empresa junto al logo."""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm, topMargin=10 * mm, bottomMargin=9 * mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12 * mm, rightMargin=12 * mm,
+                            topMargin=10 * mm, bottomMargin=10 * mm)
     base = getSampleStyleSheet()
+    accent = colors.HexColor("#D85A43")
+    ink = colors.HexColor("#20242A")
+    muted = colors.HexColor("#5B6470")
     styles = {
-        "company_meta": ParagraphStyle("company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_LEFT, textColor=colors.HexColor("#3F3F46")),
-        "document": ParagraphStyle("document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9, alignment=TA_CENTER, textColor=colors.HexColor("#52525B"), spaceAfter=3 * mm),
-        "section": ParagraphStyle("section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=3.5 * mm, spaceAfter=1.8 * mm),
-        "label": ParagraphStyle("label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
-        "value": ParagraphStyle("value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=9),
+        "company_meta": ParagraphStyle("delivery_company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=ink),
+        "document": ParagraphStyle("delivery_document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, textColor=ink),
+        "order": ParagraphStyle("delivery_order", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, alignment=2, textColor=accent),
+        "section": ParagraphStyle("delivery_section", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=11, textColor=ink, spaceBefore=4 * mm, spaceAfter=1.8 * mm),
+        "label": ParagraphStyle("delivery_label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=ink),
+        "value": ParagraphStyle("delivery_value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=ink),
+        "small": ParagraphStyle("delivery_small", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=11, textColor=muted),
+        "panel_title": ParagraphStyle("delivery_panel_title", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=accent),
     }
+
+    def panel(title, rows):
+        lines = [Paragraph(escape(title.upper()), styles["panel_title"])]
+        for label, value in rows:
+            lines.append(Paragraph("<b>{}:</b> {}".format(escape(label), escape(compact(value, limit=110))), styles["value"]))
+        box = Table([[lines]], colWidths=[90 * mm])
+        box.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.65, colors.HexColor("#D9DDE2")),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FAFAFA")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5 * mm),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5 * mm),
+        ]))
+        return box
+
     company_name = compact(company_name, "Mi negocio", 90)
-    equipment = "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))
     public_notes = []
     if repair_data.get("notes") and not repair_data.get("notes_private", False):
         public_notes.append(str(repair_data["notes"]).strip())
@@ -126,42 +151,95 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         if not note.get("is_private", True) and str(note.get("text", "")).strip()
     )
     service_rows = [
-        ("Equipo", equipment),
-        ("IMEI / serie", repair_data.get("device_imei") or repair_data.get("device_serial")),
-        ("Problema", compact(repair_data.get("reported_issue"), limit=150)),
-        ("Diagnóstico", compact(repair_data.get("diagnosis"), limit=150)),
+        ("Problema informado", compact(repair_data.get("reported_issue"), limit=150)),
+        ("Diagnóstico / trabajo", compact(repair_data.get("diagnosis"), limit=150)),
     ]
     if public_notes:
         service_rows.append(("Notas", compact(" · ".join(public_notes), limit=350)))
-    content = [
-        company_header(company_name, company_logo_url, company_rut, company_address, repair_data.get("delivered_date"), styles),
-        Paragraph("ORDEN DE ENTREGA", styles["document"]),
-        details([("N° de orden", repair_data.get("ticket_number", ""))], styles),
-        Paragraph("Cliente", styles["section"]),
-        details([("Nombre", customer_data.get("name") or repair_data.get("customer_name")), ("Teléfono", customer_data.get("phone")), ("RUT", customer_data.get("rut")), ("Correo", customer_data.get("email"))], styles),
-        Spacer(1, 5 * mm),
-        Paragraph("Equipo y servicio", styles["section"]),
-        details(service_rows, styles),
-    ]
-    if repair_data.get("budget_estimate"):
-        content += [Paragraph("Cobro", styles["section"]), details([("Total del servicio", money(repair_data["budget_estimate"]))], styles, green=True)]
-    technician = compact(repair_data.get("assigned_technician"), "_______________________", 45)
-    signature_line = lambda: HRFlowable(width=50 * mm, thickness=0.6, color=colors.HexColor("#18181B"), spaceBefore=0, spaceAfter=0, hAlign="CENTER")
+
+    order_header = Table([[
+        Paragraph("Comprobante de retiro de equipo", styles["document"]),
+        Paragraph("Orden N° {}".format(escape(compact(repair_data.get("ticket_number"), "—", 32))), styles["order"]),
+    ]], colWidths=[112 * mm, 74 * mm])
+    order_header.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    client = panel("Cliente", [
+        ("Nombre", customer_data.get("name") or repair_data.get("customer_name")),
+        ("RUT", customer_data.get("rut")),
+        ("Teléfono", customer_data.get("phone")),
+        ("Correo", customer_data.get("email")),
+    ])
+    equipment = panel("Equipo", [
+        ("Marca y modelo", "{} {}".format(compact(repair_data.get("device_brand")), compact(repair_data.get("device_model")))),
+        ("IMEI", repair_data.get("device_imei")),
+        ("N° de serie", repair_data.get("device_serial")),
+        ("Técnico", repair_data.get("assigned_technician")),
+    ])
+    identity = Table([[client, equipment]], colWidths=[93 * mm, 93 * mm])
+    identity.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("RIGHTPADDING", (0, 0), (0, 0), 3 * mm),
+        ("LEFTPADDING", (1, 0), (1, 0), 3 * mm),
+        ("RIGHTPADDING", (1, 0), (1, 0), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    signature_line = lambda: HRFlowable(width=65 * mm, thickness=0.7, color=ink, hAlign="CENTER")
     signatures = Table([
         [signature_line(), signature_line()],
-        ["Firma del cliente", "Firma del técnico"],
-        ["", "Técnico: " + technician],
+        ["Firma de quien retira", "Firma del técnico"],
+        [compact(customer_data.get("name") or repair_data.get("customer_name"), "", 60),
+         compact(repair_data.get("assigned_technician"), "", 60)],
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, 0), "BOTTOM"),
         ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 0.8 * mm),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0.8 * mm),
+        ("TEXTCOLOR", (0, 2), (-1, 2), muted),
+        ("TOPPADDING", (0, 0), (-1, -1), 1 * mm),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
     ]))
-    content += [Spacer(1, 12 * mm), signatures]
-    doc.build(content)
+
+    content = [
+        HRFlowable(width="100%", thickness=2.5, color=accent, spaceAfter=4 * mm),
+        company_header(company_name, company_logo_url, company_rut, company_address,
+                       repair_data.get("delivered_date"), styles, logo_size_mm=36,
+                       date_label="Fecha de entrega"),
+        Spacer(1, 4 * mm),
+        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D9DDE2"), spaceAfter=4 * mm),
+        order_header,
+        Spacer(1, 4 * mm),
+        Paragraph("Constancia de entrega del equipo asociado a esta orden. Las firmas al pie acreditan su retiro.", styles["small"]),
+        Paragraph("DATOS DE RETIRO", styles["section"]),
+        identity,
+        Paragraph("TRABAJO Y OBSERVACIONES", styles["section"]),
+        details(service_rows, styles),
+    ]
+    if repair_data.get("budget_estimate") is not None:
+        payment_rows = [("Total del servicio", money(repair_data["budget_estimate"])),
+                        ("Estado del pago", "Pagado" if repair_data.get("paid") else "Pendiente")]
+        if repair_data.get("paid") and repair_data.get("paid_at"):
+            payment_rows.append(("Fecha de pago", date(repair_data["paid_at"])))
+        content += [Paragraph("COBRO", styles["section"]), details(payment_rows, styles, green=True)]
+    content += [
+        Spacer(1, 6 * mm),
+        Paragraph("CONFIRMACIÓN DE ENTREGA", styles["section"]),
+        Paragraph("La persona que firma confirma haber recibido el equipo identificado en este comprobante.", styles["small"]),
+        Spacer(1, 12 * mm),
+        signatures,
+        Spacer(1, 5 * mm),
+        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D9DDE2"), spaceAfter=2 * mm),
+        Paragraph("Conserve este comprobante como respaldo de la entrega de la orden indicada.", styles["small"]),
+    ]
+    # Una nota o dirección larga no debe crear una segunda página.
+    doc.build([KeepInFrame(doc.width, doc.height - 12, content, mode="shrink", hAlign="CENTER", vAlign="TOP")])
     buffer.seek(0)
     return buffer
 
