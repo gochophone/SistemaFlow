@@ -12,7 +12,7 @@ from xml.sax.saxutils import escape
 
 MAX_LOGO_BYTES = 10 * 1024 * 1024
 MAX_LOGO_PIXELS = 16_000_000
-RECEIPT_ACCENT = colors.HexColor("#2563EB")
+RECEIPT_ACCENT = colors.HexColor("#0F766E")
 
 
 def compact(value, fallback="No especificado", limit=150):
