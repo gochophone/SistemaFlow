@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import PaymentConfirmationDialog from '@/components/PaymentConfirmationDialog';
 import {
   Select,
   SelectContent,
@@ -75,6 +76,7 @@ const RepairDetail = () => {
   const [creatingTechnician, setCreatingTechnician] = useState(false);
   const [newTechnician, setNewTechnician] = useState({ name: '', email: '', password: '' });
   const [savingPayment, setSavingPayment] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(null);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [newNotePrivate, setNewNotePrivate] = useState(true);
@@ -85,6 +87,7 @@ const RepairDetail = () => {
     deliveryRequestRef.current += 1;
     setOpeningDelivery(false);
     setDeliveryPreview(null);
+    setPendingPayment(null);
     fetchRepair();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -252,7 +255,15 @@ const RepairDetail = () => {
   };
 
   const handlePaidChange = (checked) => {
-    updatePayment({ paid: checked }, checked ? 'Orden marcada como pagada' : 'Orden marcada como pendiente de pago');
+    if (checked === Boolean(repair?.paid) || savingPayment) return;
+    setPendingPayment({ ticketNumber: repair.ticket_number, paid: checked });
+  };
+
+  const confirmPaymentChange = () => {
+    if (!pendingPayment || repair?.status !== 'delivered') return;
+    const { paid } = pendingPayment;
+    setPendingPayment(null);
+    updatePayment({ paid }, paid ? 'Orden marcada como pagada' : 'Orden marcada como pendiente de pago');
   };
 
   const handlePhotosChange = async (photos) => {
@@ -1007,6 +1018,12 @@ const RepairDetail = () => {
           </Card>
         </div>
       </div>
+
+      <PaymentConfirmationDialog
+        change={pendingPayment}
+        onCancel={() => setPendingPayment(null)}
+        onConfirm={confirmPaymentChange}
+      />
 
       <Dialog open={Boolean(deliveryPreview)} onOpenChange={(open) => { if (!open) closeDeliveryPreview(); }}>
         <DialogContent className="flex h-[92vh] w-[calc(100vw-1rem)] max-w-5xl flex-col overflow-hidden p-3 sm:p-5">

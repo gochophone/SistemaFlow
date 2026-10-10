@@ -222,6 +222,10 @@ test.each(['success', 'failure'])('marking a filtered order paid updates the lis
   await renderRepairs();
   await act(async () => unpaidButton().click());
   await act(async () => container.querySelector('[data-testid="quick-payment-REP-TEST"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('REP-TEST');
+  expect(axios.patch).not.toHaveBeenCalled();
+  expect(unpaidButton().textContent).toContain('(1)');
+  await act(async () => document.querySelector('[data-testid="confirm-payment-change"]').click());
   expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1'),
     { paid: true }, expect.any(Object));
   expect(visibleTickets()).toEqual([]);
@@ -235,4 +239,34 @@ test.each(['success', 'failure'])('marking a filtered order paid updates the lis
   if (outcome === 'success') expect(container.textContent).toContain('No hay órdenes entregadas pendientes de pago');
   else expect(toast.error).toHaveBeenCalledWith('No se pudo guardar el pago');
   expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+test.each([
+  ['marcar como pagada', deliveredUnpaid, 'Pendiente'],
+  ['desmarcar el pago', paymentFixtures[1], 'Pagado'],
+])('cancelar %s conserva el pago de la orden', async (_, selectedRepair, expectedLabel) => {
+  axios.get.mockResolvedValue({ data: [selectedRepair] });
+  await renderRepairs();
+  const switchElement = container.querySelector(`[data-testid="quick-payment-${selectedRepair.ticket_number}"]`);
+  await act(async () => switchElement.click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]')).not.toBeNull();
+  expect(axios.patch).not.toHaveBeenCalled();
+  await act(async () => document.querySelector('[data-testid="cancel-payment-change"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]')).toBeNull();
+  expect(switchElement.closest('div').textContent).toContain(expectedLabel);
+  expect(axios.patch).not.toHaveBeenCalled();
+});
+
+test('confirmar que una orden ya no está pagada la deja pendiente', async () => {
+  const paidRepair = paymentFixtures[1];
+  axios.get.mockResolvedValue({ data: [paidRepair] });
+  axios.patch.mockResolvedValue({ data: { ...paidRepair, paid: false, paid_at: null } });
+  await renderRepairs();
+  await act(async () => container.querySelector('[data-testid="quick-payment-REP-PAID"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('se quitará la fecha de pago');
+  expect(axios.patch).not.toHaveBeenCalled();
+  await act(async () => document.querySelector('[data-testid="confirm-payment-change"]').click());
+  expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/paid'),
+    { paid: false }, expect.any(Object));
+  expect(container.querySelector('[data-testid="quick-payment-REP-PAID"]').closest('div').textContent).toContain('Pendiente');
 });

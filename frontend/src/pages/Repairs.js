@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import PaymentConfirmationDialog from '@/components/PaymentConfirmationDialog';
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ const Repairs = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [savingStatusId, setSavingStatusId] = useState(null);
   const [savingPaymentId, setSavingPaymentId] = useState(null);
+  const [pendingPayment, setPendingPayment] = useState(null);
 
   useEffect(() => {
     let live = true;
@@ -140,7 +142,7 @@ const Repairs = () => {
   };
 
   const handlePaymentChange = async (repair, paid) => {
-    if (repair.status !== 'delivered' || savingPaymentId === repair.id) return;
+    if (repair.status !== 'delivered' || savingPaymentId === repair.id || paid === Boolean(repair.paid)) return;
 
     const previousPaid = Boolean(repair.paid);
     setSavingPaymentId(repair.id);
@@ -158,6 +160,13 @@ const Repairs = () => {
     } finally {
       setSavingPaymentId(null);
     }
+  };
+
+  const confirmPaymentChange = () => {
+    if (!pendingPayment) return;
+    const { repair, paid } = pendingPayment;
+    setPendingPayment(null);
+    handlePaymentChange(repair, paid);
   };
 
   if (loading) {
@@ -302,7 +311,7 @@ const Repairs = () => {
                         >
                           <Switch
                             checked={Boolean(repair.paid)}
-                            onCheckedChange={(paid) => handlePaymentChange(repair, paid)}
+                            onCheckedChange={(paid) => setPendingPayment({ repair, ticketNumber: repair.ticket_number, paid })}
                             disabled={savingPaymentId === repair.id}
                             aria-label={`Marcar pago de ${repair.ticket_number}`}
                             data-testid={`quick-payment-${repair.ticket_number}`}
@@ -343,6 +352,11 @@ const Repairs = () => {
           </TableBody>
         </Table>
       </div>
+      <PaymentConfirmationDialog
+        change={pendingPayment}
+        onCancel={() => setPendingPayment(null)}
+        onConfirm={confirmPaymentChange}
+      />
     </div>
   );
 };

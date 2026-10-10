@@ -4,6 +4,12 @@ import axios from 'axios';
 import RepairDetail from './RepairDetail';
 
 jest.mock('axios');
+jest.mock('@/utils/nativePdf', () => ({
+  isNativeApp: () => false,
+  cacheNativePdf: jest.fn(),
+  openNativePdf: jest.fn(),
+  shareNativePdf: jest.fn(),
+}));
 jest.mock('@radix-ui/primitive/is-development', () => ({ isDevelopment: false }), { virtual: true });
 jest.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'repair-1' }), useNavigate: () => jest.fn(),
@@ -44,6 +50,38 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+});
+
+test('confirmar o cancelar el pago funciona dentro de la orden en ambos sentidos', async () => {
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'delivered', paid: false,
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla rota',
+  };
+  axios.get.mockResolvedValue({ data: repair });
+  axios.patch.mockImplementation((url, changes) => Promise.resolve({ data: { ...repair, ...changes } }));
+  await act(async () => root.render(<RepairDetail />));
+
+  await act(async () => document.querySelector('[data-testid="paid-switch"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('REP-00001');
+  expect(axios.patch).not.toHaveBeenCalled();
+  await act(async () => document.querySelector('[data-testid="cancel-payment-change"]').click());
+  expect(axios.patch).not.toHaveBeenCalled();
+
+  await act(async () => document.querySelector('[data-testid="paid-switch"]').click());
+  await act(async () => document.querySelector('[data-testid="confirm-payment-change"]').click());
+  expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1'),
+    { paid: true }, expect.any(Object));
+  expect(document.querySelector('[data-testid="paid-switch"]').getAttribute('data-state')).toBe('checked');
+
+  axios.patch.mockImplementation((url, changes) => Promise.resolve({ data: { ...repair, paid: true, ...changes } }));
+  await act(async () => document.querySelector('[data-testid="paid-switch"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('se quitará la fecha de pago');
+  expect(axios.patch).toHaveBeenCalledTimes(1);
+  await act(async () => document.querySelector('[data-testid="confirm-payment-change"]').click());
+  expect(axios.patch).toHaveBeenLastCalledWith(expect.stringContaining('/api/repairs/repair-1'),
+    { paid: false }, expect.any(Object));
+  expect(document.querySelector('[data-testid="paid-switch"]').getAttribute('data-state')).toBe('unchecked');
 });
 
 test('shows the repair delivery PDF in place before saving or printing', async () => {
