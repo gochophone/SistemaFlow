@@ -33,7 +33,6 @@ const Layout = () => {
   }, [theme]);
 
   const menuItems = [
-    { path: "/billing", icon: CreditCard, label: "Suscripción", testId: "nav-billing" },
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
@@ -42,6 +41,7 @@ const Layout = () => {
       { path: '/sales', icon: ShoppingBag, label: 'Ventas', testId: 'nav-sales' },
       { path: '/team', icon: Users, label: 'Equipo de trabajo', testId: 'nav-team' },
     ] : []),
+    { path: '/billing', icon: CreditCard, label: 'Suscripción', testId: 'nav-billing' },
     { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
   ];
 
