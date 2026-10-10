@@ -162,18 +162,10 @@ const DevicePhotos = ({ photos = [], onChange, maxPhotos = 5, authHeader, onPhot
 
       {photos.length > 0 ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-zinc-700">
+          <div>
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
               {photos.length} de {maxPhotos} fotos
             </p>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-800 border border-green-200">
-                ☁️ Cloudinary
-              </span>
-              <p className="text-xs text-zinc-500">
-                Almacenamiento en la nube
-              </p>
-            </div>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
