@@ -12,6 +12,7 @@ from xml.sax.saxutils import escape
 
 MAX_LOGO_BYTES = 10 * 1024 * 1024
 MAX_LOGO_PIXELS = 16_000_000
+RECEIPT_ACCENT = colors.HexColor("#2563EB")
 
 
 def compact(value, fallback="No especificado", limit=150):
@@ -111,7 +112,7 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12 * mm, rightMargin=12 * mm,
                             topMargin=10 * mm, bottomMargin=10 * mm)
     base = getSampleStyleSheet()
-    accent = colors.HexColor("#D85A43")
+    accent = RECEIPT_ACCENT
     ink = colors.HexColor("#20242A")
     muted = colors.HexColor("#5B6470")
     styles = {
@@ -259,7 +260,7 @@ def generate_sale_delivery_pdf(sale, company_name="Mi negocio", company_logo_url
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12 * mm, rightMargin=12 * mm,
                             topMargin=10 * mm, bottomMargin=10 * mm)
     base = getSampleStyleSheet()
-    accent = colors.HexColor("#D85A43")
+    accent = RECEIPT_ACCENT
     ink = colors.HexColor("#20242A")
     muted = colors.HexColor("#5B6470")
     styles = {
