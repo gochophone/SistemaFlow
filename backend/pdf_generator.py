@@ -1,9 +1,8 @@
-from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, HRFlowable, KeepInFrame
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from PIL import Image as PILImage, ImageOps
 from datetime import datetime
 from io import BytesIO
@@ -255,67 +254,125 @@ SALE_CONDITIONS = {
 
 
 def generate_sale_delivery_pdf(sale, company_name="Mi negocio", company_logo_url=None, company_rut="", company_address=""):
-    """Genera un comprobante de venta con espacio para acreditar la entrega."""
+    """Genera el comprobante de venta con el formato del PDF de entrega."""
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=12 * mm, rightMargin=12 * mm,
-                            topMargin=10 * mm, bottomMargin=9 * mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12 * mm, rightMargin=12 * mm,
+                            topMargin=10 * mm, bottomMargin=10 * mm)
     base = getSampleStyleSheet()
+    accent = colors.HexColor("#D85A43")
+    ink = colors.HexColor("#20242A")
+    muted = colors.HexColor("#5B6470")
     styles = {
-        "company_meta": ParagraphStyle("sale_company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=8.5, leading=11, alignment=TA_LEFT, textColor=colors.HexColor("#3F3F46")),
-        "document": ParagraphStyle("sale_document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=10, leading=12, alignment=TA_CENTER, textColor=colors.HexColor("#18181B"), spaceAfter=3 * mm),
-        "section": ParagraphStyle("sale_section", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=9, leading=10, spaceBefore=3 * mm, spaceAfter=1.5 * mm),
-        "label": ParagraphStyle("sale_label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=9),
-        "value": ParagraphStyle("sale_value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=9),
-        "notice": ParagraphStyle("sale_notice", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=colors.HexColor("#52525B")),
+        "company_meta": ParagraphStyle("sale_company_meta", parent=base["Normal"], fontName="Helvetica", fontSize=9, leading=12, textColor=ink),
+        "document": ParagraphStyle("sale_document", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, textColor=ink),
+        "order": ParagraphStyle("sale_order", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=15, leading=18, alignment=2, textColor=accent),
+        "section": ParagraphStyle("sale_section", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=11, textColor=ink, spaceBefore=4 * mm, spaceAfter=1.8 * mm),
+        "label": ParagraphStyle("sale_label", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8, leading=10, textColor=ink),
+        "value": ParagraphStyle("sale_value", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=10, textColor=ink),
+        "small": ParagraphStyle("sale_small", parent=base["Normal"], fontName="Helvetica", fontSize=8, leading=11, textColor=muted),
+        "panel_title": ParagraphStyle("sale_panel_title", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=accent),
     }
+
+    def panel(title, rows):
+        lines = [Paragraph(escape(title.upper()), styles["panel_title"])]
+        for label, value in rows:
+            lines.append(Paragraph("<b>{}:</b> {}".format(escape(label), escape(compact(value, limit=110))), styles["value"]))
+        box = Table([[lines]], colWidths=[90 * mm])
+        box.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.65, colors.HexColor("#D9DDE2")),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FAFAFA")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
+            ("TOPPADDING", (0, 0), (-1, -1), 2.5 * mm),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5 * mm),
+        ]))
+        return box
+
     category = sale.get("custom_category") if sale.get("category") == "other" else None
     category = category or SALE_CATEGORIES.get(sale.get("category"), "Otro")
-    article_rows = [
-        ("Artículo", compact(sale.get("item_name"), limit=180)),
-        ("Tipo", compact(category, limit=80)),
-        ("Cantidad", str(sale.get("quantity") or 1)),
+    buyer = panel("Comprador", [
+        ("Nombre", sale.get("customer_name")),
+        ("RUT", sale.get("customer_rut")),
+        ("Teléfono", sale.get("customer_phone")),
+    ])
+    article = panel("Artículo", [
+        ("Nombre", sale.get("item_name")),
+        ("Tipo", category),
         ("Estado", SALE_CONDITIONS.get(sale.get("condition"), "No especificado")),
-    ]
-    if sale.get("condition_notes"):
-        article_rows.append(("Detalle del estado", compact(sale["condition_notes"], limit=250)))
-    if sale.get("imei"):
-        article_rows.append(("IMEI", sale["imei"]))
-    if sale.get("serial_number"):
-        article_rows.append(("N° de serie", sale["serial_number"]))
-    if sale.get("notes"):
-        article_rows.append(("Observaciones", compact(sale["notes"], limit=250)))
+        ("IMEI", sale.get("imei")),
+        ("N° de serie", sale.get("serial_number")),
+    ])
+    identity = Table([[buyer, article]], colWidths=[93 * mm, 93 * mm])
+    identity.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("RIGHTPADDING", (0, 0), (0, 0), 3 * mm),
+        ("LEFTPADDING", (1, 0), (1, 0), 3 * mm),
+        ("RIGHTPADDING", (1, 0), (1, 0), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
 
-    signature_line = lambda: HRFlowable(width=65 * mm, thickness=0.6,
-                                        color=colors.HexColor("#18181B"), hAlign="CENTER")
+    observations = []
+    if sale.get("condition_notes"):
+        observations.append(("Detalle del estado", compact(sale["condition_notes"], limit=250)))
+    if sale.get("notes"):
+        observations.append(("Observaciones", compact(sale["notes"], limit=250)))
+
+    order_header = Table([[
+        Paragraph("Comprobante de venta y entrega", styles["document"]),
+        Paragraph("Venta N° {}".format(escape(compact(sale.get("sale_number"), "—", 32))), styles["order"]),
+    ]], colWidths=[112 * mm, 74 * mm])
+    order_header.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    signature_line = lambda: HRFlowable(width=65 * mm, thickness=0.7, color=ink, hAlign="CENTER")
     signatures = Table([
         [signature_line(), signature_line()],
         ["Firma del comprador", "Firma de quien entrega"],
-        [compact(sale.get("customer_name"), limit=60), compact(sale.get("sold_by_name"), limit=60)],
+        [compact(sale.get("customer_name"), "", 60), compact(sale.get("sold_by_name"), "", 60)],
     ], colWidths=[93 * mm, 93 * mm])
     signatures.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("TEXTCOLOR", (0, 2), (-1, 2), muted),
         ("TOPPADDING", (0, 0), (-1, -1), 1 * mm),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 1 * mm),
     ]))
     content = [
-        company_header(company_name, company_logo_url, company_rut, company_address, sale.get("sold_on"), styles),
-        Paragraph("COMPROBANTE DE VENTA Y ENTREGA", styles["document"]),
-        details([("N° de venta", sale.get("sale_number")), ("Fecha de venta", date(sale.get("sold_on")))], styles),
-        Paragraph("Comprador", styles["section"]),
-        details([("Nombre", sale.get("customer_name")), ("RUT", sale.get("customer_rut")),
-                 ("Teléfono", sale.get("customer_phone"))], styles),
-        Paragraph("Artículo", styles["section"]),
-        details(article_rows, styles),
-        Paragraph("Venta", styles["section"]),
-        details([("Precio unitario", money(sale.get("unit_price"))),
-                 ("Total", money(sale.get("total_price")))], styles, green=True),
-        Spacer(1, 5 * mm),
-        Paragraph("Constancia de entrega", styles["section"]),
-        Paragraph("El comprador confirma la recepción del artículo indicado, con la identificación y el estado detallados en este comprobante.", styles["notice"]),
-        Spacer(1, 12 * mm), signatures,
+        HRFlowable(width="100%", thickness=2.5, color=accent, spaceAfter=4 * mm),
+        company_header(company_name, company_logo_url, company_rut, company_address,
+                       sale.get("sold_on"), styles, logo_size_mm=36, date_label="Fecha de venta"),
+        Spacer(1, 4 * mm),
+        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D9DDE2"), spaceAfter=4 * mm),
+        order_header,
+        Spacer(1, 4 * mm),
+        Paragraph("Constancia de venta y entrega del artículo indicado. Las firmas al pie acreditan su recepción.", styles["small"]),
+        Paragraph("DATOS DE LA VENTA", styles["section"]),
+        identity,
     ]
-    doc.build(content)
+    if observations:
+        content += [Paragraph("ESTADO Y OBSERVACIONES", styles["section"]), details(observations, styles)]
+    content += [
+        Paragraph("COBRO", styles["section"]),
+        details([("Cantidad", str(sale.get("quantity") or 1)),
+                 ("Precio unitario", money(sale.get("unit_price"))),
+                 ("Total de la venta", money(sale.get("total_price")))], styles, green=True),
+        Spacer(1, 6 * mm),
+        Paragraph("CONFIRMACIÓN DE ENTREGA", styles["section"]),
+        Paragraph("El comprador confirma haber recibido el artículo identificado en este comprobante.", styles["small"]),
+        Spacer(1, 12 * mm),
+        signatures,
+        Spacer(1, 5 * mm),
+        HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#D9DDE2"), spaceAfter=2 * mm),
+        Paragraph("Conserve este comprobante como respaldo de la venta y entrega indicadas.", styles["small"]),
+    ]
+    doc.build([KeepInFrame(doc.width, doc.height - 12, content, mode="shrink", hAlign="CENTER", vAlign="TOP")])
     buffer.seek(0)
     return buffer
