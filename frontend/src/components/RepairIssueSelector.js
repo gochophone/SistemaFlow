@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const OTHER_ISSUE = '__other_issue__';
@@ -13,8 +14,19 @@ const COMMON_ISSUES = [
   'Audio', 'Face ID', 'Señal', 'Batería', 'Flex carga',
 ];
 
+const mergeOptions = (current, incoming) => {
+  const custom = new Map();
+  [...current, ...incoming].forEach((issue) => {
+    if (typeof issue === 'string' && issue && !COMMON_ISSUES.includes(issue)) {
+      custom.set(issue.toLocaleLowerCase('es'), issue);
+    }
+  });
+  return [...COMMON_ISSUES, ...Array.from(custom.values()).sort((a, b) => a.localeCompare(b, 'es'))];
+};
+
 const RepairIssueSelector = ({ value, onChange }) => {
   const { getAuthHeader } = useAuth();
+  const [options, setOptions] = useState(COMMON_ISSUES);
   const [frequent, setFrequent] = useState([]);
   const [manualMode, setManualMode] = useState(false);
   const selectedRef = useRef(false);
@@ -27,17 +39,18 @@ const RepairIssueSelector = ({ value, onChange }) => {
     axios.get(`${API}/api/repairs/issues`, { headers: getAuthHeader() })
       .then(({ data }) => {
         if (!active) return;
+        if (Array.isArray(data.options)) setOptions((current) => mergeOptions(current, data.options));
         if (selectedRef.current) return;
         setFrequent(Array.isArray(data.frequent) ? data.frequent.slice(0, 5) : []);
       })
       .catch(() => {
-        // Las opciones comunes siguen disponibles si falla la carga del historial.
+        // Las opciones comunes siguen disponibles si falla la carga del catálogo.
       });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const recordIssue = (issue) => {
+  const recordIssue = (issue, manuallyAdded = false) => {
     const name = issue.trim();
     if (!name) return;
     selectedRef.current = true;
@@ -53,13 +66,16 @@ const RepairIssueSelector = ({ value, onChange }) => {
       .then(() => axios.post(`${API}/api/repairs/issues`, { name }, { headers: getAuthHeader() }))
       .then(({ data }) => {
         pendingRequestsRef.current -= 1;
+        if (Array.isArray(data.options)) {
+          setOptions((current) => mergeOptions(current, data.options));
+        }
         if (pendingRequestsRef.current === 0 && Array.isArray(data.frequent)) {
           setFrequent(data.frequent.slice(0, 5));
         }
       })
       .catch(() => {
         pendingRequestsRef.current -= 1;
-        // La selección sigue disponible aunque no se pueda guardar su frecuencia.
+        if (manuallyAdded) toast.error('No se pudo guardar la falla en la lista. Intenta nuevamente.');
       });
   };
 
@@ -70,7 +86,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
       onChange('');
       return;
     }
-    setManualMode(!COMMON_ISSUES.includes(issue));
+    setManualMode(false);
     onChange(issue);
     recordIssue(issue);
   };
@@ -80,14 +96,14 @@ const RepairIssueSelector = ({ value, onChange }) => {
     if (name && name !== recordedManualRef.current) {
       recordedManualRef.current = name;
       onChange(name);
-      recordIssue(name);
+      recordIssue(name, true);
     }
   };
 
   return (
     <div className="space-y-2">
       <Label htmlFor="reported_issue" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Falla reportada *</Label>
-      <Select value={manualMode ? OTHER_ISSUE : COMMON_ISSUES.includes(value) ? value : ''} onValueChange={chooseIssue}>
+      <Select value={manualMode ? OTHER_ISSUE : options.includes(value) ? value : ''} onValueChange={chooseIssue}>
         <SelectTrigger id="reported_issue" className="border-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" data-testid="reported-issue-select">
           <SelectValue placeholder="Seleccionar falla" />
         </SelectTrigger>
@@ -96,6 +112,15 @@ const RepairIssueSelector = ({ value, onChange }) => {
             <SelectLabel>Fallas comunes</SelectLabel>
             {COMMON_ISSUES.map((issue) => <SelectItem key={issue} value={issue}>{issue}</SelectItem>)}
           </SelectGroup>
+          {options.length > COMMON_ISSUES.length && <>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel>Fallas agregadas</SelectLabel>
+              {options.filter((issue) => !COMMON_ISSUES.includes(issue)).map((issue) => (
+                <SelectItem key={issue} value={issue}>{issue}</SelectItem>
+              ))}
+            </SelectGroup>
+          </>}
           <SelectSeparator />
           <SelectItem value={OTHER_ISSUE}>Especificar otra falla…</SelectItem>
         </SelectContent>
@@ -110,10 +135,16 @@ const RepairIssueSelector = ({ value, onChange }) => {
             onChange(event.target.value);
           }}
           onBlur={recordManualIssue}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
           maxLength={120}
           required
           autoFocus
-          placeholder="Escribe la falla para guardarla con la orden"
+          placeholder="Escribe la falla; se guardará al salir del campo"
           className="border-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           data-testid="reported-issue-input"
         />
@@ -121,7 +152,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
 
       {frequent.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2" data-testid="frequent-issues">
-          {frequent.map(({ name, count }) => (
+          {frequent.map(({ name }) => (
             <Button
               key={name}
               type="button"
@@ -134,7 +165,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
                 : 'dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800'}
               data-testid={`frequent-issue-${name}`}
             >
-              {name} <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">({count})</span>
+              {name}
             </Button>
           ))}
         </div>

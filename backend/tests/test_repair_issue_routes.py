@@ -51,8 +51,10 @@ def test_selections_start_empty_and_build_per_tenant_quick_picks(monkeypatch):
         selected = await server.select_repair_issue(server.RepairIssueSelection(name="Pantalla"), first)
         assert selected["frequent"] == [{"name": "Pantalla", "count": 2}]
         selected = await server.select_repair_issue(server.RepairIssueSelection(name="Puerto USB"), first)
-        assert selected["options"] == list(server.build_issue_catalog([])["options"])
+        assert selected["options"][-1] == "Puerto USB"
         assert selected["frequent"][1] == {"name": "Puerto USB", "count": 1}
-        assert (await server.get_repair_issues(second))["frequent"] == []
+        other_catalog = await server.get_repair_issues(second)
+        assert other_catalog["frequent"] == []
+        assert "Puerto USB" not in other_catalog["options"]
 
     asyncio.run(scenario())

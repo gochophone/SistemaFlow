@@ -9,7 +9,7 @@ class RepairIssueCatalogTests(unittest.TestCase):
             "options": list(COMMON_REPAIR_ISSUES), "frequent": [],
         })
 
-    def test_only_common_issues_appear_in_list_and_selected_issues_form_quick_picks(self):
+    def test_written_issues_join_list_and_selected_issues_form_quick_picks(self):
         catalog = build_issue_catalog([
             {"name": "Pantalla", "count": 5},
             {"name": "Face ID", "count": 4},
@@ -19,7 +19,7 @@ class RepairIssueCatalogTests(unittest.TestCase):
             {"name": "Conector USB", "count": 1},
             {"name": "", "count": 9},
         ])
-        self.assertEqual(catalog["options"], list(COMMON_REPAIR_ISSUES))
+        self.assertEqual(catalog["options"], [*COMMON_REPAIR_ISSUES, "Conector USB", "Puerto USB"])
         self.assertEqual(catalog["frequent"], [
             {"name": "Puerto USB", "count": 6},
             {"name": "Pantalla", "count": 5},

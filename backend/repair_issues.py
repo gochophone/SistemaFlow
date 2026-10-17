@@ -1,4 +1,4 @@
-"""Fallas fijas y accesos rápidos elegidos por un negocio."""
+"""Fallas comunes, fallas escritas y accesos rápidos de cada negocio."""
 
 import unicodedata
 
@@ -26,8 +26,9 @@ def normalized_issue_name(value):
 
 
 def build_issue_catalog(selections):
-    """La lista mantiene solo las fallas fijas; los accesos nacen de selecciones."""
+    """Las fallas escritas se añaden a la lista sin alterar las opciones comunes."""
     frequent = []
+    custom = {}
     for row in selections:
         try:
             name = normalized_issue_name(row.get("name"))
@@ -36,6 +37,11 @@ def build_issue_catalog(selections):
         count = row.get("count")
         if not isinstance(count, int) or count <= 0:
             continue
+        if name not in COMMON_REPAIR_ISSUES:
+            custom[issue_key(name)] = name
         frequent.append({"name": name, "count": count})
     frequent.sort(key=lambda row: (-row["count"], issue_key(row["name"])))
-    return {"options": list(COMMON_REPAIR_ISSUES), "frequent": frequent[:5]}
+    return {
+        "options": [*COMMON_REPAIR_ISSUES, *sorted(custom.values(), key=issue_key)],
+        "frequent": frequent[:5],
+    }
