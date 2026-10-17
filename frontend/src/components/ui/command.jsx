@@ -4,6 +4,7 @@ import { Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { searchInputClasses } from "@/components/ui/search-field"
 
 const Command = React.forwardRef(({ className, ...props }, ref) => (
   <CommandPrimitive
@@ -33,15 +34,14 @@ const CommandDialog = ({
 }
 
 const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
-  <div className="flex min-h-11 items-center border-b border-zinc-200 px-3 dark:border-zinc-700" cmdk-input-wrapper="">
-    <Search className="mr-2 h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
-    <CommandPrimitive.Input
-      ref={ref}
-      className={cn(
-        "flex h-11 w-full rounded-md bg-transparent py-3 text-sm text-zinc-900 outline-none placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-400",
-        className
-      )}
-      {...props} />
+  <div className="border-b border-zinc-200 p-2 dark:border-zinc-700" cmdk-input-wrapper="">
+    <div className="relative">
+      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
+      <CommandPrimitive.Input
+        ref={ref}
+        className={cn(searchInputClasses, "flex disabled:cursor-not-allowed disabled:opacity-50", className)}
+        {...props} />
+    </div>
   </div>
 ))
 

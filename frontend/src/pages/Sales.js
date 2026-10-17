@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Search, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown, FileDown, Printer, ArrowLeft } from 'lucide-react';
+import { Plus, ShoppingBag, Package, UserPlus, Eye, Check, ChevronsUpDown, FileDown, Printer, ArrowLeft } from 'lucide-react';
+import { SearchField } from '@/components/ui/search-field';
 import { useAuth } from '@/context/AuthContext';
 import DevicePhotos from '@/components/DevicePhotos';
 import { Button } from '@/components/ui/button';
@@ -320,11 +321,8 @@ const Sales = () => {
         </div>
       )}
 
-      <div className="relative max-w-xl">
-        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-        <Input className="pl-10" placeholder="Buscar venta, artículo, cliente, RUT, IMEI o serie" value={query}
-          onChange={(event) => setQuery(event.target.value)} data-testid="sales-search" />
-      </div>
+      <SearchField className="max-w-xl" placeholder="Buscar venta, artículo, cliente, RUT, IMEI o serie" value={query}
+        onChange={(event) => setQuery(event.target.value)} data-testid="sales-search" />
 
       <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <table className="w-full min-w-[760px] text-sm">
@@ -431,13 +429,17 @@ const Sales = () => {
             {form.source === 'inventory' ? <section className="space-y-2">
               <Label>Artículo del inventario *</Label>
               {chosenItem && <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">Seleccionado: {chosenItem.name} · Stock: {chosenItem.quantity}</p>}
-              <Input placeholder="Buscar en inventario" value={inventoryQuery} onChange={(e) => setInventoryQuery(e.target.value)} />
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                {matchingInventory.map((item) => <button key={item.id} type="button" onClick={() => chooseInventory(item)}
-                  className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:hover:bg-zinc-800 dark:focus:bg-zinc-800 ${form.inventory_item_id === item.id ? 'font-semibold text-blue-600 dark:text-blue-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
-                  <span><Package size={15} className="mr-2 inline" />{item.name} · Stock {item.quantity}</span><span>{formatCLP(item.price)}</span>
-                </button>)}
-                {matchingInventory.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">No hay artículos con stock disponible</p>}
+              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="border-b border-zinc-200 p-2 dark:border-zinc-700">
+                  <SearchField placeholder="Buscar en inventario" value={inventoryQuery} onChange={(e) => setInventoryQuery(e.target.value)} />
+                </div>
+                <div className="max-h-48 overflow-y-auto p-1">
+                  {matchingInventory.map((item) => <button key={item.id} type="button" onClick={() => chooseInventory(item)}
+                    className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:hover:bg-zinc-800 dark:focus:bg-zinc-800 ${form.inventory_item_id === item.id ? 'font-semibold text-blue-600 dark:text-blue-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
+                    <span><Package size={15} className="mr-2 inline" />{item.name} · Stock {item.quantity}</span><span>{formatCLP(item.price)}</span>
+                  </button>)}
+                  {matchingInventory.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">No hay artículos con stock disponible</p>}
+                </div>
               </div>
             </section> : <div><Label htmlFor="sale-name">Nombre del artículo *</Label><Input id="sale-name" required maxLength={180} value={form.item_name} onChange={(e) => setForm({ ...form, item_name: e.target.value })} placeholder="Ej.: smartphone, notebook, placa base o repuesto" /></div>}
 

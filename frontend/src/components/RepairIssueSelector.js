@@ -3,9 +3,10 @@ import axios from 'axios';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchField } from '@/components/ui/search-field';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -138,14 +139,12 @@ const RepairIssueSelector = ({ value, onChange }) => {
         </PopoverTrigger>
         <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] border-zinc-200 p-0 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="relative border-b border-zinc-200 p-2 dark:border-zinc-700">
-            <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
-            <Input
+            <SearchField
               autoFocus
               placeholder="Buscar falla..."
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               maxLength={120}
-              className="h-9 border-zinc-200 pl-9 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               data-testid="reported-issue-search"
             />
           </div>

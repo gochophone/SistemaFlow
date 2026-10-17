@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Search, LayoutDashboard, Wrench, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { LayoutDashboard, Wrench, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
+import { SearchField } from '@/components/ui/search-field';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -134,17 +134,13 @@ const Layout = () => {
             </button>
 
             <form onSubmit={handleSearch} className="flex-1 max-w-xl">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                <Input
-                  type="text"
-                  placeholder="Buscar por IMEI, ticket, cliente..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`pl-10 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 ${theme === 'dark' ? 'border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-400' : 'border-zinc-200 bg-zinc-50'}`}
-                  data-testid="global-search-input"
-                />
-              </div>
+              <SearchField
+                type="text"
+                placeholder="Buscar por IMEI, ticket, cliente..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                data-testid="global-search-input"
+              />
             </form>
 
             <Button

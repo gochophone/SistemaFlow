@@ -4,6 +4,7 @@ import { CreditCard } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SearchField } from '@/components/ui/search-field';
 import { isNativeApp } from '@/utils/nativePdf';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/billing`;
@@ -74,7 +75,7 @@ export default function Billing() {
           <h2 className="font-semibold text-xl">Usuarios registrados y suscripciones</h2>
           <p>Confirma únicamente transferencias que hayas verificado en tu cuenta bancaria.</p>
           <Button variant="outline" disabled={busy} onClick={() => action(async () => { await load(); return { data: { message: 'Listado actualizado' } }; })}>Actualizar listado</Button>
-          <label className="block">Buscar negocio, propietario o correo<Input value={search} onChange={e => setSearch(e.target.value)} /></label>
+          <label className="block">Buscar negocio, propietario o correo<SearchField className="mt-1 max-w-xl" value={search} onChange={e => setSearch(e.target.value)} /></label>
           <p>{accounts.length} negocios registrados</p>
           {accounts.filter(account => `${account.company} ${account.owner_name} ${account.email}`.toLowerCase().includes(search.toLowerCase())).map(account => <article key={account.tenant_id} className="border rounded p-4 space-y-3">
             <h3 className="font-semibold">{account.company}</h3><p>{account.owner_name} · {account.email}</p>

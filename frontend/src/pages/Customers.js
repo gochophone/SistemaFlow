@@ -21,7 +21,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, User, ShoppingBag, Search, History } from 'lucide-react';
+import { Plus, Edit, Trash2, User, ShoppingBag, History } from 'lucide-react';
+import { SearchField } from '@/components/ui/search-field';
 import { formatRUT, cleanRUT, validateRUT } from '@/utils/rut';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -268,17 +269,14 @@ const Customers = () => {
         </Dialog>
       </div>
 
-      <div className="relative max-w-xl">
-        <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Buscar por nombre, RUT, teléfono, correo o dirección"
-          aria-label="Buscar clientes"
-          className="pl-10"
-          data-testid="customer-search"
-        />
-      </div>
+      <SearchField
+        className="max-w-xl"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Buscar por nombre, RUT, teléfono, correo o dirección"
+        aria-label="Buscar clientes"
+        data-testid="customer-search"
+      />
 
       <div className="bg-white border border-zinc-200 rounded-md shadow-sm overflow-hidden">
         <Table>
