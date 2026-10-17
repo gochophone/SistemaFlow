@@ -3,40 +3,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { formatCLP } from '@/utils/currency';
-import { budgetBreakdown, grossFromNet, netFromGross, parseBudgetInput } from '@/utils/repairBudget';
+import { budgetBreakdown, grossFromNet, parseBudgetInput } from '@/utils/repairBudget';
 
 const numberFormat = new Intl.NumberFormat('es-CL');
 
 const RepairBudgetFields = ({ amount, vatIncluded, onChange, idPrefix, amountTestId }) => {
   const breakdown = budgetBreakdown(amount, vatIncluded);
+  const changeValue = (event) => {
+    const value = parseBudgetInput(event.target.value);
+    onChange({ amount: value === null ? '' : value, vatIncluded });
+  };
   const changeNet = (event) => {
     const net = parseBudgetInput(event.target.value);
-    onChange({ amount: net === null ? '' : vatIncluded ? grossFromNet(net) : net, vatIncluded });
+    onChange({ amount: net === null ? '' : grossFromNet(net), vatIncluded: true });
   };
-  const changeGross = (event) => {
-    const gross = parseBudgetInput(event.target.value);
-    onChange({ amount: gross === null ? '' : gross, vatIncluded: true });
-  };
-  const changeVat = (checked) => {
-    if (breakdown === null) {
-      onChange({ amount: '', vatIncluded: checked });
-      return;
-    }
-    onChange({
-      amount: checked ? grossFromNet(breakdown.net) : netFromGross(breakdown.total),
-      vatIncluded: checked,
-    });
-  };
+  const changeVat = (checked) => onChange({ amount, vatIncluded: checked });
 
   return (
     <div className="space-y-3" data-testid={`${idPrefix}-budget-fields`}>
       <div>
-        <Label htmlFor={`${idPrefix}-net`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Valor (CLP)</Label>
+        <Label htmlFor={`${idPrefix}-value`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Valor (CLP)</Label>
         <div className="relative mt-1">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-medium text-zinc-500 dark:text-zinc-400">$</span>
-          <Input id={`${idPrefix}-net`} type="text" inputMode="numeric"
-            value={breakdown === null ? '' : numberFormat.format(breakdown.net)}
-            onChange={changeNet} placeholder="150.000"
+          <Input id={`${idPrefix}-value`} type="text" inputMode="numeric"
+            value={breakdown === null ? '' : numberFormat.format(breakdown.total)}
+            onChange={changeValue} placeholder="150.000"
             className="border-zinc-200 pl-7 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             data-testid={amountTestId} />
         </div>
@@ -51,14 +42,14 @@ const RepairBudgetFields = ({ amount, vatIncluded, onChange, idPrefix, amountTes
       {vatIncluded && (
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <Label htmlFor={`${idPrefix}-gross`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Valor con IVA (CLP)</Label>
+            <Label htmlFor={`${idPrefix}-net`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Valor neto (CLP)</Label>
             <div className="relative mt-1">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-medium text-zinc-500 dark:text-zinc-400">$</span>
-              <Input id={`${idPrefix}-gross`} type="text" inputMode="numeric"
-                value={breakdown === null ? '' : numberFormat.format(breakdown.total)}
-                onChange={changeGross} placeholder="178.500"
+              <Input id={`${idPrefix}-net`} type="text" inputMode="numeric"
+                value={breakdown === null ? '' : numberFormat.format(breakdown.net)}
+                onChange={changeNet} placeholder="126.050"
                 className="border-zinc-200 pl-7 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-                data-testid={`${idPrefix}-gross-input`} />
+                data-testid={`${idPrefix}-net-input`} />
             </div>
           </div>
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950">

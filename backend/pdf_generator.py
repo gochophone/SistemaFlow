@@ -227,9 +227,9 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         payment_rows = []
         if repair_data.get("vat_included"):
             net = round(total / 1.19)
-            payment_rows.extend([("Valor", money(net)), ("IVA (19%)", money(total - net))])
+            payment_rows.extend([("Valor neto", money(net)), ("IVA (19%)", money(total - net))])
         payment_rows.extend([
-            ("Total del servicio", money(total)),
+            ("Total con IVA" if repair_data.get("vat_included") else "Total del servicio", money(total)),
             ("Estado del pago", "Pagado" if repair_data.get("paid") else "Pendiente"),
         ])
         if repair_data.get("paid") and repair_data.get("paid_at"):
