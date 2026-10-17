@@ -11,6 +11,12 @@ jest.mock('react-router-dom', () => ({
 jest.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ getAuthHeader: () => ({ Authorization: 'Bearer test' }) }),
 }));
+jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
+
+const enterText = (input, value) => {
+  Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+};
 
 test('la ficha muestra todas las órdenes del cliente y permite abrir cada equipo', async () => {
   global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,6 +39,49 @@ test('la ficha muestra todas las órdenes del cliente y permite abrir cada equip
     expect(container.querySelector('[data-testid="customer-repair-r2"]').textContent).toContain('Galaxy A55');
     await act(async () => container.querySelector('[data-testid="customer-repair-r2"]').click());
     expect(mockNavigate).toHaveBeenCalledWith('/repairs/r2');
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});
+
+test('permite editar los datos desde la ficha y muestra los cambios guardados', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  axios.get.mockImplementation((url) => Promise.resolve({ data: url.includes('/api/customers/')
+    ? { id: 'c1', name: 'Ana Rojas', rut: '12345678-5', phone: '+56 9 1234 5678', email: '', address: '' }
+    : [] }));
+  axios.put.mockResolvedValue({ data: {
+    id: 'c1', name: 'Ana Pérez', rut: '12345678-5', phone: '+56 9 8765 4321',
+    email: 'ana@ejemplo.cl', address: 'Santiago',
+  } });
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<CustomerDetail />));
+    await act(async () => container.querySelector('[data-testid="edit-customer-button"]').click());
+    const name = document.querySelector('[data-testid="edit-customer-name"]');
+    expect(name.value).toBe('Ana Rojas');
+    await act(async () => {
+      enterText(name, 'Ana Pérez');
+      enterText(document.querySelector('[data-testid="edit-customer-phone"]'), '+56 9 8765 4321');
+      enterText(document.querySelector('[data-testid="edit-customer-email"]'), 'ana@ejemplo.cl');
+      enterText(document.querySelector('[data-testid="edit-customer-address"]'), 'Santiago');
+    });
+    await act(async () => enterText(document.querySelector('[data-testid="edit-customer-rut"]'), '12.345.678-0'));
+    await act(async () => document.querySelector('[data-testid="save-customer-button"]').closest('form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(axios.put).not.toHaveBeenCalled();
+    await act(async () => enterText(document.querySelector('[data-testid="edit-customer-rut"]'), '12.345.678-5'));
+    await act(async () => document.querySelector('[data-testid="save-customer-button"]').closest('form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(axios.put).toHaveBeenCalledWith(expect.stringContaining('/api/customers/c1'), {
+      name: 'Ana Pérez', rut: '12345678-5', phone: '+56 9 8765 4321',
+      email: 'ana@ejemplo.cl', address: 'Santiago',
+    }, { headers: { Authorization: 'Bearer test' } });
+    expect(container.querySelector('h1').textContent).toContain('Ana Pérez');
+    expect(container.querySelector('[aria-label="Datos del cliente"]').textContent).toContain('Santiago');
+    expect(document.querySelector('[data-testid="edit-customer-name"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();
