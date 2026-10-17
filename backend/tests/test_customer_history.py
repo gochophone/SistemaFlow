@@ -50,3 +50,18 @@ def test_customer_history_contains_only_own_repairs_in_recent_order(monkeypatch)
     result = asyncio.run(server.get_repairs(customer_id="c1", current_user={"tenant_id": "t1"}))
     assert repairs.last_query == {"tenant_id": "t1", "customer_id": "c1"}
     assert [item["id"] for item in result] == ["r4", "r1"]
+
+
+def test_customer_history_is_not_truncated_at_a_thousand_orders(monkeypatch):
+    repairs = FakeRepairs()
+    repairs.documents = [
+        {"id": f"r{index}", "tenant_id": "t1", "customer_id": "c1", "received_date": "2026-01-01T10:00:00+00:00"}
+        for index in range(1001)
+    ]
+
+    async def database(_tenant_id):
+        return SimpleNamespace(repairs=repairs)
+
+    monkeypatch.setattr(server, "tenant_database", database)
+    result = asyncio.run(server.get_repairs(customer_id="c1", current_user={"tenant_id": "t1"}))
+    assert len(result) == 1001

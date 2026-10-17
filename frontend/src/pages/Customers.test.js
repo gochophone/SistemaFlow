@@ -44,7 +44,7 @@ test('searches customers and opens the selected customer repair history from the
   expect(actions.querySelector('[aria-label="Ver compras de Ana Rojas"]')).not.toBeNull();
   expect(actions.querySelector('[aria-label="Ver historial de reparaciones de Ana Rojas"] .lucide-history')).not.toBeNull();
   await act(async () => actions.querySelector('[data-testid="customer-repairs-c2"]').click());
-  expect(mockNavigate).toHaveBeenCalledWith('/repairs?customer_id=c2');
+  expect(mockNavigate).toHaveBeenCalledWith('/customers/c2');
 
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(search, '12345678k');

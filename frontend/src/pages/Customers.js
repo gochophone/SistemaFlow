@@ -313,7 +313,9 @@ const Customers = () => {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <User size={16} className="text-zinc-400" />
-                      {customer.name}
+                      <button type="button" onClick={() => navigate(`/customers/${encodeURIComponent(customer.id)}`)}
+                        className="text-left text-blue-700 underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"
+                        aria-label={`Ver ficha de ${customer.name}`}>{customer.name}</button>
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
@@ -330,7 +332,7 @@ const Customers = () => {
                           <ShoppingBag size={16} />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/repairs?customer_id=${encodeURIComponent(customer.id)}`)}
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/customers/${encodeURIComponent(customer.id)}`)}
                         title="Ver historial de reparaciones" aria-label={`Ver historial de reparaciones de ${customer.name}`}
                         data-testid={`customer-repairs-${customer.id}`}>
                         <History size={16} />

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import axios from 'axios';
 import RepairDetail from './RepairDetail';
 
+const mockNavigate = jest.fn();
 jest.mock('axios');
 jest.mock('@/utils/nativePdf', () => ({
   isNativeApp: () => false,
@@ -12,7 +13,7 @@ jest.mock('@/utils/nativePdf', () => ({
 }));
 jest.mock('@radix-ui/primitive/is-development', () => ({ isDevelopment: false }), { virtual: true });
 jest.mock('react-router-dom', () => ({
-  useParams: () => ({ id: 'repair-1' }), useNavigate: () => jest.fn(),
+  useParams: () => ({ id: 'repair-1' }), useNavigate: () => mockNavigate,
 }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: { role: 'admin' }, getAuthHeader: () => ({ Authorization: 'Bearer test' }) }),
@@ -82,6 +83,12 @@ test('confirmar o cancelar el pago funciona dentro de la orden en ambos sentidos
   expect(axios.patch).toHaveBeenLastCalledWith(expect.stringContaining('/api/repairs/repair-1'),
     { paid: false }, expect.any(Object));
   expect(document.querySelector('[data-testid="paid-switch"]').getAttribute('data-state')).toBe('unchecked');
+});
+
+test('al seleccionar el cliente abre su ficha con el historial de equipos', async () => {
+  await act(async () => root.render(<RepairDetail />));
+  await act(async () => document.querySelector('[data-testid="repair-customer-profile-link"]').click());
+  expect(mockNavigate).toHaveBeenCalledWith('/customers/customer-1');
 });
 
 test('shows the repair delivery PDF in place before saving or printing', async () => {

@@ -653,7 +653,14 @@ const RepairDetail = () => {
               <div className="space-y-3">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Cliente</p>
-                  <p className="text-base font-medium text-zinc-900" data-testid="customer-name">{repair.customer_name}</p>
+                  <p data-testid="customer-name">
+                    <button type="button" onClick={() => navigate(`/customers/${encodeURIComponent(repair.customer_id)}`)}
+                      className="text-left text-base font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"
+                      aria-label={`Ver ficha e historial de ${repair.customer_name}`}
+                      data-testid="repair-customer-profile-link">
+                      {repair.customer_name}
+                    </button>
+                  </p>
                 </div>
               </div>
             </CardContent>

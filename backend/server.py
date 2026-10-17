@@ -830,7 +830,7 @@ async def get_repairs(
     if customer_id:
         query['customer_id'] = customer_id
     
-    repairs = await db.repairs.find(query, {"_id": 0}).sort("received_date", -1).to_list(1000)
+    repairs = await db.repairs.find(query, {"_id": 0}).sort("received_date", -1).to_list(None if customer_id else 1000)
     for r in repairs:
         if isinstance(r.get('received_date'), str):
             r['received_date'] = datetime.fromisoformat(r['received_date'])

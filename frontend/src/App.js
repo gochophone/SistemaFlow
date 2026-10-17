@@ -10,6 +10,7 @@ import Repairs from '@/pages/Repairs';
 import RepairDetail from '@/pages/RepairDetail';
 import NewRepair from '@/pages/NewRepair';
 import Customers from '@/pages/Customers';
+import CustomerDetail from '@/pages/CustomerDetail';
 import Inventory from '@/pages/Inventory';
 import Sales from '@/pages/Sales';
 import Team from '@/pages/Team';
@@ -107,6 +108,7 @@ function App() {
             <Route path="repairs/new" element={<NewRepair />} />
             <Route path="repairs/:id" element={<RepairDetail />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="settings" element={<Settings />} />
             <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
             <Route path="sales" element={<AdminRoute><Sales /></AdminRoute>} />
