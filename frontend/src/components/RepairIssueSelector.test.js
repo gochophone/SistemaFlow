@@ -66,11 +66,15 @@ const renderSelector = async () => {
   await act(async () => root.render(<Harness />));
 };
 
-const chooseOption = async (label) => {
+const openOptions = async () => {
   await act(async () => {
     container.querySelector('[data-testid="reported-issue-select"]')
       .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
   });
+};
+
+const chooseOption = async (label) => {
+  await openOptions();
   const option = Array.from(document.querySelectorAll('[role="option"]'))
     .find((item) => item.textContent.includes(label));
   expect(option).toBeDefined();
@@ -108,7 +112,14 @@ test('manual failure is saved in the list after leaving the input', async () => 
   expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/issues'),
     { name: 'Conector USB' }, { headers: { Authorization: 'Bearer test' } });
   expect(container.querySelector('[data-testid="frequent-issue-Conector USB"]')).not.toBeNull();
-  await chooseOption('Conector USB');
+  await openOptions();
+  const labels = Array.from(document.querySelectorAll('[role="option"]'))
+    .map((option) => option.textContent.trim());
+  expect(labels.slice(-3)).toEqual(['Flex carga', 'Conector USB', 'Especificar otra falla…']);
+  expect(document.body.textContent).not.toContain('Fallas agregadas');
+  const savedOption = Array.from(document.querySelectorAll('[role="option"]'))
+    .find((option) => option.textContent.includes('Conector USB'));
+  await act(async () => savedOption.dispatchEvent(new MouseEvent('click', { bubbles: true })));
   expect(container.querySelector('[data-testid="reported-issue-input"]')).toBeNull();
   expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Conector USB');
 });

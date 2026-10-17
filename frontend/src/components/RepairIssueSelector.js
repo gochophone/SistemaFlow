@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -108,20 +108,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
           <SelectValue placeholder="Seleccionar falla" />
         </SelectTrigger>
         <SelectContent>
-          <SelectGroup>
-            <SelectLabel>Fallas comunes</SelectLabel>
-            {COMMON_ISSUES.map((issue) => <SelectItem key={issue} value={issue}>{issue}</SelectItem>)}
-          </SelectGroup>
-          {options.length > COMMON_ISSUES.length && <>
-            <SelectSeparator />
-            <SelectGroup>
-              <SelectLabel>Fallas agregadas</SelectLabel>
-              {options.filter((issue) => !COMMON_ISSUES.includes(issue)).map((issue) => (
-                <SelectItem key={issue} value={issue}>{issue}</SelectItem>
-              ))}
-            </SelectGroup>
-          </>}
-          <SelectSeparator />
+          {options.map((issue) => <SelectItem key={issue} value={issue}>{issue}</SelectItem>)}
           <SelectItem value={OTHER_ISSUE}>Especificar otra falla…</SelectItem>
         </SelectContent>
       </Select>
