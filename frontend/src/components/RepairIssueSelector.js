@@ -4,11 +4,11 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const OTHER_ISSUE = '__other_issue__';
 const COMMON_ISSUES = [
   'No enciende', 'Corto', 'Cámara', 'Pantalla', 'Micrófono',
   'Audio', 'Face ID', 'Señal', 'Batería', 'Flex carga',
@@ -24,11 +24,17 @@ const mergeOptions = (current, incoming) => {
   return [...COMMON_ISSUES, ...Array.from(custom.values()).sort((a, b) => a.localeCompare(b, 'es'))];
 };
 
+const searchableText = (text) => text.normalize('NFD')
+  .replace(/[\u0300-\u036f\s]+/g, '')
+  .toLocaleLowerCase('es');
+
 const RepairIssueSelector = ({ value, onChange }) => {
   const { getAuthHeader } = useAuth();
   const [options, setOptions] = useState(COMMON_ISSUES);
   const [frequent, setFrequent] = useState([]);
   const [manualMode, setManualMode] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const selectedRef = useRef(false);
   const pendingRequestsRef = useRef(0);
   const postQueueRef = useRef(Promise.resolve());
@@ -80,15 +86,20 @@ const RepairIssueSelector = ({ value, onChange }) => {
   };
 
   const chooseIssue = (issue) => {
-    if (issue === OTHER_ISSUE) {
-      setManualMode(true);
-      recordedManualRef.current = null;
-      onChange('');
-      return;
-    }
+    setListOpen(false);
+    setSearch('');
     setManualMode(false);
     onChange(issue);
     recordIssue(issue);
+  };
+
+  const chooseManualIssue = () => {
+    const typed = search.trim().slice(0, 120);
+    setListOpen(false);
+    setSearch('');
+    setManualMode(true);
+    recordedManualRef.current = null;
+    onChange(typed);
   };
 
   const recordManualIssue = () => {
@@ -100,18 +111,74 @@ const RepairIssueSelector = ({ value, onChange }) => {
     }
   };
 
+  const visibleOptions = options.filter((issue) => searchableText(issue).includes(searchableText(search.trim())));
+
   return (
     <div className="space-y-2">
       <Label htmlFor="reported_issue" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Falla reportada *</Label>
-      <Select value={manualMode ? OTHER_ISSUE : options.includes(value) ? value : ''} onValueChange={chooseIssue}>
-        <SelectTrigger id="reported_issue" className="border-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100" data-testid="reported-issue-select">
-          <SelectValue placeholder="Seleccionar falla" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((issue) => <SelectItem key={issue} value={issue}>{issue}</SelectItem>)}
-          <SelectItem value={OTHER_ISSUE}>Especificar otra falla…</SelectItem>
-        </SelectContent>
-      </Select>
+      <Popover open={listOpen} onOpenChange={(open) => {
+        setListOpen(open);
+        if (!open) setSearch('');
+      }}>
+        <PopoverTrigger asChild>
+          <Button
+            id="reported_issue"
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={listOpen}
+            aria-controls="reported-issue-options"
+            aria-label="Seleccionar o buscar falla"
+            className="h-11 w-full justify-between border-zinc-200 px-3 font-normal text-zinc-900 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+            data-testid="reported-issue-select"
+          >
+            <span className="min-w-0 truncate text-left">{value || 'Seleccionar o buscar falla'}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] border-zinc-200 p-0 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="relative border-b border-zinc-200 p-2 dark:border-zinc-700">
+            <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500 dark:text-zinc-400" />
+            <Input
+              autoFocus
+              placeholder="Buscar falla..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              maxLength={120}
+              className="h-9 border-zinc-200 pl-9 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              data-testid="reported-issue-search"
+            />
+          </div>
+          <div id="reported-issue-options" role="listbox" aria-label="Fallas reportadas" className="max-h-72 overflow-y-auto p-1" data-testid="reported-issue-options">
+            {visibleOptions.length === 0 && (
+              <p className="px-3 py-3 text-sm text-zinc-500 dark:text-zinc-400">No hay fallas con ese nombre.</p>
+            )}
+            {visibleOptions.map((issue) => (
+              <button
+                key={issue}
+                type="button"
+                role="option"
+                aria-selected={!manualMode && value === issue}
+                onClick={() => chooseIssue(issue)}
+                className="flex min-h-10 w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-zinc-900 hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                data-testid={`issue-option-${issue}`}
+              >
+                <span className="min-w-0 flex-1 break-words">{issue}</span>
+                {!manualMode && value === issue && <Check className="h-4 w-4 text-blue-600 dark:text-blue-300" />}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={chooseManualIssue}
+            className="flex min-h-10 w-full items-center gap-2 border-t border-zinc-200 px-4 py-2 text-left text-sm text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none dark:border-zinc-700 dark:text-blue-300 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+            data-testid="issue-other-option"
+          >
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">{search.trim() ? `Escribir «${search.trim()}» como nueva falla` : 'Escribir otra falla'}</span>
+          </button>
+        </PopoverContent>
+      </Popover>
 
       {manualMode && (
         <Input

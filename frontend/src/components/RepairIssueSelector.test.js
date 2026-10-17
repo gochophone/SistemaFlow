@@ -7,17 +7,23 @@ jest.mock('axios');
 jest.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ getAuthHeader: () => ({ Authorization: 'Bearer test' }) }),
 }));
-jest.mock('@/components/ui/select', () => {
-  const actual = jest.requireActual('@/components/ui/select');
+jest.mock('@/components/ui/popover', () => {
   const React = require('react');
+  const Context = React.createContext(null);
   return {
-    ...actual,
-    SelectContent: React.forwardRef((props, ref) => (
-      <actual.SelectContent {...props} ref={ref} position="item-aligned" />
-    )),
+    Popover: ({ open, onOpenChange, children }) => (
+      <Context.Provider value={{ open, onOpenChange }}>{children}</Context.Provider>
+    ),
+    PopoverTrigger: ({ children }) => {
+      const { open, onOpenChange } = React.useContext(Context);
+      return React.cloneElement(children, { onClick: () => onOpenChange(!open) });
+    },
+    PopoverContent: ({ children }) => {
+      const { open } = React.useContext(Context);
+      return open ? <div>{children}</div> : null;
+    },
   };
 });
-
 let container;
 let root;
 
@@ -68,17 +74,24 @@ const renderSelector = async () => {
 
 const openOptions = async () => {
   await act(async () => {
-    container.querySelector('[data-testid="reported-issue-select"]')
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    container.querySelector('[data-testid="reported-issue-select"]').click();
   });
 };
 
 const chooseOption = async (label) => {
   await openOptions();
-  const option = Array.from(document.querySelectorAll('[role="option"]'))
+  const option = Array.from(document.querySelectorAll('[role="option"], [data-testid="issue-other-option"]'))
     .find((item) => item.textContent.includes(label));
   expect(option).toBeDefined();
   await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+};
+
+const searchFor = async (text) => {
+  const input = document.querySelector('[data-testid="reported-issue-search"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, text);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 };
 
 test('starts without quick picks and adds them as failures are selected', async () => {
@@ -100,7 +113,7 @@ test('starts without quick picks and adds them as failures are selected', async 
 
 test('manual failure is saved in the list after leaving the input', async () => {
   await renderSelector();
-  await chooseOption('Especificar otra falla');
+  await chooseOption('Escribir otra falla');
   const input = container.querySelector('[data-testid="reported-issue-input"]');
   expect(input).not.toBeNull();
   await act(async () => {
@@ -115,7 +128,8 @@ test('manual failure is saved in the list after leaving the input', async () => 
   await openOptions();
   const labels = Array.from(document.querySelectorAll('[role="option"]'))
     .map((option) => option.textContent.trim());
-  expect(labels.slice(-3)).toEqual(['Flex carga', 'Conector USB', 'Especificar otra falla…']);
+  expect(labels.slice(-2)).toEqual(['Flex carga', 'Conector USB']);
+  expect(document.querySelector('[data-testid="issue-other-option"]').textContent).toContain('Escribir otra falla');
   expect(document.body.textContent).not.toContain('Fallas agregadas');
   const savedOption = Array.from(document.querySelectorAll('[role="option"]'))
     .find((option) => option.textContent.includes('Conector USB'));
@@ -133,4 +147,21 @@ test('previously written failures appear in the list on a later visit', async ()
   await chooseOption('Puerto USB');
   expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Puerto USB');
   expect(container.querySelector('[data-testid="reported-issue-input"]')).toBeNull();
+});
+
+test('search ignores accents and lets an unmatched name start a manual failure', async () => {
+  await renderSelector();
+  await openOptions();
+  await searchFor('camara');
+  expect(Array.from(document.querySelectorAll('[role="option"]')).map((option) => option.textContent.trim()))
+    .toEqual(['Cámara']);
+  await act(async () => document.querySelector('[data-testid="issue-option-Cámara"]').click());
+  expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Cámara');
+
+  await openOptions();
+  await searchFor('Puerto de carga');
+  expect(document.querySelectorAll('[role="option"]')).toHaveLength(0);
+  expect(document.body.textContent).toContain('No hay fallas con ese nombre.');
+  await act(async () => document.querySelector('[data-testid="issue-other-option"]').click());
+  expect(container.querySelector('[data-testid="reported-issue-input"]').value).toBe('Puerto de carga');
 });
