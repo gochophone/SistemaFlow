@@ -981,7 +981,7 @@ const RepairDetail = () => {
               </CardHeader>
               <CardContent className="space-y-2">
                 {repair.vat_included && <>
-                  <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>Valor neto</span><strong>{formatCLP(budget.net)}</strong></p>
+                  <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>Valor</span><strong>{formatCLP(budget.net)}</strong></p>
                   <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>IVA (19%)</span><strong>{formatCLP(budget.vat)}</strong></p>
                 </>}
                 <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100" data-testid="budget-estimate">

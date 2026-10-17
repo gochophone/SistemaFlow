@@ -16,8 +16,10 @@ test('convierte ambos campos al activar IVA y al editar el total', async () => {
   try {
     await act(async () => root.render(<Budget />));
     expect(container.querySelector('[data-testid="net-input"]').value).toBe('100.000');
+    expect(container.querySelector('label[for="test-repair-net"]').textContent).toBe('Valor (CLP)');
 
     await act(async () => container.querySelector('[data-testid="test-repair-vat-switch"]').click());
+    expect(container.querySelector('[data-testid="net-input"]').value).toBe('100.000');
     expect(container.querySelector('[data-testid="test-repair-gross-input"]').value).toBe('119.000');
     expect(container.querySelector('[data-testid="test-repair-vat-amount"]').textContent).toContain('19.000');
 

@@ -31,9 +31,7 @@ const RepairBudgetFields = ({ amount, vatIncluded, onChange, idPrefix, amountTes
   return (
     <div className="space-y-3" data-testid={`${idPrefix}-budget-fields`}>
       <div>
-        <Label htmlFor={`${idPrefix}-net`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-          {vatIncluded ? 'Valor neto (CLP)' : 'Valor de la reparación (CLP)'}
-        </Label>
+        <Label htmlFor={`${idPrefix}-net`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Valor (CLP)</Label>
         <div className="relative mt-1">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-medium text-zinc-500 dark:text-zinc-400">$</span>
           <Input id={`${idPrefix}-net`} type="text" inputMode="numeric"
@@ -47,7 +45,7 @@ const RepairBudgetFields = ({ amount, vatIncluded, onChange, idPrefix, amountTes
       <div className="flex items-center gap-3">
         <Switch id={`${idPrefix}-vat`} checked={vatIncluded} onCheckedChange={changeVat}
           data-testid={`${idPrefix}-vat-switch`} />
-        <Label htmlFor={`${idPrefix}-vat`} className="text-sm text-zinc-900 dark:text-zinc-100">Agregar IVA (19%)</Label>
+        <Label htmlFor={`${idPrefix}-vat`} className="text-sm text-zinc-900 dark:text-zinc-100">Aplicar IVA (19%)</Label>
       </div>
 
       {vatIncluded && (

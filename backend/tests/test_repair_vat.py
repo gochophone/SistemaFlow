@@ -22,7 +22,7 @@ def test_delivery_pdf_breaks_down_vat_and_keeps_legacy_total(monkeypatch):
     }
     pdf = pdf_generator.generate_delivery_pdf(repair, {"name": "Ana"})
     assert pdf.getvalue().startswith(b"%PDF")
-    assert ("Valor neto", "$100.000") in rows
+    assert ("Valor", "$100.000") in rows
     assert ("IVA (19%)", "$19.000") in rows
     assert ("Total del servicio", "$119.000") in rows
 
