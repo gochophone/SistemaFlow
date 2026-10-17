@@ -64,14 +64,13 @@ const RepairBudgetFields = ({ amount, vatIncluded, onChange, idPrefix, amountTes
             </div>
           </div>
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950">
-            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">IVA calculado (19%)</p>
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">IVA (19%)</p>
             <p className="text-lg font-semibold text-blue-950 dark:text-blue-100" data-testid={`${idPrefix}-vat-amount`}>
               {breakdown === null ? '—' : formatCLP(breakdown.vat)}
             </p>
           </div>
         </div>
       )}
-      {vatIncluded && <p className="text-xs text-zinc-500 dark:text-zinc-400">Puedes escribir el valor neto o el total con IVA; el otro se calculará automáticamente en pesos chilenos.</p>}
     </div>
   );
 };
