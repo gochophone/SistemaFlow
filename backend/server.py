@@ -276,6 +276,7 @@ class Repair(BaseModel):
     status: str = "received"
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    vat_included: bool = False
     notes: Optional[str] = None
     notes_private: bool = False
     note_entries: List[RepairNote] = Field(default_factory=list)
@@ -304,6 +305,7 @@ class RepairCreate(BaseModel):
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    vat_included: bool = False
     notes: Optional[str] = None
     notes_private: bool = False
     estimated_delivery: Optional[datetime] = None
@@ -317,6 +319,7 @@ class RepairUpdate(BaseModel):
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    vat_included: Optional[bool] = None
     notes: Optional[str] = None
     notes_private: Optional[bool] = None
     estimated_delivery: Optional[datetime] = None
@@ -862,7 +865,10 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
-    update_data = {k: v for k, v in repair_update.model_dump().items() if v is not None}
+    update_data = {
+        k: v for k, v in repair_update.model_dump().items()
+        if v is not None or (k == 'budget_estimate' and k in repair_update.model_fields_set)
+    }
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
     # Get the repair before update to check status change

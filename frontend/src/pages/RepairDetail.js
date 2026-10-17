@@ -30,7 +30,9 @@ import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText, FileDown } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
+import RepairBudgetFields from '@/components/RepairBudgetFields';
 import { formatCLP } from '@/utils/currency';
+import { budgetBreakdown } from '@/utils/repairBudget';
 import { cacheNativePdf, isNativeApp, openNativePdf, shareNativePdf } from '@/utils/nativePdf';
 import { publicSiteUrl } from '@/utils/publicSiteUrl';
 
@@ -145,7 +147,8 @@ const RepairDetail = () => {
       setUpdateData({
         status: response.data.status,
         diagnosis: response.data.diagnosis || '',
-        budget_estimate: response.data.budget_estimate || '',
+        budget_estimate: response.data.budget_estimate ?? '',
+        vat_included: response.data.vat_included || false,
         notes: response.data.notes || '',
         notes_private: response.data.notes_private || false,
         assigned_technician: response.data.assigned_technician || '',
@@ -164,7 +167,7 @@ const RepairDetail = () => {
     try {
       const payload = {
         ...updateData,
-        budget_estimate: updateData.budget_estimate ? parseFloat(updateData.budget_estimate) : null,
+        budget_estimate: updateData.budget_estimate === '' ? null : updateData.budget_estimate,
       };
       
       await axios.patch(`${API}/api/repairs/${id}`, payload, {
@@ -455,6 +458,8 @@ const RepairDetail = () => {
     );
   }
 
+  const budget = budgetBreakdown(repair.budget_estimate, repair.vat_included);
+
   return (
     <div className="max-w-5xl" data-testid="repair-detail-page">
       <div className="mb-6">
@@ -579,17 +584,15 @@ const RepairDetail = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-sm font-medium text-zinc-900">Presupuesto</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={updateData.budget_estimate}
-                      onChange={(e) => setUpdateData({ ...updateData, budget_estimate: e.target.value })}
-                      className="mt-1"
-                      data-testid="update-budget-input"
-                    />
-                  </div>
+                  <RepairBudgetFields
+                    idPrefix="edit-repair"
+                    amountTestId="update-budget-input"
+                    amount={updateData.budget_estimate}
+                    vatIncluded={!!updateData.vat_included}
+                    onChange={({ amount, vatIncluded }) => setUpdateData((current) => ({
+                      ...current, budget_estimate: amount, vat_included: vatIncluded,
+                    }))}
+                  />
 
                   <div>
                     <Label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nota inicial</Label>
@@ -964,16 +967,20 @@ const RepairDetail = () => {
             </Card>
           )}
 
-          {repair.budget_estimate && (
-            <Card className="bg-white border border-zinc-200 shadow-sm">
+          {budget && (
+            <Card className="border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
               <CardHeader>
-                <CardTitle className="text-xl font-medium">Presupuesto</CardTitle>
+                <CardTitle className="text-xl font-medium dark:text-zinc-100">Presupuesto</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-zinc-900" data-testid="budget-estimate">
-                  {formatCLP(repair.budget_estimate)}
+              <CardContent className="space-y-2">
+                {repair.vat_included && <>
+                  <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>Valor neto</span><strong>{formatCLP(budget.net)}</strong></p>
+                  <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>IVA (19%)</span><strong>{formatCLP(budget.vat)}</strong></p>
+                </>}
+                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100" data-testid="budget-estimate">
+                  {formatCLP(budget.total)}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">Pesos Chilenos (CLP)</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{repair.vat_included ? 'Total con IVA · Pesos Chilenos (CLP)' : 'Pesos Chilenos (CLP)'}</p>
               </CardContent>
             </Card>
           )}

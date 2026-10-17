@@ -23,7 +23,7 @@ import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpD
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import RepairIssueSelector from '@/components/RepairIssueSelector';
-import { parseCLPInput } from '@/utils/currency';
+import RepairBudgetFields from '@/components/RepairBudgetFields';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { validateRUT, cleanRUT } from '@/utils/rut';
@@ -209,6 +209,7 @@ const NewRepair = () => {
     reported_issue: '',
     diagnosis: '',
     budget_estimate: '',
+    vat_included: false,
     notes: '',
     notes_private: false,
     unlock_type: 'none',
@@ -312,7 +313,7 @@ const NewRepair = () => {
       const payload = {
         ...formData,
         reported_issue: reportedIssue,
-        budget_estimate: formData.budget_estimate ? parseCLPInput(formData.budget_estimate) : null,
+        budget_estimate: formData.budget_estimate === '' ? null : formData.budget_estimate,
         unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
         unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
         device_photos: formData.device_photos.length > 0 ? formData.device_photos : null,
@@ -700,33 +701,15 @@ const NewRepair = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="budget_estimate" className="text-sm font-medium text-zinc-900">Presupuesto Estimado (CLP)</Label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
-                  <Input
-                    id="budget_estimate"
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.budget_estimate}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d]/g, '');
-                      if (value) {
-                        const formatted = new Intl.NumberFormat('es-CL').format(parseInt(value));
-                        updateField('budget_estimate', formatted);
-                      } else {
-                        updateField('budget_estimate', '');
-                      }
-                    }}
-                    placeholder="150.000"
-                    className="pl-7 border-zinc-200"
-                    data-testid="budget-estimate-input"
-                  />
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">Ejemplo: 150.000 (sin decimales)</p>
-              </div>
-            </div>
+            <RepairBudgetFields
+              idPrefix="new-repair"
+              amountTestId="budget-estimate-input"
+              amount={formData.budget_estimate}
+              vatIncluded={formData.vat_included}
+              onChange={({ amount, vatIncluded }) => setFormData((current) => ({
+                ...current, budget_estimate: amount, vat_included: vatIncluded,
+              }))}
+            />
 
             <div>
               <Label htmlFor="notes" className="text-sm font-medium text-zinc-900">Notas Adicionales</Label>

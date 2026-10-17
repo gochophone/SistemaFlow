@@ -223,8 +223,15 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
         details(service_rows, styles),
     ]
     if repair_data.get("budget_estimate") is not None:
-        payment_rows = [("Total del servicio", money(repair_data["budget_estimate"])),
-                        ("Estado del pago", "Pagado" if repair_data.get("paid") else "Pendiente")]
+        total = repair_data["budget_estimate"]
+        payment_rows = []
+        if repair_data.get("vat_included"):
+            net = round(total / 1.19)
+            payment_rows.extend([("Valor neto", money(net)), ("IVA (19%)", money(total - net))])
+        payment_rows.extend([
+            ("Total del servicio", money(total)),
+            ("Estado del pago", "Pagado" if repair_data.get("paid") else "Pendiente"),
+        ])
         if repair_data.get("paid") and repair_data.get("paid_at"):
             payment_rows.append(("Fecha de pago", date(repair_data["paid_at"])))
         content += [Paragraph("COBRO", styles["section"]), details(payment_rows, styles, green=True)]
