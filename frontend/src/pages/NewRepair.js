@@ -457,7 +457,7 @@ const NewRepair = () => {
                       variant="outline"
                       role="combobox"
                       aria-expanded={customerSelectorOpen}
-                      className="mt-1 w-full justify-between border-zinc-200 font-normal"
+                      className="mt-1 h-11 w-full justify-between border-zinc-200 bg-white font-normal text-zinc-900 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                       data-testid="customer-select"
                     >
                       {formData.customer_id ? `${formData.customer_name} — ${customers.find((customer) => customer.id === formData.customer_id)?.rut || customers.find((customer) => customer.id === formData.customer_id)?.phone || ''}` : 'Seleccionar cliente'}

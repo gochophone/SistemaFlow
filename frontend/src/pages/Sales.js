@@ -34,7 +34,7 @@ const emptySale = () => ({
   category: 'phone', custom_category: '', quantity: '1', unit_price: '', condition: 'used',
   condition_notes: '', imei: '', serial_number: '', photos: [], notes: '', sold_on: today(),
 });
-const selectClass = 'mt-1 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900';
+const selectClass = 'app-choice-select mt-1';
 const SaleField = ({ label, children, mono = false }) => (
   <div className="min-w-0">
     <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</dt>
@@ -386,13 +386,13 @@ const Sales = () => {
               <div ref={customerPickerRef}>
                 <Button type="button" variant="outline" role="combobox" aria-expanded={customerPickerOpen}
                   aria-controls="sale-customer-options" onClick={() => setCustomerPickerOpen((open) => !open)}
-                  className="w-full justify-between border-zinc-200 font-normal" data-testid="sale-customer-select">
+                  className="h-11 w-full justify-between border-zinc-200 bg-white font-normal text-zinc-900 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100" data-testid="sale-customer-select">
                   <span className="truncate">{chosenCustomer
                     ? `${chosenCustomer.name} — ${chosenCustomer.rut ? formatRUT(chosenCustomer.rut) : chosenCustomer.phone}`
                     : 'Seleccionar cliente'}</span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
-                {customerPickerOpen && <div id="sale-customer-options" className="mt-1 rounded-md border border-zinc-200 bg-white shadow-md dark:border-zinc-700 dark:bg-zinc-900">
+                {customerPickerOpen && <div id="sale-customer-options" className="mt-1 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
                   <Command shouldFilter={false} onKeyDown={(event) => { if (event.key === 'Escape') setCustomerPickerOpen(false); }}>
                     <CommandInput placeholder="Buscar cliente por nombre, teléfono, correo o RUT..."
                       value={customerQuery} onValueChange={setCustomerQuery} data-testid="sale-customer-search" autoFocus />
@@ -432,9 +432,9 @@ const Sales = () => {
               <Label>Artículo del inventario *</Label>
               {chosenItem && <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">Seleccionado: {chosenItem.name} · Stock: {chosenItem.quantity}</p>}
               <Input placeholder="Buscar en inventario" value={inventoryQuery} onChange={(e) => setInventoryQuery(e.target.value)} />
-              <div className="max-h-36 overflow-y-auto rounded-md border border-zinc-200">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                 {matchingInventory.map((item) => <button key={item.id} type="button" onClick={() => chooseInventory(item)}
-                  className={`flex w-full justify-between border-b border-zinc-100 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-zinc-800 ${form.inventory_item_id === item.id ? 'font-semibold text-blue-600 dark:text-blue-400' : ''}`}>
+                  className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:hover:bg-zinc-800 dark:focus:bg-zinc-800 ${form.inventory_item_id === item.id ? 'font-semibold text-blue-600 dark:text-blue-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
                   <span><Package size={15} className="mr-2 inline" />{item.name} · Stock {item.quantity}</span><span>{formatCLP(item.price)}</span>
                 </button>)}
                 {matchingInventory.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">No hay artículos con stock disponible</p>}

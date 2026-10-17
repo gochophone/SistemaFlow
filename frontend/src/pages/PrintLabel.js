@@ -59,7 +59,7 @@ export default function PrintLabel() {
     <div className="label-settings">
       <h1>Configurar etiqueta</h1>
       <Link to={`/repairs/${id}`}>Volver a la reparación</Link>
-      <label>Tamaño<select value={!customSize && ['62x29', '50x30', '80x50', '100x50'].includes(`${config.width}x${config.height}`) ? `${config.width}x${config.height}` : 'custom'} onChange={e => { setCustomSize(e.target.value === 'custom'); if (e.target.value !== 'custom') { const [w, h] = e.target.value.split('x').map(Number); setConfig(c => ({ ...c, width: w, height: h })); } }}>
+      <label>Tamaño<select className="app-choice-select" value={!customSize && ['62x29', '50x30', '80x50', '100x50'].includes(`${config.width}x${config.height}`) ? `${config.width}x${config.height}` : 'custom'} onChange={e => { setCustomSize(e.target.value === 'custom'); if (e.target.value !== 'custom') { const [w, h] = e.target.value.split('x').map(Number); setConfig(c => ({ ...c, width: w, height: h })); } }}>
         <option value="62x29">62 × 29 mm</option><option value="50x30">50 × 30 mm</option><option value="80x50">80 × 50 mm</option><option value="100x50">100 × 50 mm</option><option value="custom">Personalizado (edita las medidas)</option>
       </select></label>
       <div className="label-dimensions">

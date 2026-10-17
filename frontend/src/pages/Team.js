@@ -50,7 +50,7 @@ export default function Team() {
         <label>Nombre<Input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
         <label>Correo<Input required type="email" autoComplete="off" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
         <label>Contraseña<Input required type="password" minLength={10} maxLength={72} autoComplete="new-password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /><span className="text-xs text-zinc-500">Mínimo 10 caracteres.</span></label>
-        <label>Rol<select className="block border rounded-md p-2 w-full" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+        <label>Rol<select className="app-choice-select block" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
           <option value="technician">Técnico — sin inventario</option><option value="admin">Administrador — con inventario</option>
         </select></label>
       </div><Button disabled={busy} type="submit">{busy ? 'Guardando…' : 'Crear usuario'}</Button>
@@ -60,7 +60,7 @@ export default function Team() {
       <thead><tr className="border-b"><th className="p-4">Usuario</th><th className="p-4">Rol</th><th className="p-4">Estado</th><th className="p-4">Acceso</th></tr></thead>
       <tbody>{members.map(member => <tr key={member.id} className="border-b last:border-0">
         <td className="p-4"><div className="font-medium">{member.name}{member.is_owner ? ' · Cuenta principal' : ''}</div><div className="text-sm text-zinc-500">{member.email}</div></td>
-        <td className="p-4"><select aria-label={`Rol de ${member.name}`} disabled={busy || member.is_owner || member.id === user.id} value={member.role} onChange={e => update(member, { role: e.target.value })} className="border rounded-md p-2">
+        <td className="p-4"><select aria-label={`Rol de ${member.name}`} disabled={busy || member.is_owner || member.id === user.id} value={member.role} onChange={e => update(member, { role: e.target.value })} className="app-choice-select">
           <option value="admin">Administrador</option><option value="technician">Técnico</option>{!['admin', 'technician'].includes(member.role) && <option value={member.role}>{member.role}</option>}
         </select></td><td className="p-4">{member.active ? 'Activo' : 'Desactivado'}</td>
         <td className="p-4"><Button variant="outline" disabled={busy || member.is_owner || member.id === user.id} onClick={() => update(member, { active: !member.active })}>{member.active ? 'Desactivar' : 'Activar'}</Button></td>
