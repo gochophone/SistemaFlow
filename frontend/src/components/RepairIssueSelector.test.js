@@ -38,10 +38,16 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  const selections = {};
   axios.get.mockResolvedValue({ data: {
-    options: ['No enciende', 'Corto', 'Cámara', 'Pantalla', 'Micrófono', 'Audio', 'Face ID', 'Señal', 'Batería', 'Flex carga', 'Puerto USB'],
-    frequent: [{ name: 'Puerto USB', count: 7 }, { name: 'Pantalla', count: 5 }],
+    options: ['No enciende', 'Corto', 'Cámara', 'Pantalla', 'Micrófono', 'Audio', 'Face ID', 'Señal', 'Batería', 'Flex carga'],
+    frequent: [],
   } });
+  axios.post.mockImplementation((_, { name }) => {
+    selections[name] = (selections[name] || 0) + 1;
+    return Promise.resolve({ data: { frequent: Object.entries(selections)
+      .map(([selectedName, count]) => ({ name: selectedName, count })) } });
+  });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -68,19 +74,23 @@ const chooseOption = async (label) => {
   await act(async () => option.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 };
 
-test('shows saved failures and selects a frequent one with one click', async () => {
+test('starts without quick picks and adds them as failures are selected', async () => {
   await renderSelector();
   expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/issues'), {
     headers: { Authorization: 'Bearer test' },
   });
-  expect(container.querySelector('[data-testid="frequent-issues"]').textContent).toContain('Puerto USB (7)');
-  await act(async () => container.querySelector('[data-testid="frequent-issue-Puerto USB"]').click());
-  expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Puerto USB');
+  expect(container.querySelector('[data-testid="frequent-issues"]')).toBeNull();
   await chooseOption('Pantalla');
   expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Pantalla');
+  expect(container.querySelector('[data-testid="frequent-issues"]').textContent).toContain('Pantalla (1)');
+  await chooseOption('Cámara');
+  expect(container.querySelector('[data-testid="frequent-issues"]').textContent).toContain('Pantalla (1)');
+  expect(container.querySelector('[data-testid="frequent-issues"]').textContent).toContain('Cámara (1)');
+  expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/issues'),
+    { name: 'Pantalla' }, { headers: { Authorization: 'Bearer test' } });
 });
 
-test('allows a manual issue and the quick pick replaces it', async () => {
+test('manual failures stay out of the list but become quick picks after entry', async () => {
   await renderSelector();
   await chooseOption('Especificar otra falla');
   const input = container.querySelector('[data-testid="reported-issue-input"]');
@@ -90,7 +100,17 @@ test('allows a manual issue and the quick pick replaces it', async () => {
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
   expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Conector USB');
-  await act(async () => container.querySelector('[data-testid="frequent-issue-Puerto USB"]').click());
-  expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Puerto USB');
-  expect(container.querySelector('[data-testid="reported-issue-input"]')).toBeNull();
+  await act(async () => input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
+  expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/issues'),
+    { name: 'Conector USB' }, { headers: { Authorization: 'Bearer test' } });
+  expect(container.querySelector('[data-testid="frequent-issue-Conector USB"]')).not.toBeNull();
+  await act(async () => container.querySelector('[data-testid="frequent-issue-Conector USB"]').click());
+  expect(container.querySelector('[data-testid="selected-issue"]').textContent).toBe('Conector USB');
+  await act(async () => {
+    container.querySelector('[data-testid="reported-issue-select"]')
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  });
+  expect(Array.from(document.querySelectorAll('[role="option"]')).some(
+    (item) => item.textContent.includes('Conector USB')
+  )).toBe(false);
 });

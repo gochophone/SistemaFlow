@@ -1,4 +1,4 @@
-"""Fallas disponibles y frecuencia a partir de las reparaciones de un negocio."""
+"""Fallas fijas y accesos rápidos elegidos por un negocio."""
 
 import unicodedata
 
@@ -15,30 +15,27 @@ def issue_key(value):
     return "".join(character for character in normalized if character.isalnum() and not unicodedata.combining(character))
 
 
-def build_issue_catalog(grouped_issues):
-    """Agrupa variantes de una falla y conserva las opciones propias del negocio."""
-    labels = {issue_key(name): name for name in COMMON_REPAIR_ISSUES}
-    counts = {}
+def normalized_issue_name(value):
+    if not isinstance(value, str):
+        raise ValueError("Falla inválida")
+    name = " ".join(value.split())
+    if not name or len(name) > MAX_CATALOG_ISSUE_LENGTH or not issue_key(name):
+        raise ValueError("Falla inválida")
+    common = {issue_key(label): label for label in COMMON_REPAIR_ISSUES}
+    return common.get(issue_key(name), name)
 
-    for row in grouped_issues:
-        raw = row.get("_id")
-        if not isinstance(raw, str):
-            continue
-        name = " ".join(raw.split())
-        if not name or len(name) > MAX_CATALOG_ISSUE_LENGTH:
-            continue
-        key = issue_key(name)
-        if not key:
-            continue
-        labels.setdefault(key, name)
-        counts[key] = counts.get(key, 0) + row.get("count", 0)
 
-    custom = sorted(
-        (name for key, name in labels.items() if name not in COMMON_REPAIR_ISSUES),
-        key=issue_key,
-    )
-    frequent = sorted(counts, key=lambda key: (-counts[key], issue_key(labels[key])))[:5]
-    return {
-        "options": [*COMMON_REPAIR_ISSUES, *custom],
-        "frequent": [{"name": labels[key], "count": counts[key]} for key in frequent],
-    }
+def build_issue_catalog(selections):
+    """La lista mantiene solo las fallas fijas; los accesos nacen de selecciones."""
+    frequent = []
+    for row in selections:
+        try:
+            name = normalized_issue_name(row.get("name"))
+        except ValueError:
+            continue
+        count = row.get("count")
+        if not isinstance(count, int) or count <= 0:
+            continue
+        frequent.append({"name": name, "count": count})
+    frequent.sort(key=lambda row: (-row["count"], issue_key(row["name"])))
+    return {"options": list(COMMON_REPAIR_ISSUES), "frequent": frequent[:5]}
