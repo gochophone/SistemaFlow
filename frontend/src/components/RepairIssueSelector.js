@@ -83,29 +83,26 @@ const RepairIssueSelector = ({ value, onChange }) => {
         />
       )}
 
-      <div className="pt-2" data-testid="frequent-issues">
-        <p className="mb-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">Las 5 fallas más usadas</p>
-        {frequent.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {frequent.map(({ name, count }) => (
-              <Button
-                key={name}
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-pressed={!manualMode && value === name}
-                onClick={() => chooseIssue(name)}
-                className={!manualMode && value === name
-                  ? 'border-blue-500 bg-blue-50 text-blue-800 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200'
-                  : 'dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800'}
-                data-testid={`frequent-issue-${name}`}
-              >
-                {name} <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">({count})</span>
-              </Button>
-            ))}
-          </div>
-        ) : <p className="text-xs text-zinc-500 dark:text-zinc-400">Aparecerán cuando haya reparaciones registradas.</p>}
-      </div>
+      {frequent.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-2" data-testid="frequent-issues">
+          {frequent.map(({ name, count }) => (
+            <Button
+              key={name}
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-pressed={!manualMode && value === name}
+              onClick={() => chooseIssue(name)}
+              className={!manualMode && value === name
+                ? 'border-blue-500 bg-blue-50 text-blue-800 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200'
+                : 'dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800'}
+              data-testid={`frequent-issue-${name}`}
+            >
+              {name} <span className="ml-1 text-xs text-zinc-500 dark:text-zinc-400">({count})</span>
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
