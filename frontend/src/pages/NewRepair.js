@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpDown, Loader2, ScanLine } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
+import RepairIssueSelector from '@/components/RepairIssueSelector';
 import { parseCLPInput } from '@/utils/currency';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -300,11 +301,17 @@ const NewRepair = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const reportedIssue = formData.reported_issue.trim();
+    if (!reportedIssue) {
+      toast.error('Selecciona o escribe la falla reportada.');
+      return;
+    }
     setLoading(true);
 
     try {
       const payload = {
         ...formData,
+        reported_issue: reportedIssue,
         budget_estimate: formData.budget_estimate ? parseCLPInput(formData.budget_estimate) : null,
         unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
         unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
@@ -676,18 +683,10 @@ const NewRepair = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="reported_issue" className="text-sm font-medium text-zinc-900">Problema Reportado *</Label>
-              <Textarea
-                id="reported_issue"
-                value={formData.reported_issue}
-                onChange={(e) => updateField('reported_issue', e.target.value)}
-                placeholder="Describe el problema reportado por el cliente..."
-                className="mt-1 border-zinc-200 min-h-[100px]"
-                required
-                data-testid="reported-issue-input"
-              />
-            </div>
+            <RepairIssueSelector
+              value={formData.reported_issue}
+              onChange={(issue) => updateField('reported_issue', issue)}
+            />
 
             <div>
               <Label htmlFor="diagnosis" className="text-sm font-medium text-zinc-900">Diagnóstico Inicial</Label>

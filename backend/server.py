@@ -27,6 +27,7 @@ import cloudinary
 import cloudinary.utils
 from email_service import send_repair_ready_notification
 from pdf_generator import generate_delivery_pdf, generate_sale_delivery_pdf
+from repair_issues import build_issue_catalog
 import billing
 import auth_codes
 
@@ -782,6 +783,16 @@ async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_c
     await control_db.public_links.insert_one({"token": repair_obj.public_token, "tenant_id": tenant_id, "repair_id": repair_obj.id})
     await db.repairs.insert_one(doc)
     return repair_obj
+
+@api_router.get("/repairs/issues")
+async def get_repair_issues(current_user: dict = Depends(get_current_user)):
+    tenant_id = current_user["tenant_id"]
+    db = await tenant_database(tenant_id)
+    grouped = await db.repairs.aggregate([
+        {"$match": {"tenant_id": tenant_id, "reported_issue": {"$type": "string"}}},
+        {"$group": {"_id": "$reported_issue", "count": {"$sum": 1}}},
+    ]).to_list(length=None)
+    return build_issue_catalog(grouped)
 
 @api_router.get("/repairs", response_model=List[Repair])
 async def get_repairs(
