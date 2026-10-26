@@ -1468,7 +1468,7 @@ public_router = APIRouter(prefix="/public")
 
 @public_router.get("/repair/{public_token}")
 async def get_public_repair(public_token: str):
-    """Get public repair information by ticket number"""
+    """Get public repair information by its unique link."""
     link = await control_db.public_links.find_one({"token": public_token})
     if not link:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
@@ -1476,6 +1476,14 @@ async def get_public_repair(public_token: str):
     repair = await db.repairs.find_one({"id": link["repair_id"], "public_token": public_token}, {"_id": 0})
     if not repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+    owner = await control_db.users.find_one(
+        {"tenant_id": link["tenant_id"], "is_owner": True},
+        {"company_name": 1, "_id": 0},
+    )
+    company_name = ((owner or {}).get("company_name") or "").strip()
+    if not company_name:
+        settings = await db.settings.find_one({"_id": "account"}, {"company_name": 1, "_id": 0})
+        company_name = ((settings or {}).get("company_name") or "").strip()
     
     # Convert datetime strings
     if isinstance(repair.get('received_date'), str):
@@ -1487,6 +1495,7 @@ async def get_public_repair(public_token: str):
     
     # Return only public information
     public_data = {
+        "company_name": company_name,
         "ticket_number": repair['ticket_number'],
         "customer_name": repair['customer_name'],
         "device_brand": repair['device_brand'],

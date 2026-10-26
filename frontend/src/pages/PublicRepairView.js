@@ -173,7 +173,7 @@ const PublicRepairView = () => {
           {/* Footer */}
           <div className="pt-6 border-t border-zinc-200 text-center">
             <p className="text-sm text-zinc-600">
-              Para más información, contacta directamente con ServiceTech
+              Para más información, contacta directamente con {repair.company_name?.trim() || 'la empresa'}
             </p>
             <p className="text-xs text-zinc-500 mt-2">
               Este es un enlace público - No compartas información sensible aquí

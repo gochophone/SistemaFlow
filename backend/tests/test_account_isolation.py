@@ -120,6 +120,41 @@ def test_physical_isolation_roles_and_public_links(api):
     assert api.get('/public/repair/'+ra['public_token']).status_code==404
     mongo.close()
 
+def test_public_repair_displays_current_company_name(api):
+    tenant_id = 'tenant_' + uuid.uuid4().hex
+    token = uuid.uuid4().hex
+    repair_id = uuid.uuid4().hex
+    with MongoClient(TEST_URI) as mongo:
+        control = mongo[os.environ['DB_NAME']]
+        tenant_db = mongo[server.database_name(tenant_id)]
+        try:
+            control.tenants.insert_one({'_id': tenant_id, 'ready': True})
+            control.users.insert_one({
+                'id': uuid.uuid4().hex,
+                'email': f'owner-{tenant_id}@example.com',
+                'tenant_id': tenant_id,
+                'is_owner': True,
+                'company_name': 'Servicios GP SpA',
+            })
+            control.public_links.insert_one({'token': token, 'tenant_id': tenant_id, 'repair_id': repair_id})
+            tenant_db.repairs.insert_one({
+                'id': repair_id, 'public_token': token, 'ticket_number': 'REP-00001',
+                'customer_name': 'Cliente de prueba', 'device_brand': 'Apple',
+                'device_model': 'iPhone', 'reported_issue': 'Pantalla',
+                'status': 'received', 'received_date': datetime.now(timezone.utc),
+            })
+            assert api.get('/public/repair/' + token).json()['company_name'] == 'Servicios GP SpA'
+            control.users.update_one({'tenant_id': tenant_id}, {'$set': {'company_name': 'Nuevo nombre SpA'}})
+            assert api.get('/public/repair/' + token).json()['company_name'] == 'Nuevo nombre SpA'
+            control.users.update_one({'tenant_id': tenant_id}, {'$set': {'company_name': ''}})
+            tenant_db.settings.insert_one({'_id': 'account', 'company_name': 'Nombre anterior SpA'})
+            assert api.get('/public/repair/' + token).json()['company_name'] == 'Nombre anterior SpA'
+        finally:
+            control.public_links.delete_many({'tenant_id': tenant_id})
+            control.users.delete_many({'tenant_id': tenant_id})
+            control.tenants.delete_one({'_id': tenant_id})
+            mongo.drop_database(server.database_name(tenant_id))
+
 def test_migration_copies_preserves_and_is_idempotent():
     mongo=MongoClient(TEST_URI)
     directory='sf_migration_test_'+uuid.uuid4().hex
