@@ -91,6 +91,51 @@ test('al seleccionar el cliente abre su ficha con el historial de equipos', asyn
   expect(mockNavigate).toHaveBeenCalledWith('/customers/customer-1');
 });
 
+test('permite copiar y preparar el seguimiento por WhatsApp antes de entregar la orden', async () => {
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'received', public_token: 'token-abc',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla rota',
+  };
+  axios.get.mockImplementation((url) => Promise.resolve({
+    data: url.includes('/api/customers/customer-1')
+      ? { name: 'Ana', phone: '9 4788 2225' }
+      : repair,
+  }));
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  const open = jest.spyOn(window, 'open').mockImplementation(() => ({}));
+  try {
+    await act(async () => root.render(<RepairDetail />));
+    const link = `${window.location.origin}/public/token-abc`;
+    expect(document.querySelector('[data-testid="repair-tracking-actions"]').textContent).toContain(link);
+
+    await act(async () => document.querySelector('[data-testid="copy-tracking-link-button"]').click());
+    expect(writeText).toHaveBeenCalledWith(link);
+
+    await act(async () => document.querySelector('[data-testid="share-tracking-link-button"]').click());
+    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/customers/customer-1'), {
+      headers: { Authorization: 'Bearer test' },
+    });
+    const [whatsappUrl] = open.mock.calls[0];
+    expect(whatsappUrl).toMatch(/^https:\/\/wa\.me\/56947882225\?text=/);
+    expect(decodeURIComponent(new URL(whatsappUrl).searchParams.get('text'))).toContain(link);
+    expect(decodeURIComponent(new URL(whatsappUrl).searchParams.get('text'))).toContain('REP-00001');
+    expect(axios.get.mock.calls.some(([url]) => url.endsWith('/delivery-pdf'))).toBe(false);
+  } finally {
+    open.mockRestore();
+    if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+    else delete navigator.clipboard;
+  }
+});
+
+test('no habilita compartir una orden sin enlace público', async () => {
+  await act(async () => root.render(<RepairDetail />));
+  expect(document.querySelector('[data-testid="copy-tracking-link-button"]').disabled).toBe(true);
+  expect(document.querySelector('[data-testid="share-tracking-link-button"]').disabled).toBe(true);
+});
+
 test('shows the repair delivery PDF in place before saving or printing', async () => {
   const originalCreateObjectURL = window.URL.createObjectURL;
   const originalRevokeObjectURL = window.URL.revokeObjectURL;

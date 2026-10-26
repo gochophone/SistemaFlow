@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, UserPlus, Upload, ReceiptText, FileDown } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, Copy, UserPlus, Upload, ReceiptText, FileDown } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import RepairBudgetFields from '@/components/RepairBudgetFields';
@@ -55,6 +55,12 @@ const confirmTerminalStatus = (status) => {
   return window.confirm(`¿Confirmas cambiar la orden a ${label}? Después de aceptar no podrás modificar nuevamente su estado.`);
 };
 
+const whatsappNumber = (value) => {
+  let number = String(value || '').replace(/\D/g, '');
+  if (number.length === 9 && number.startsWith('9')) number = `56${number}`;
+  return /^[1-9]\d{8,14}$/.test(number) ? number : null;
+};
+
 const RepairDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -67,6 +73,7 @@ const RepairDetail = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [sharingDelivery, setSharingDelivery] = useState(false);
+  const [sharingTracking, setSharingTracking] = useState(false);
   const [openingDelivery, setOpeningDelivery] = useState(false);
   const [deliveryPreview, setDeliveryPreview] = useState(null);
   const [nativeDeliveryPdfUri, setNativeDeliveryPdfUri] = useState(null);
@@ -84,6 +91,7 @@ const RepairDetail = () => {
   const [newNotePrivate, setNewNotePrivate] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
   const [changingNoteId, setChangingNoteId] = useState(null);
+  const trackingUrl = repair?.public_token ? `${publicSiteUrl()}/public/${repair.public_token}` : null;
 
   useEffect(() => {
     deliveryRequestRef.current += 1;
@@ -373,6 +381,57 @@ const RepairDetail = () => {
     }
   };
 
+  const handleCopyTrackingLink = async () => {
+    if (!trackingUrl) return;
+    try {
+      let copied = false;
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(trackingUrl);
+          copied = true;
+        } catch { /* Some browsers require the selection fallback. */ }
+      }
+      if (!copied) {
+        const field = document.createElement('textarea');
+        field.value = trackingUrl;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        try {
+          field.select();
+          if (!document.execCommand('copy')) throw new Error('No se pudo copiar');
+        } finally {
+          field.remove();
+        }
+      }
+      toast.success('Enlace de seguimiento copiado');
+    } catch {
+      toast.error('No se pudo copiar el enlace. Selecciónalo y cópialo manualmente.');
+    }
+  };
+
+  const handleShareTracking = async () => {
+    if (!trackingUrl || sharingTracking) return;
+    setSharingTracking(true);
+    try {
+      const { data: customer } = await axios.get(`${API}/api/customers/${repair.customer_id}`, { headers: getAuthHeader() });
+      const phone = whatsappNumber(customer.phone);
+      if (!phone) {
+        toast.error('Este cliente no tiene un número de WhatsApp válido. Puedes copiar el enlace.');
+        return;
+      }
+      const message = `Hola ${customer.name || repair.customer_name}, puedes consultar el estado de tu reparación ${repair.ticket_number} aquí: ${trackingUrl}`;
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      const opened = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) window.location.href = whatsappUrl;
+      toast.info('WhatsApp se abrió con el enlace. Revisa el destinatario y envía el mensaje.');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No se pudo preparar el mensaje de seguimiento');
+    } finally {
+      setSharingTracking(false);
+    }
+  };
+
   const handleShareDelivery = async () => {
     setSharingDelivery(true);
     try {
@@ -382,8 +441,7 @@ const RepairDetail = () => {
       ]);
       const customer = customerResponse.data;
       const filename = `orden_entrega_${repair.ticket_number}.pdf`;
-      const trackingUrl = repair.public_token ? `${publicSiteUrl()}/public/${repair.public_token}` : publicSiteUrl();
-      const message = `Hola ${customer.name || repair.customer_name}, te enviamos la orden ${repair.ticket_number} de ${repair.device_brand} ${repair.device_model}. Seguimiento: ${trackingUrl}`;
+      const message = `Hola ${customer.name || repair.customer_name}, te enviamos la orden ${repair.ticket_number} de ${repair.device_brand} ${repair.device_model}. Seguimiento: ${trackingUrl || publicSiteUrl()}`;
 
       if (isNativeApp()) {
         const uri = await cacheNativePdf(pdf, `orden_entrega_${repair.ticket_number}`);
@@ -399,8 +457,11 @@ const RepairDetail = () => {
         return;
       }
 
-      let phone = String(customer.phone || '').replace(/\D/g, '');
-      if (phone.length === 9 && phone.startsWith('9')) phone = `56${phone}`;
+      const phone = whatsappNumber(customer.phone);
+      if (!phone) {
+        toast.error('Este cliente no tiene un número de WhatsApp válido');
+        return;
+      }
       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       const opened = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
       if (!opened) window.location.href = whatsappUrl;
@@ -498,7 +559,7 @@ const RepairDetail = () => {
                 <FileDown size={18} className="mr-2" />Guardar o imprimir
               </Button>}
               <Button variant="outline" onClick={handleShareDelivery} disabled={sharingDelivery} className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40" data-testid="share-delivery-button">
-                <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Enviar por WhatsApp'}
+                <MessageCircle size={18} className="mr-2" />{sharingDelivery ? 'Preparando…' : 'Compartir entrega'}
               </Button>
             </>}
             
@@ -637,6 +698,25 @@ const RepairDetail = () => {
               <Trash2 size={18} />
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30" data-testid="repair-tracking-actions">
+        <div>
+          <p className="font-semibold text-blue-950 dark:text-blue-100">Seguimiento del cliente</p>
+          {trackingUrl ? (
+            <p className="mt-1 break-all text-sm text-blue-800 dark:text-blue-200">{trackingUrl}</p>
+          ) : (
+            <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">Esta orden no tiene enlace de seguimiento disponible.</p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleCopyTrackingLink} disabled={!trackingUrl} data-testid="copy-tracking-link-button">
+            <Copy size={16} className="mr-2" />Copiar enlace
+          </Button>
+          <Button variant="outline" onClick={handleShareTracking} disabled={!trackingUrl || sharingTracking} data-testid="share-tracking-link-button">
+            <MessageCircle size={16} className="mr-2" />{sharingTracking ? 'Preparando…' : 'Enviar seguimiento al cliente'}
+          </Button>
         </div>
       </div>
 
