@@ -29,7 +29,7 @@ const searchableText = (text) => text.normalize('NFD')
   .replace(/[\u0300-\u036f\s]+/g, '')
   .toLocaleLowerCase('es');
 
-const RepairIssueSelector = ({ value, onChange }) => {
+const RepairIssueSelector = ({ value, onChange, idPrefix = 'reported-issue', label = 'Falla reportada *' }) => {
   const { getAuthHeader } = useAuth();
   const [options, setOptions] = useState(COMMON_ISSUES);
   const [frequent, setFrequent] = useState([]);
@@ -116,22 +116,22 @@ const RepairIssueSelector = ({ value, onChange }) => {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="reported_issue" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Falla reportada *</Label>
+      <Label htmlFor={`${idPrefix}-select`} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{label}</Label>
       <Popover open={listOpen} onOpenChange={(open) => {
         setListOpen(open);
         if (!open) setSearch('');
       }}>
         <PopoverTrigger asChild>
           <Button
-            id="reported_issue"
+            id={`${idPrefix}-select`}
             type="button"
             variant="outline"
             role="combobox"
             aria-expanded={listOpen}
-            aria-controls="reported-issue-options"
-            aria-label="Seleccionar o buscar falla"
+            aria-controls={`${idPrefix}-options`}
+            aria-label={label === 'Falla reportada *' ? 'Seleccionar o buscar falla' : `Seleccionar o buscar ${label.toLowerCase()}`}
             className="h-11 w-full justify-between border-zinc-200 px-3 font-normal text-zinc-900 hover:bg-zinc-50 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-            data-testid="reported-issue-select"
+            data-testid={`${idPrefix}-select`}
           >
             <span className="min-w-0 truncate text-left">{value || 'Seleccionar o buscar falla'}</span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
@@ -145,10 +145,10 @@ const RepairIssueSelector = ({ value, onChange }) => {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               maxLength={120}
-              data-testid="reported-issue-search"
+              data-testid={`${idPrefix}-search`}
             />
           </div>
-          <div id="reported-issue-options" role="listbox" aria-label="Fallas reportadas" className="max-h-72 overflow-y-auto p-1" data-testid="reported-issue-options">
+          <div id={`${idPrefix}-options`} role="listbox" aria-label="Fallas reportadas" className="max-h-72 overflow-y-auto p-1" data-testid={`${idPrefix}-options`}>
             {visibleOptions.length === 0 && (
               <p className="px-3 py-3 text-sm text-zinc-500 dark:text-zinc-400">No hay fallas con ese nombre.</p>
             )}
@@ -160,7 +160,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
                 aria-selected={!manualMode && value === issue}
                 onClick={() => chooseIssue(issue)}
                 className="flex min-h-10 w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-zinc-900 hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
-                data-testid={`issue-option-${issue}`}
+                data-testid={idPrefix === 'reported-issue' ? `issue-option-${issue}` : `${idPrefix}-option-${issue}`}
               >
                 <span className="min-w-0 flex-1 break-words">{issue}</span>
                 {!manualMode && value === issue && <Check className="h-4 w-4 text-blue-600 dark:text-blue-300" />}
@@ -171,7 +171,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
             type="button"
             onClick={chooseManualIssue}
             className="flex min-h-10 w-full items-center gap-2 border-t border-zinc-200 px-4 py-2 text-left text-sm text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none dark:border-zinc-700 dark:text-blue-300 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
-            data-testid="issue-other-option"
+            data-testid={idPrefix === 'reported-issue' ? 'issue-other-option' : `${idPrefix}-other-option`}
           >
             <Plus className="h-4 w-4 shrink-0" />
             <span className="min-w-0 truncate">{search.trim() ? `Escribir «${search.trim()}» como nueva falla` : 'Escribir otra falla'}</span>
@@ -181,7 +181,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
 
       {manualMode && (
         <Input
-          id="reported_issue_manual"
+          id={`${idPrefix}-manual`}
           value={value}
           onChange={(event) => {
             recordedManualRef.current = null;
@@ -199,12 +199,12 @@ const RepairIssueSelector = ({ value, onChange }) => {
           autoFocus
           placeholder="Escribe la falla; se guardará al salir del campo"
           className="border-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          data-testid="reported-issue-input"
+          data-testid={`${idPrefix}-input`}
         />
       )}
 
       {frequent.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-2" data-testid="frequent-issues">
+        <div className="flex flex-wrap gap-2 pt-2" data-testid={idPrefix === 'reported-issue' ? 'frequent-issues' : `${idPrefix}-frequent-issues`}>
           {frequent.map(({ name }) => (
             <Button
               key={name}
@@ -216,7 +216,7 @@ const RepairIssueSelector = ({ value, onChange }) => {
               className={value === name
                 ? 'border-blue-500 bg-blue-50 text-blue-800 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-200'
                 : 'dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-800'}
-              data-testid={`frequent-issue-${name}`}
+              data-testid={idPrefix === 'reported-issue' ? `frequent-issue-${name}` : `${idPrefix}-frequent-issue-${name}`}
             >
               {name}
             </Button>

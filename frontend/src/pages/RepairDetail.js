@@ -30,9 +30,10 @@ import { toast } from 'sonner';
 import { ArrowLeft, Edit, Trash2, User, Smartphone, FileText, Calendar, Lock, Eye, EyeOff, Camera, ZoomIn, Printer, MessageCircle, Copy, UserPlus, Upload, ReceiptText, FileDown } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
-import RepairBudgetFields from '@/components/RepairBudgetFields';
+import RepairItemizedBudgetFields from '@/components/RepairItemizedBudgetFields';
 import { formatCLP } from '@/utils/currency';
 import { budgetBreakdown } from '@/utils/repairBudget';
+import { budgetItemsTotal, prepareBudgetItems } from '@/utils/repairBudgetItems';
 import { cacheNativePdf, isNativeApp, openNativePdf, shareNativePdf } from '@/utils/nativePdf';
 import { publicSiteUrl } from '@/utils/publicSiteUrl';
 
@@ -156,6 +157,9 @@ const RepairDetail = () => {
         status: response.data.status,
         diagnosis: response.data.diagnosis || '',
         budget_estimate: response.data.budget_estimate ?? '',
+        budget_items: response.data.budget_items?.length
+          ? response.data.budget_items.map((item, index) => ({ ...item, draftId: `saved-${index}` }))
+          : [{ issue: response.data.reported_issue, amount: response.data.budget_estimate ?? '' }],
         vat_included: response.data.vat_included || false,
         notes: response.data.notes || '',
         notes_private: response.data.notes_private || false,
@@ -171,11 +175,19 @@ const RepairDetail = () => {
 
   const handleUpdate = async () => {
     if (updateData.status !== repair.status && !confirmTerminalStatus(updateData.status)) return;
+    const budgetDraft = updateData.budget_items.length === 1 && updateData.budget_items[0].amount === ''
+      ? [] : updateData.budget_items;
+    const budget = prepareBudgetItems(budgetDraft);
+    if (budget.error) {
+      toast.error(budget.error);
+      return;
+    }
     setUpdating(true);
     try {
       const payload = {
         ...updateData,
-        budget_estimate: updateData.budget_estimate === '' ? null : updateData.budget_estimate,
+        budget_items: budget.items,
+        budget_estimate: budget.amount,
       };
       
       await axios.patch(`${API}/api/repairs/${id}`, payload, {
@@ -645,13 +657,13 @@ const RepairDetail = () => {
                     />
                   </div>
 
-                  <RepairBudgetFields
+                  <RepairItemizedBudgetFields
                     idPrefix="edit-repair"
-                    amountTestId="update-budget-input"
-                    amount={updateData.budget_estimate}
+                    primaryIssue={repair.reported_issue}
+                    items={updateData.budget_items}
                     vatIncluded={!!updateData.vat_included}
-                    onChange={({ amount, vatIncluded }) => setUpdateData((current) => ({
-                      ...current, budget_estimate: amount, vat_included: vatIncluded,
+                    onChange={({ items, vatIncluded }) => setUpdateData((current) => ({
+                      ...current, budget_items: items, budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
                     }))}
                   />
 
@@ -1060,6 +1072,11 @@ const RepairDetail = () => {
                 <CardTitle className="text-xl font-medium dark:text-zinc-100">Presupuesto</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
+                {repair.budget_items?.map((item, index) => (
+                  <p key={`${item.issue}-${index}`} className="flex justify-between gap-3 border-b border-zinc-100 pb-2 text-sm text-zinc-700 dark:border-zinc-800 dark:text-zinc-300">
+                    <span>{item.issue}</span><strong>{formatCLP(item.amount)}</strong>
+                  </p>
+                ))}
                 {repair.vat_included && <>
                   <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>Valor neto</span><strong>{formatCLP(budget.net)}</strong></p>
                   <p className="flex justify-between gap-3 text-sm text-zinc-700 dark:text-zinc-300"><span>IVA (19%)</span><strong>{formatCLP(budget.vat)}</strong></p>

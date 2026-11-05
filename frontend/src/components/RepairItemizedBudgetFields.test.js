@@ -1,0 +1,55 @@
+import React, { act, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import RepairItemizedBudgetFields from './RepairItemizedBudgetFields';
+import { prepareBudgetItems } from '@/utils/repairBudgetItems';
+
+jest.mock('@/components/RepairIssueSelector', () => ({ value, onChange }) => (
+  <select aria-label="Falla adicional" value={value} onChange={(event) => onChange(event.target.value)}>
+    <option value="">Seleccionar falla</option>
+    <option value="Flex carga">Flex carga</option>
+  </select>
+));
+
+const enterText = (input, value) => {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
+test('suma valores por falla, calcula IVA y permite quitar una falla', async () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  let state;
+  const Harness = () => {
+    const [budget, setBudget] = useState({ items: [{ issue: 'Pantalla', amount: '' }], vatIncluded: false });
+    state = budget;
+    return <RepairItemizedBudgetFields idPrefix="test-repair" primaryIssue="Pantalla"
+      items={budget.items} vatIncluded={budget.vatIncluded} onChange={setBudget} />;
+  };
+
+  try {
+    await act(async () => root.render(<Harness />));
+    await act(async () => enterText(container.querySelector('[data-testid="test-repair-amount-0"]'), '100.000'));
+    await act(async () => container.querySelector('[data-testid="test-repair-add-budget-item"]').click());
+    await act(async () => {
+      const select = container.querySelector('select[aria-label="Falla adicional"]');
+      select.value = 'Flex carga';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => enterText(container.querySelector('[data-testid="test-repair-amount-1"]'), '25.000'));
+    expect(container.querySelector('[data-testid="test-repair-budget-total"]').textContent).toContain('125.000');
+    expect(prepareBudgetItems(state.items)).toEqual({ items: [
+      { issue: 'Pantalla', amount: 100000 }, { issue: 'Flex carga', amount: 25000 },
+    ], amount: 125000 });
+
+    await act(async () => container.querySelector('[data-testid="test-repair-vat-switch"]').click());
+    expect(container.querySelector('[data-testid="test-repair-net-input"]').readOnly).toBe(true);
+    expect(container.querySelector('[data-testid="test-repair-vat-amount"]').textContent).not.toBe('—');
+    await act(async () => container.querySelector('[data-testid="test-repair-remove-budget-item-1"]').click());
+    expect(container.querySelector('[data-testid="test-repair-budget-total"]').textContent).toContain('100.000');
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+  }
+});

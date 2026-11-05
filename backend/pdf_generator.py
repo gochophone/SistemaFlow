@@ -224,7 +224,10 @@ def generate_delivery_pdf(repair_data, customer_data, company_name="Mi negocio",
     ]
     if repair_data.get("budget_estimate") is not None:
         total = repair_data["budget_estimate"]
-        payment_rows = []
+        payment_rows = [
+            (compact(item.get("issue"), "Falla", 32), money(item.get("amount")))
+            for item in repair_data.get("budget_items", [])
+        ]
         if repair_data.get("vat_included"):
             net = round(total / 1.19)
             payment_rows.extend([("Valor neto", money(net)), ("IVA (19%)", money(total - net))])

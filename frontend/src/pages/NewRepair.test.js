@@ -11,7 +11,7 @@ jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ getAuthHeader: () 
 jest.mock('@/components/PatternLock', () => () => null);
 jest.mock('@/components/DevicePhotos', () => () => null);
 jest.mock('@/components/RepairIssueSelector', () => () => null);
-jest.mock('@/components/RepairBudgetFields', () => () => null);
+jest.mock('@/components/RepairItemizedBudgetFields', () => () => null);
 
 const enterText = (input, value) => {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);

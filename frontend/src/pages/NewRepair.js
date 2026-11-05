@@ -23,7 +23,8 @@ import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpD
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
 import RepairIssueSelector from '@/components/RepairIssueSelector';
-import RepairBudgetFields from '@/components/RepairBudgetFields';
+import RepairItemizedBudgetFields from '@/components/RepairItemizedBudgetFields';
+import { budgetItemsTotal, prepareBudgetItems } from '@/utils/repairBudgetItems';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { validateRUT, cleanRUT } from '@/utils/rut';
@@ -209,6 +210,7 @@ const NewRepair = () => {
     reported_issue: '',
     diagnosis: '',
     budget_estimate: '',
+    budget_items: [{ issue: '', amount: '' }],
     vat_included: false,
     notes: '',
     notes_private: false,
@@ -307,13 +309,21 @@ const NewRepair = () => {
       toast.error('Selecciona o escribe la falla reportada.');
       return;
     }
+    const budgetDraft = formData.budget_items.length === 1 && formData.budget_items[0].amount === ''
+      ? [] : formData.budget_items;
+    const budget = prepareBudgetItems(budgetDraft);
+    if (budget.error) {
+      toast.error(budget.error);
+      return;
+    }
     setLoading(true);
 
     try {
       const payload = {
         ...formData,
         reported_issue: reportedIssue,
-        budget_estimate: formData.budget_estimate === '' ? null : formData.budget_estimate,
+        budget_items: budget.items,
+        budget_estimate: budget.amount,
         unlock_pattern: formData.unlock_type === 'pattern' ? JSON.stringify(formData.unlock_pattern) : null,
         unlock_password: formData.unlock_type !== 'pattern' && formData.unlock_type !== 'none' ? formData.unlock_password : null,
         device_photos: formData.device_photos.length > 0 ? formData.device_photos : null,
@@ -334,7 +344,11 @@ const NewRepair = () => {
   };
 
   const updateField = (field, value) => {
-    setFormData({ ...formData, [field]: field === 'device_serial' ? value.toUpperCase() : value });
+    setFormData((current) => field === 'reported_issue' ? {
+      ...current,
+      reported_issue: value,
+      budget_items: [{ ...current.budget_items[0], issue: value }, ...current.budget_items.slice(1)],
+    } : { ...current, [field]: field === 'device_serial' ? value.toUpperCase() : value });
   };
 
   const handleBrandChange = (value) => {
@@ -703,13 +717,13 @@ const NewRepair = () => {
               />
             </div>
 
-            <RepairBudgetFields
+            <RepairItemizedBudgetFields
               idPrefix="new-repair"
-              amountTestId="budget-estimate-input"
-              amount={formData.budget_estimate}
+              primaryIssue={formData.reported_issue}
+              items={formData.budget_items}
               vatIncluded={formData.vat_included}
-              onChange={({ amount, vatIncluded }) => setFormData((current) => ({
-                ...current, budget_estimate: amount, vat_included: vatIncluded,
+              onChange={({ items, vatIncluded }) => setFormData((current) => ({
+                ...current, budget_items: items, budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
               }))}
             />
 

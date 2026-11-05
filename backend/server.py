@@ -8,7 +8,7 @@ import os
 import logging
 import hashlib
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator, model_validator
 from typing import List, Optional, Literal
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -264,6 +264,23 @@ class RepairNoteVisibility(BaseModel):
     is_private: bool
 
 
+class RepairBudgetItem(BaseModel):
+    issue: str = Field(min_length=1, max_length=120)
+    amount: int = Field(ge=0, le=1_000_000_000)
+
+    @field_validator("issue")
+    @classmethod
+    def normalize_issue(cls, value):
+        return normalized_issue_name(value)
+
+
+def repair_budget_total(items: List[RepairBudgetItem]) -> int:
+    keys = [issue_key(item.issue) for item in items]
+    if len(keys) != len(set(keys)):
+        raise ValueError("Cada falla puede aparecer una sola vez en el presupuesto")
+    return sum(item.amount for item in items)
+
+
 class Repair(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -281,6 +298,7 @@ class Repair(BaseModel):
     status: str = "received"
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    budget_items: List[RepairBudgetItem] = Field(default_factory=list)
     vat_included: bool = False
     notes: Optional[str] = None
     notes_private: bool = False
@@ -316,6 +334,7 @@ class RepairCreate(BaseModel):
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    budget_items: List[RepairBudgetItem] = Field(default_factory=list, max_length=15)
     vat_included: bool = False
     notes: Optional[str] = None
     notes_private: bool = False
@@ -325,11 +344,18 @@ class RepairCreate(BaseModel):
     unlock_pattern: Optional[str] = None
     device_photos: Optional[List[str]] = None
 
+    @model_validator(mode="after")
+    def synchronize_budget(self):
+        if self.budget_items:
+            self.budget_estimate = repair_budget_total(self.budget_items)
+        return self
+
 class RepairUpdate(BaseModel):
     status: Optional[Literal["received", "diagnosis", "in_repair", "completed", "delivered", "not_repaired"]] = None
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
+    budget_items: Optional[List[RepairBudgetItem]] = Field(default=None, max_length=15)
     vat_included: Optional[bool] = None
     notes: Optional[str] = None
     notes_private: Optional[bool] = None
@@ -337,6 +363,12 @@ class RepairUpdate(BaseModel):
     paid: Optional[bool] = None
     payment_receipt_url: Optional[str] = None
     device_photos: Optional[List[str]] = None
+
+    @model_validator(mode="after")
+    def validate_budget_items(self):
+        if self.budget_items:
+            repair_budget_total(self.budget_items)
+        return self
 
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -884,8 +916,13 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     tenant_id = current_user['tenant_id']
     update_data = {
         k: v for k, v in repair_update.model_dump().items()
-        if v is not None or (k == 'budget_estimate' and k in repair_update.model_fields_set)
+        if v is not None or (k in {'budget_estimate', 'budget_items'} and k in repair_update.model_fields_set)
     }
+    if 'budget_items' in update_data:
+        update_data['budget_estimate'] = repair_budget_total(repair_update.budget_items) if repair_update.budget_items else None
+    elif 'budget_estimate' in update_data:
+        # A legacy client changing the total must not leave an obsolete item breakdown.
+        update_data['budget_items'] = []
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
     # Get the repair before update to check status change
