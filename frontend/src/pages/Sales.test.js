@@ -4,6 +4,12 @@ import axios from 'axios';
 import Sales from './Sales';
 
 jest.mock('axios');
+jest.mock('@/utils/nativePdf', () => ({
+  isNativeApp: () => false,
+  cacheNativePdf: jest.fn(),
+  openNativePdf: jest.fn(),
+  shareNativePdf: jest.fn(),
+}));
 jest.mock('@radix-ui/primitive/is-development', () => ({ isDevelopment: false }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ getAuthHeader: () => ({ Authorization: 'Bearer test' }) }) }));
 jest.mock('react-router-dom', () => ({ useSearchParams: () => [new URLSearchParams(), jest.fn()] }), { virtual: true });
@@ -98,6 +104,8 @@ test('registers a manually named article with optional IMEI', async () => {
   await fill('#sale-name', 'Placa MacBook');
   await fill('#sale-price', '80000');
   await fill('#sale-imei', '123');
+  await fill('#sale-serial', 'ab-c123');
+  expect(form.querySelector('#sale-serial').value).toBe('AB-C123');
   await act(async () => {
     const category = form.querySelector('#sale-category');
     category.value = 'board';
@@ -105,7 +113,7 @@ test('registers a manually named article with optional IMEI', async () => {
   });
   await act(async () => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/sales'), expect.objectContaining({
-    source: 'manual', inventory_item_id: null, item_name: 'Placa MacBook', imei: '123',
+    source: 'manual', inventory_item_id: null, item_name: 'Placa MacBook', imei: '123', serial_number: 'AB-C123',
     unit_price: 80000, category: 'board',
   }), expect.anything());
   expect(document.body.textContent).toContain('Placa base');

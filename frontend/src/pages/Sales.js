@@ -453,7 +453,7 @@ const Sales = () => {
               <div><Label htmlFor="sale-condition">Estado del artículo *</Label><select id="sale-condition" className={selectClass} value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })}>{Object.entries(CONDITIONS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
               <div><Label htmlFor="sale-condition-notes">Detalle del estado</Label><Input id="sale-condition-notes" maxLength={500} value={form.condition_notes} onChange={(e) => setForm({ ...form, condition_notes: e.target.value })} placeholder="Ej.: pantalla con marcas leves" /></div>
               <div><Label htmlFor="sale-imei">IMEI (opcional)</Label><Input id="sale-imei" maxLength={80} value={form.imei} onChange={(e) => setForm({ ...form, imei: e.target.value })} /></div>
-              <div><Label htmlFor="sale-serial">Número de serie (opcional)</Label><Input id="sale-serial" maxLength={80} value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} /></div>
+              <div><Label htmlFor="sale-serial">Número de serie (opcional)</Label><Input id="sale-serial" maxLength={80} value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value.toUpperCase() })} autoCapitalize="characters" spellCheck={false} /></div>
             </div>
             <p className="text-xs text-zinc-500">Si tiene IMEI o número de serie, registra una unidad por venta para mantener la trazabilidad.</p>
             <div><Label>Fotos del artículo (hasta 5)</Label><div className="mt-2"><DevicePhotos photos={form.photos} onChange={(photos) => setForm((current) => ({ ...current, photos }))}

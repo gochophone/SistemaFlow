@@ -8,7 +8,7 @@ import os
 import logging
 import hashlib
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional, Literal
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -89,6 +89,11 @@ def import_status(value):
     if any(word in status for word in ("cancel", "anulad")):
         return "cancelled"
     return "received"
+
+def normalize_serial(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    return value.strip().upper() or None
 
 async def read_import_rows(upload: UploadFile):
     content = await upload.read()
@@ -301,6 +306,12 @@ class RepairCreate(BaseModel):
     device_model: str
     device_imei: Optional[str] = None
     device_serial: Optional[str] = None
+
+    @field_validator("device_serial")
+    @classmethod
+    def uppercase_device_serial(cls, value):
+        return normalize_serial(value)
+
     reported_issue: str
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
@@ -376,6 +387,12 @@ class SaleCreate(BaseModel):
     condition_notes: Optional[str] = Field(default=None, max_length=500)
     imei: Optional[str] = Field(default=None, max_length=80)
     serial_number: Optional[str] = Field(default=None, max_length=80)
+
+    @field_validator("serial_number")
+    @classmethod
+    def uppercase_serial_number(cls, value):
+        return normalize_serial(value)
+
     photos: List[str] = Field(default_factory=list, max_length=5)
     notes: Optional[str] = Field(default=None, max_length=1000)
     sold_on: date = Field(default_factory=lambda: datetime.now(timezone.utc).date())

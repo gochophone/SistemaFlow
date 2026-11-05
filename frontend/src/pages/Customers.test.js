@@ -53,3 +53,22 @@ test('searches customers and opens the selected customer repair history from the
   expect(document.querySelector('[data-testid="customer-row-José Pérez"]')).not.toBeNull();
   expect(document.querySelector('[data-testid="customer-row-Ana Rojas"]')).toBeNull();
 });
+
+test('crea un cliente sin exigir RUT', async () => {
+  axios.post.mockResolvedValue({ data: { id: 'c3', name: 'Cliente sin RUT', phone: '123456789', rut: null } });
+  await act(async () => root.render(<Customers />));
+  await act(async () => document.querySelector('[data-testid="add-customer-button"]').click());
+  const name = document.querySelector('[data-testid="customer-name-input"]');
+  const phone = document.querySelector('[data-testid="customer-phone-input"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(name, 'Cliente sin RUT');
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(phone, '123456789');
+    phone.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(document.querySelector('label[for="rut"]').textContent).toContain('opcional');
+  await act(async () => name.closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/api/customers'), expect.objectContaining({
+    name: 'Cliente sin RUT', phone: '123456789', rut: null,
+  }), expect.anything());
+});

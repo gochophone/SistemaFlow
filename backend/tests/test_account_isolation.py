@@ -192,6 +192,20 @@ def test_calendar_month():
     assert billing.month_after(datetime(2024, 1, 31, tzinfo=timezone.utc)).day == 29
     assert billing.month_after(datetime(2025, 12, 31, tzinfo=timezone.utc)).year == 2026
 
+def test_optional_customer_rut_and_uppercase_serials():
+    assert server.CustomerCreate(name='Cliente', phone='123').rut is None
+    repair = server.RepairCreate(
+        customer_id='customer-1', customer_name='Cliente', device_brand='Apple',
+        device_model='iPhone', reported_issue='Pantalla', device_serial=' ab-c123 ',
+    )
+    assert repair.device_serial == 'AB-C123'
+    sale = server.SaleCreate(
+        customer_id='customer-1', source='manual', item_name='Placa',
+        category='board', quantity=1, unit_price=1000, condition='used',
+        serial_number=' xy-987 ',
+    )
+    assert sale.serial_number == 'XY-987'
+
 
 def test_billing_authorization_and_renewal(api):
     owner, headers = account(api, 'billing')

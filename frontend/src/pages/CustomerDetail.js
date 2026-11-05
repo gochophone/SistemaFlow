@@ -70,7 +70,7 @@ const CustomerDetail = () => {
       toast.error('Ingresa el nombre y el teléfono del cliente.');
       return;
     }
-    if (formData.rut && !validateRUT(formData.rut)) {
+    if (formData.rut.trim() && !validateRUT(formData.rut)) {
       toast.error('RUT inválido. Verifica el dígito verificador.');
       return;
     }
@@ -128,7 +128,7 @@ const CustomerDetail = () => {
           <DialogHeader><DialogTitle>Editar cliente</DialogTitle><DialogDescription>Actualiza los datos de contacto de este cliente.</DialogDescription></DialogHeader>
           <form onSubmit={saveCustomer} className="space-y-4">
             <div className="space-y-1"><Label htmlFor="edit-customer-name">Nombre *</Label><Input id="edit-customer-name" value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} required data-testid="edit-customer-name" /></div>
-            <div className="space-y-1"><Label htmlFor="edit-customer-rut">RUT</Label><Input id="edit-customer-rut" value={formData.rut} onChange={(event) => setFormData({ ...formData, rut: formatRUT(event.target.value) })} maxLength={12} placeholder="12.345.678-9" data-testid="edit-customer-rut" /></div>
+            <div className="space-y-1"><Label htmlFor="edit-customer-rut">RUT (opcional)</Label><Input id="edit-customer-rut" value={formData.rut} onChange={(event) => setFormData({ ...formData, rut: formatRUT(event.target.value) })} maxLength={12} placeholder="12.345.678-9" data-testid="edit-customer-rut" /></div>
             <div className="space-y-1"><Label htmlFor="edit-customer-phone">Teléfono *</Label><Input id="edit-customer-phone" value={formData.phone} onChange={(event) => setFormData({ ...formData, phone: event.target.value })} required data-testid="edit-customer-phone" /></div>
             <div className="space-y-1"><Label htmlFor="edit-customer-email">Correo</Label><Input id="edit-customer-email" type="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} data-testid="edit-customer-email" /></div>
             <div className="space-y-1"><Label htmlFor="edit-customer-address">Dirección</Label><Input id="edit-customer-address" value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} data-testid="edit-customer-address" /></div>

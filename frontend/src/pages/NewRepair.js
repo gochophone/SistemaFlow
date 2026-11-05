@@ -174,7 +174,7 @@ const NewRepair = () => {
       toast.error('Completa el nombre y el teléfono del cliente.');
       return;
     }
-    if (newCustomer.rut && !validateRUT(newCustomer.rut)) {
+    if (newCustomer.rut.trim() && !validateRUT(newCustomer.rut)) {
       toast.error('RUT inválido. Verifica el dígito verificador.');
       return;
     }
@@ -185,7 +185,7 @@ const NewRepair = () => {
         name: newCustomer.name.trim(),
         phone: newCustomer.phone.trim(),
         email: newCustomer.email.trim(),
-        rut: newCustomer.rut ? cleanRUT(newCustomer.rut) : null,
+        rut: newCustomer.rut.trim() ? cleanRUT(newCustomer.rut) : null,
       }, { headers: getAuthHeader() });
       setCustomers(current => [...current.filter(item => item.id !== customer.id), customer]);
       setFormData(current => ({ ...current, customer_id: customer.id, customer_name: customer.name }));
@@ -334,7 +334,7 @@ const NewRepair = () => {
   };
 
   const updateField = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData({ ...formData, [field]: field === 'device_serial' ? value.toUpperCase() : value });
   };
 
   const handleBrandChange = (value) => {
@@ -631,6 +631,8 @@ const NewRepair = () => {
                     id="device_serial"
                     value={formData.device_serial}
                     onChange={(e) => updateField('device_serial', e.target.value)}
+                    autoCapitalize="characters"
+                    spellCheck={false}
                     placeholder="Opcional"
                     className="border-zinc-200 font-mono"
                     data-testid="device-serial-input"
@@ -905,7 +907,7 @@ const NewRepair = () => {
               ['name', 'Nombre *', 'text', true],
               ['phone', 'Teléfono *', 'tel', true],
               ['email', 'Email', 'email', false],
-              ['rut', 'RUT', 'text', false],
+              ['rut', 'RUT (opcional)', 'text', false],
               ['address', 'Dirección', 'text', false],
             ].map(([field, label, type, required]) => (
               <div key={field}>

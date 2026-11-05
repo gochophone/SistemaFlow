@@ -88,7 +88,7 @@ const Customers = () => {
     e.preventDefault();
     
     // Validar RUT si se proporcionó
-    if (formData.rut && !validateRUT(formData.rut)) {
+    if (formData.rut.trim() && !validateRUT(formData.rut)) {
       toast.error('RUT inválido. Verifica el dígito verificador.');
       return;
     }
@@ -96,7 +96,7 @@ const Customers = () => {
     try {
       const payload = {
         ...formData,
-        rut: formData.rut ? cleanRUT(formData.rut) : null,
+        rut: formData.rut.trim() ? cleanRUT(formData.rut) : null,
       };
       
       if (editingCustomer) {
@@ -190,7 +190,7 @@ const Customers = () => {
               </div>
 
               <div>
-                <Label htmlFor="rut" className="text-sm font-medium text-zinc-900">RUT</Label>
+                <Label htmlFor="rut" className="text-sm font-medium text-zinc-900">RUT (opcional)</Label>
                 <Input
                   id="rut"
                   value={formData.rut}
