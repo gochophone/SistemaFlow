@@ -919,6 +919,7 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         if v is not None or (k in {'budget_estimate', 'budget_items'} and k in repair_update.model_fields_set)
     }
     if 'budget_items' in update_data:
+        update_data['budget_items'] = update_data['budget_items'] or []
         update_data['budget_estimate'] = repair_budget_total(repair_update.budget_items) if repair_update.budget_items else None
     elif 'budget_estimate' in update_data:
         # A legacy client changing the total must not leave an obsolete item breakdown.

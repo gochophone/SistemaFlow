@@ -105,6 +105,6 @@ def test_update_repair_recalculates_total_and_can_clear_items(monkeypatch, serve
     assert updated.budget_estimate == 125000
     assert [item.issue for item in updated.budget_items] == ["Pantalla", "Flex carga"]
 
-    cleared = asyncio.run(server_module.update_repair("repair-1", server_module.RepairUpdate(budget_items=[]), {"tenant_id": "tenant-1"}))
+    cleared = asyncio.run(server_module.update_repair("repair-1", server_module.RepairUpdate(budget_items=None), {"tenant_id": "tenant-1"}))
     assert cleared.budget_estimate is None
     assert cleared.budget_items == []
