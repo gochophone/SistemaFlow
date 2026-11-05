@@ -155,6 +155,7 @@ const RepairDetail = () => {
       setRepair(response.data);
       setUpdateData({
         status: response.data.status,
+        reported_issue: response.data.reported_issue,
         diagnosis: response.data.diagnosis || '',
         budget_estimate: response.data.budget_estimate ?? '',
         budget_items: response.data.budget_items?.length
@@ -174,7 +175,10 @@ const RepairDetail = () => {
   };
 
   const handleUpdate = async () => {
-    if (updateData.status !== repair.status && !confirmTerminalStatus(updateData.status)) return;
+    if (!updateData.budget_items[0]?.issue?.trim()) {
+      toast.error('Selecciona o escribe la falla reportada.');
+      return;
+    }
     const budgetDraft = updateData.budget_items.length === 1 && updateData.budget_items[0].amount === ''
       ? [] : updateData.budget_items;
     const budget = prepareBudgetItems(budgetDraft);
@@ -182,6 +186,7 @@ const RepairDetail = () => {
       toast.error(budget.error);
       return;
     }
+    if (updateData.status !== repair.status && !confirmTerminalStatus(updateData.status)) return;
     setUpdating(true);
     try {
       const payload = {
@@ -189,6 +194,7 @@ const RepairDetail = () => {
         budget_items: budget.items,
         budget_estimate: budget.amount,
       };
+      if (payload.reported_issue === repair.reported_issue) delete payload.reported_issue;
       
       await axios.patch(`${API}/api/repairs/${id}`, payload, {
         headers: getAuthHeader()
@@ -659,11 +665,11 @@ const RepairDetail = () => {
 
                   <RepairItemizedBudgetFields
                     idPrefix="edit-repair"
-                    primaryIssue={repair.reported_issue}
                     items={updateData.budget_items}
                     vatIncluded={!!updateData.vat_included}
                     onChange={({ items, vatIncluded }) => setUpdateData((current) => ({
-                      ...current, budget_items: items, budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
+                      ...current, reported_issue: items[0]?.issue || '', budget_items: items,
+                      budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
                     }))}
                   />
 

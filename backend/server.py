@@ -348,10 +348,12 @@ class RepairCreate(BaseModel):
     def synchronize_budget(self):
         if self.budget_items:
             self.budget_estimate = repair_budget_total(self.budget_items)
+            self.reported_issue = self.budget_items[0].issue
         return self
 
 class RepairUpdate(BaseModel):
     status: Optional[Literal["received", "diagnosis", "in_repair", "completed", "delivered", "not_repaired"]] = None
+    reported_issue: Optional[str] = None
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
     budget_estimate: Optional[float] = None
@@ -369,6 +371,11 @@ class RepairUpdate(BaseModel):
         if self.budget_items:
             repair_budget_total(self.budget_items)
         return self
+
+    @field_validator("reported_issue")
+    @classmethod
+    def normalize_reported_issue(cls, value):
+        return normalized_issue_name(value) if value is not None else None
 
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -921,6 +928,8 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     if 'budget_items' in update_data:
         update_data['budget_items'] = update_data['budget_items'] or []
         update_data['budget_estimate'] = repair_budget_total(repair_update.budget_items) if repair_update.budget_items else None
+        if repair_update.budget_items:
+            update_data['reported_issue'] = repair_update.budget_items[0].issue
     elif 'budget_estimate' in update_data:
         # A legacy client changing the total must not leave an obsolete item breakdown.
         update_data['budget_items'] = []

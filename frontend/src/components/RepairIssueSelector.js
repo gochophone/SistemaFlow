@@ -29,7 +29,7 @@ const searchableText = (text) => text.normalize('NFD')
   .replace(/[\u0300-\u036f\s]+/g, '')
   .toLocaleLowerCase('es');
 
-const RepairIssueSelector = ({ value, onChange, idPrefix = 'reported-issue', label = 'Falla reportada *' }) => {
+const RepairIssueSelector = ({ value, onChange, idPrefix = 'reported-issue', label = 'Falla reportada *', showFrequent = true }) => {
   const { getAuthHeader } = useAuth();
   const [options, setOptions] = useState(COMMON_ISSUES);
   const [frequent, setFrequent] = useState([]);
@@ -203,7 +203,7 @@ const RepairIssueSelector = ({ value, onChange, idPrefix = 'reported-issue', lab
         />
       )}
 
-      {frequent.length > 0 && (
+      {showFrequent && frequent.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2" data-testid={idPrefix === 'reported-issue' ? 'frequent-issues' : `${idPrefix}-frequent-issues`}>
           {frequent.map(({ name }) => (
             <Button

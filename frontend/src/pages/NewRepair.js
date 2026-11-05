@@ -22,7 +22,6 @@ import { toast } from 'sonner';
 import { ArrowLeft, User, Smartphone, FileText, Lock, Camera, Check, ChevronsUpDown, Loader2, ScanLine } from 'lucide-react';
 import PatternLock from '@/components/PatternLock';
 import DevicePhotos from '@/components/DevicePhotos';
-import RepairIssueSelector from '@/components/RepairIssueSelector';
 import RepairItemizedBudgetFields from '@/components/RepairItemizedBudgetFields';
 import { budgetItemsTotal, prepareBudgetItems } from '@/utils/repairBudgetItems';
 
@@ -304,7 +303,7 @@ const NewRepair = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const reportedIssue = formData.reported_issue.trim();
+    const reportedIssue = formData.budget_items[0]?.issue?.trim() || '';
     if (!reportedIssue) {
       toast.error('Selecciona o escribe la falla reportada.');
       return;
@@ -344,11 +343,7 @@ const NewRepair = () => {
   };
 
   const updateField = (field, value) => {
-    setFormData((current) => field === 'reported_issue' ? {
-      ...current,
-      reported_issue: value,
-      budget_items: [{ ...current.budget_items[0], issue: value }, ...current.budget_items.slice(1)],
-    } : { ...current, [field]: field === 'device_serial' ? value.toUpperCase() : value });
+    setFormData((current) => ({ ...current, [field]: field === 'device_serial' ? value.toUpperCase() : value }));
   };
 
   const handleBrandChange = (value) => {
@@ -700,11 +695,6 @@ const NewRepair = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <RepairIssueSelector
-              value={formData.reported_issue}
-              onChange={(issue) => updateField('reported_issue', issue)}
-            />
-
             <div>
               <Label htmlFor="diagnosis" className="text-sm font-medium text-zinc-900">Diagnóstico Inicial</Label>
               <Textarea
@@ -719,11 +709,11 @@ const NewRepair = () => {
 
             <RepairItemizedBudgetFields
               idPrefix="new-repair"
-              primaryIssue={formData.reported_issue}
               items={formData.budget_items}
               vatIncluded={formData.vat_included}
               onChange={({ items, vatIncluded }) => setFormData((current) => ({
-                ...current, budget_items: items, budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
+                ...current, reported_issue: items[0]?.issue || '', budget_items: items,
+                budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
               }))}
             />
 

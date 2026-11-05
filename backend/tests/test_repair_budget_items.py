@@ -36,10 +36,11 @@ def repair_payload(**changes):
 
 def test_create_repair_sums_priced_failures_and_keeps_legacy_amount(server_module):
     repair = server_module.RepairCreate(**repair_payload(budget_items=[
-        {"issue": "Pantalla", "amount": 100000},
+        {"issue": "pantalla", "amount": 100000},
         {"issue": "flex carga", "amount": 25000},
     ], budget_estimate=1))
     assert repair.budget_estimate == 125000
+    assert repair.reported_issue == "Pantalla"
     assert [item.issue for item in repair.budget_items] == ["Pantalla", "Flex carga"]
     assert server_module.RepairCreate(**repair_payload(budget_estimate=80000)).budget_estimate == 80000
 
@@ -99,12 +100,16 @@ def test_update_repair_recalculates_total_and_can_clear_items(monkeypatch, serve
     repairs = SimpleNamespace(find_one=find_one, update_one=update_one)
     monkeypatch.setattr(server_module, "tenant_database", AsyncMock(return_value=SimpleNamespace(repairs=repairs)))
     updated = asyncio.run(server_module.update_repair("repair-1", server_module.RepairUpdate(budget_items=[
-        {"issue": "Pantalla", "amount": 100000},
-        {"issue": "Flex carga", "amount": 25000},
+        {"issue": "Flex carga", "amount": 100000},
+        {"issue": "Pantalla", "amount": 25000},
     ], budget_estimate=1), {"tenant_id": "tenant-1"}))
     assert updated.budget_estimate == 125000
-    assert [item.issue for item in updated.budget_items] == ["Pantalla", "Flex carga"]
+    assert updated.reported_issue == "Flex carga"
+    assert [item.issue for item in updated.budget_items] == ["Flex carga", "Pantalla"]
 
-    cleared = asyncio.run(server_module.update_repair("repair-1", server_module.RepairUpdate(budget_items=None), {"tenant_id": "tenant-1"}))
+    cleared = asyncio.run(server_module.update_repair("repair-1", server_module.RepairUpdate(
+        reported_issue="camara", budget_items=None,
+    ), {"tenant_id": "tenant-1"}))
     assert cleared.budget_estimate is None
     assert cleared.budget_items == []
+    assert cleared.reported_issue == "Cámara"

@@ -11,7 +11,7 @@ import { Plus, Trash2 } from 'lucide-react';
 
 const numberFormat = new Intl.NumberFormat('es-CL');
 
-const RepairItemizedBudgetFields = ({ idPrefix, primaryIssue, items, vatIncluded, onChange }) => {
+const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) => {
   const rows = items || [];
   const hasValues = rows.some((item) => item.amount !== '' && item.amount !== null && item.amount !== undefined);
   const total = budgetItemsTotal(rows);
@@ -30,7 +30,7 @@ const RepairItemizedBudgetFields = ({ idPrefix, primaryIssue, items, vatIncluded
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Valor por falla</h3>
         <Button type="button" variant="outline" size="sm"
           onClick={() => changeItems([...rows, { issue: '', amount: '', draftId: Math.random().toString(36).slice(2) }])}
-          disabled={!primaryIssue?.trim() || rows.length >= MAX_REPAIR_BUDGET_ITEMS}
+          disabled={!rows[0]?.issue?.trim() || rows.length >= MAX_REPAIR_BUDGET_ITEMS}
           data-testid={`${idPrefix}-add-budget-item`}>
           <Plus size={15} className="mr-1" /> Agregar falla
         </Button>
@@ -39,17 +39,11 @@ const RepairItemizedBudgetFields = ({ idPrefix, primaryIssue, items, vatIncluded
       {rows.map((item, index) => (
         <div key={index === 0 ? 'primary' : item.draftId} className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-end"
           data-testid={`${idPrefix}-budget-item-${index}`}>
-          {index === 0 ? (
-            <div>
-              <Label className="text-sm text-zinc-900 dark:text-zinc-100">Falla reportada</Label>
-              <p className="mt-1 flex min-h-10 items-center rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
-                {item.issue?.trim() || primaryIssue?.trim() || 'Selecciona la falla arriba'}
-              </p>
-            </div>
-          ) : (
-            <RepairIssueSelector idPrefix={`${idPrefix}-issue-${index}`} label="Falla adicional"
-              value={item.issue} onChange={(issue) => changeItem(index, { issue })} />
-          )}
+          <RepairIssueSelector
+            idPrefix={index === 0 ? 'reported-issue' : `${idPrefix}-issue-${index}`}
+            label={index === 0 ? 'Falla reportada *' : 'Falla adicional'}
+            showFrequent={index === 0}
+            value={item.issue} onChange={(issue) => changeItem(index, { issue })} />
           <div>
             <Label htmlFor={`${idPrefix}-amount-${index}`} className="text-sm text-zinc-900 dark:text-zinc-100">Valor (CLP)</Label>
             <Input id={`${idPrefix}-amount-${index}`} inputMode="numeric" className="mt-1 dark:bg-zinc-900 dark:text-zinc-100"

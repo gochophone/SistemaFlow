@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import RepairItemizedBudgetFields from './RepairItemizedBudgetFields';
 import { prepareBudgetItems } from '@/utils/repairBudgetItems';
 
-jest.mock('@/components/RepairIssueSelector', () => ({ value, onChange }) => (
-  <select aria-label="Falla adicional" value={value} onChange={(event) => onChange(event.target.value)}>
+jest.mock('@/components/RepairIssueSelector', () => ({ value, onChange, label }) => (
+  <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
     <option value="">Seleccionar falla</option>
+    <option value="Pantalla">Pantalla</option>
     <option value="Flex carga">Flex carga</option>
   </select>
 ));
@@ -24,12 +25,13 @@ test('suma valores por falla, calcula IVA y permite quitar una falla', async () 
   const Harness = () => {
     const [budget, setBudget] = useState({ items: [{ issue: 'Pantalla', amount: '' }], vatIncluded: false });
     state = budget;
-    return <RepairItemizedBudgetFields idPrefix="test-repair" primaryIssue="Pantalla"
+    return <RepairItemizedBudgetFields idPrefix="test-repair"
       items={budget.items} vatIncluded={budget.vatIncluded} onChange={setBudget} />;
   };
 
   try {
     await act(async () => root.render(<Harness />));
+    expect(container.querySelectorAll('select[aria-label="Falla reportada *"]')).toHaveLength(1);
     await act(async () => enterText(container.querySelector('[data-testid="test-repair-amount-0"]'), '100.000'));
     await act(async () => container.querySelector('[data-testid="test-repair-add-budget-item"]').click());
     await act(async () => {

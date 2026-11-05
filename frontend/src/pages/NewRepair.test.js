@@ -11,7 +11,7 @@ jest.mock('@/context/AuthContext', () => ({ useAuth: () => ({ getAuthHeader: () 
 jest.mock('@/components/PatternLock', () => () => null);
 jest.mock('@/components/DevicePhotos', () => () => null);
 jest.mock('@/components/RepairIssueSelector', () => () => null);
-jest.mock('@/components/RepairItemizedBudgetFields', () => () => null);
+jest.mock('@/components/RepairItemizedBudgetFields', () => () => <div data-testid="itemized-budget-marker">Falla reportada</div>);
 
 const enterText = (input, value) => {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
@@ -29,6 +29,9 @@ test('convierte el serial a mayúsculas y permite crear un cliente sin RUT', asy
   const root = createRoot(container);
   try {
     await act(async () => root.render(<NewRepair />));
+    expect(document.querySelector('#diagnosis').compareDocumentPosition(
+      document.querySelector('[data-testid="itemized-budget-marker"]')
+    ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const serial = document.querySelector('[data-testid="device-serial-input"]');
     await act(async () => enterText(serial, 'ab-c123'));
     expect(serial.value).toBe('AB-C123');
