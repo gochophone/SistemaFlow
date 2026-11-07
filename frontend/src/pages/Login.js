@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import EmailCodeForm from './EmailCodeForm';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ const Login = ({ initialTab = 'login' }) => {
   const [challenge, setChallenge] = useState(null);
   const [recovering, setRecovering] = useState(false);
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login, register, user, token, loading: restoringSession, authError, restoreSession } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ 
@@ -71,6 +71,19 @@ const Login = ({ initialTab = 'login' }) => {
       setLoading(false);
     }
   };
+
+  if (user) return <Navigate to="/" replace />;
+  if (token && restoringSession) return null;
+  if (token && authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-6 dark:bg-zinc-950">
+        <div className="max-w-md rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-zinc-700 dark:text-zinc-200">{authError}</p>
+          <Button type="button" onClick={restoreSession} className="mt-4">Reintentar conexión</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">

@@ -18,6 +18,7 @@ import PrintLabel from '@/pages/PrintLabel';
 import PublicRepairView from '@/pages/PublicRepairView';
 import Settings from '@/pages/Settings';
 import Layout from '@/components/Layout';
+import { Button } from '@/components/ui/button';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import '@/App.css';
 

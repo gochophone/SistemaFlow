@@ -33,7 +33,9 @@ export const AuthProvider = ({ children }) => {
         return;
       } catch (error) {
         const status = error.response?.status;
-        if (status === 401 || status === 403) {
+        // /auth/me uses 401 for an invalid or expired token. A 403 may come
+        // from an upstream service, so it must not erase a saved session.
+        if (status === 401) {
           localStorage.removeItem('token');
           setToken(null);
           setUser(null);
