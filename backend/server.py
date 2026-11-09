@@ -383,8 +383,10 @@ class InventoryItem(BaseModel):
     tenant_id: str  # Multi-tenant isolation
     name: str
     code: str
-    quantity: int
-    price: float
+    quantity: int = Field(default=0, ge=0)
+    purchase_price: Optional[float] = Field(default=None, ge=0)
+    price: Optional[float] = Field(default=None, ge=0)
+    description: Optional[str] = Field(default=None, max_length=1000)
     location: Optional[str] = None
     condition: Optional[int] = Field(default=10, ge=1, le=10)  # Estado del 1 al 10
     photos: Optional[List[str]] = []  # URLs de fotos en Cloudinary
@@ -393,20 +395,24 @@ class InventoryItem(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class InventoryCreate(BaseModel):
-    name: str
+    name: str = Field(default='', max_length=120)
     code: str = Field(default_factory=lambda: f"INV-{uuid.uuid4().hex[:8].upper()}")
-    quantity: int
-    price: float
+    quantity: int = Field(default=0, ge=0)
+    purchase_price: Optional[float] = Field(default=None, ge=0)
+    price: Optional[float] = Field(default=None, ge=0)
+    description: Optional[str] = Field(default=None, max_length=1000)
     location: Optional[str] = None
     condition: Optional[int] = Field(default=10, ge=1, le=10)
     photos: Optional[List[str]] = []
     available: bool = True
 
 class InventoryUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, max_length=120)
     code: Optional[str] = None
-    quantity: Optional[int] = None
-    price: Optional[float] = None
+    quantity: Optional[int] = Field(default=None, ge=0)
+    purchase_price: Optional[float] = Field(default=None, ge=0)
+    price: Optional[float] = Field(default=None, ge=0)
+    description: Optional[str] = Field(default=None, max_length=1000)
     location: Optional[str] = None
     condition: Optional[int] = Field(default=None, ge=1, le=10)
     photos: Optional[List[str]] = None
@@ -456,6 +462,7 @@ class DashboardStats(BaseModel):
     completed_today: int
     pending_delivery: int
     low_stock_items: Optional[int] = None
+    inventory_items_count: Optional[int] = None
     repairs_by_status: dict
     weekly_repairs: List[dict]
 
@@ -1152,7 +1159,9 @@ async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depe
 async def create_inventory_item(item: InventoryCreate, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
-    item_obj = InventoryItem(**item.model_dump(), tenant_id=tenant_id)
+    item_data = item.model_dump()
+    item_data['name'] = item_data['name'].strip() or 'Artículo sin nombre'
+    item_obj = InventoryItem(**item_data, tenant_id=tenant_id)
     doc = item_obj.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     doc['updated_at'] = doc['updated_at'].isoformat()
@@ -1172,6 +1181,25 @@ async def get_inventory(current_user: dict = Depends(require_admin)):
             item['updated_at'] = datetime.fromisoformat(item['updated_at'])
     return items
 
+class InventoryNameInput(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+@api_router.get("/inventory/names")
+async def get_inventory_names(current_user: dict = Depends(require_admin)):
+    db = await tenant_database(current_user["tenant_id"])
+    names = await db.inventory_names.find({}, {"_id": 0, "name": 1}).to_list(500)
+    return {"names": [entry['name'] for entry in names]}
+
+@api_router.post("/inventory/names")
+async def add_inventory_name(payload: InventoryNameInput, current_user: dict = Depends(require_admin)):
+    name = ' '.join(payload.name.split())
+    if not name:
+        raise HTTPException(status_code=422, detail='Escribe el nombre del artículo')
+    db = await tenant_database(current_user["tenant_id"])
+    await db.inventory_names.update_one(
+        {"_id": name.casefold()}, {"$setOnInsert": {"name": name}}, upsert=True)
+    return {"name": name}
+
 @api_router.get("/inventory/{item_id}", response_model=InventoryItem)
 async def get_inventory_item(item_id: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
@@ -1189,7 +1217,10 @@ async def get_inventory_item(item_id: str, current_user: dict = Depends(require_
 async def update_inventory_item(item_id: str, item_update: InventoryUpdate, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
-    update_data = {k: v for k, v in item_update.model_dump().items() if v is not None}
+    update_data = {k: v for k, v in item_update.model_dump(exclude_unset=True).items()
+                   if v is not None or k in ('purchase_price', 'price', 'description', 'location')}
+    if 'name' in update_data:
+        update_data['name'] = update_data['name'].strip() or 'Artículo sin nombre'
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
     
     # Si la cantidad llega a 0, marcar como no disponible automáticamente
@@ -1365,8 +1396,10 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     
     # Contar items con stock bajo (quantity = 1) o sin stock (quantity = 0)
     low_stock_items = None
+    inventory_items_count = None
     if current_user["role"] == "admin":
         low_stock_items = await db.inventory.count_documents({"tenant_id": tenant_id, "quantity": {"$lte": 1}})
+        inventory_items_count = await db.inventory.count_documents({"tenant_id": tenant_id})
     
     status_pipeline = [
         {"$match": {"tenant_id": tenant_id}},
@@ -1393,6 +1426,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         completed_today=completed_today,
         pending_delivery=pending_delivery,
         low_stock_items=low_stock_items,
+        inventory_items_count=inventory_items_count,
         repairs_by_status=repairs_by_status,
         weekly_repairs=weekly_repairs
     )

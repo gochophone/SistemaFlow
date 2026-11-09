@@ -155,7 +155,7 @@ const Sales = () => {
   const chooseInventory = (item) => {
     setForm((current) => ({
       ...current, inventory_item_id: item.id, item_name: item.name,
-      unit_price: String(Math.round(item.price || 0)), photos: (item.photos || []).slice(0, 5),
+      unit_price: item.price == null ? '' : String(Math.round(item.price)), photos: (item.photos || []).slice(0, 5),
     }));
     setInventoryQuery(item.name);
   };
@@ -436,7 +436,7 @@ const Sales = () => {
                 <div className="max-h-48 overflow-y-auto p-1">
                   {matchingInventory.map((item) => <button key={item.id} type="button" onClick={() => chooseInventory(item)}
                     className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none dark:hover:bg-zinc-800 dark:focus:bg-zinc-800 ${form.inventory_item_id === item.id ? 'font-semibold text-blue-600 dark:text-blue-300' : 'text-zinc-900 dark:text-zinc-100'}`}>
-                    <span><Package size={15} className="mr-2 inline" />{item.name} · Stock {item.quantity}</span><span>{formatCLP(item.price)}</span>
+                    <span><Package size={15} className="mr-2 inline" />{item.name} · Stock {item.quantity}</span><span>{item.price == null ? 'Sin precio final' : formatCLP(item.price)}</span>
                   </button>)}
                   {matchingInventory.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400">No hay artículos con stock disponible</p>}
                 </div>

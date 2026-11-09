@@ -104,6 +104,8 @@ def test_physical_isolation_roles_and_public_links(api):
     assert search['inventory']==[] and all(c['tenant_id']==a['tenant_id'] for c in search['customers'])
     assert api.get('/api/dashboard/stats',headers=th).json()['low_stock_items'] is None
     assert api.get('/api/dashboard/stats',headers=ah).json()['low_stock_items']==1
+    assert api.get('/api/dashboard/stats',headers=th).json()['inventory_items_count'] is None
+    assert api.get('/api/dashboard/stats',headers=ah).json()['inventory_items_count']==1
     # Signed old claims cannot override current server-side membership or role.
     forged_claims=server.create_token(tech['id'],tech['email'],'admin',b['tenant_id'])
     fh={'Authorization':'Bearer '+forged_claims}

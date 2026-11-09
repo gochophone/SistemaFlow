@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
+import { Textarea } from '@/components/ui/textarea';
 import DevicePhotos from '@/components/DevicePhotos';
+import InventoryNameSelector from '@/components/InventoryNameSelector';
 import {
   Table,
   TableBody,
@@ -19,15 +20,26 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Package, AlertTriangle, CheckCircle2, XCircle, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Image as ImageIcon } from 'lucide-react';
 import { formatCLP, parseCLPInput } from '@/utils/currency';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+const formatPriceInput = (value) => {
+  const digits = value.replace(/[^\d]/g, '');
+  return digits ? new Intl.NumberFormat('es-CL').format(Number(digits)) : '';
+};
+const conditionLabel = (condition) => {
+  if (condition >= 9) return 'Excelente';
+  if (condition >= 7) return 'Bueno';
+  if (condition >= 4) return 'Regular';
+  return 'Malo';
+};
 
 const Inventory = () => {
   const { getAuthHeader } = useAuth();
@@ -40,7 +52,9 @@ const Inventory = () => {
   const [formData, setFormData] = useState({
     name: '',
     quantity: '',
+    purchase_price: '',
     price: '',
+    description: '',
     location: '',
     condition: '10',
     photos: [],
@@ -67,7 +81,7 @@ const Inventory = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', quantity: '', price: '', location: '', condition: '10', photos: [], available: true });
+    setFormData({ name: '', quantity: '', purchase_price: '', price: '', description: '', location: '', condition: '10', photos: [], available: true });
     setEditingItem(null);
   };
 
@@ -76,8 +90,10 @@ const Inventory = () => {
       setEditingItem(item);
       setFormData({
         name: item.name,
-        quantity: item.quantity.toString(),
-        price: new Intl.NumberFormat('es-CL').format(item.price),
+        quantity: String(item.quantity ?? ''),
+        purchase_price: item.purchase_price == null ? '' : new Intl.NumberFormat('es-CL').format(item.purchase_price),
+        price: item.price == null ? '' : new Intl.NumberFormat('es-CL').format(item.price),
+        description: item.description || '',
         location: item.location || '',
         condition: item.condition ? item.condition.toString() : '10',
         photos: item.photos || [],
@@ -94,8 +110,11 @@ const Inventory = () => {
     try {
       const payload = {
         ...formData,
-        quantity: parseInt(formData.quantity),
-        price: parseCLPInput(formData.price),
+        name: formData.name.trim(),
+        quantity: formData.quantity === '' ? 0 : parseInt(formData.quantity, 10),
+        purchase_price: formData.purchase_price === '' ? null : parseCLPInput(formData.purchase_price),
+        price: formData.price === '' ? null : parseCLPInput(formData.price),
+        description: formData.description.trim() || null,
         condition: parseInt(formData.condition),
         photos: formData.photos,
         available: formData.available,
@@ -164,20 +183,13 @@ const Inventory = () => {
     );
   }
 
-  const lowStockItems = items.filter(item => item.quantity <= item.min_stock);
-
   return (
     <div className="space-y-6" data-testid="inventory-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900">Inventario</h1>
-          <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1 uppercase tracking-wider">
             {items.length} {items.length === 1 ? 'artículo' : 'artículos'}
-            {lowStockItems.length > 0 && (
-              <span className="text-red-600 font-semibold ml-2">
-                • {lowStockItems.length} con stock bajo
-              </span>
-            )}
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -194,24 +206,16 @@ const Inventory = () => {
           <DialogContent className="max-w-2xl p-0 max-h-[95vh] flex flex-col">
             <DialogHeader className="px-6 pt-6 pb-4 border-b">
               <DialogTitle>{editingItem ? 'Editar Artículo' : 'Nuevo Artículo'}</DialogTitle>
+              <DialogDescription>Completa los datos que tengas; puedes añadir los demás después.</DialogDescription>
             </DialogHeader>
             <div className="overflow-y-auto px-6 py-4 flex-1">
               <form onSubmit={handleSubmit} className="space-y-4" id="inventory-form">
-              <div>
-                <Label htmlFor="name" className="text-sm font-medium text-zinc-900">Nombre *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Pantalla LCD, Batería..."
-                  className="mt-1 border-zinc-200"
-                  required
-                  data-testid="item-name-input"
-                />
-              </div>
+              <InventoryNameSelector value={formData.name}
+                onChange={(name) => setFormData((current) => ({ ...current, name }))}
+                existingNames={items.map((item) => item.name).filter((name) => name !== 'Artículo sin nombre')} />
 
               <div>
-                <Label htmlFor="quantity" className="text-sm font-medium text-zinc-900">Stock *</Label>
+                <Label htmlFor="quantity" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Stock</Label>
                 <Input
                   id="quantity"
                   type="number"
@@ -219,37 +223,38 @@ const Inventory = () => {
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   className="mt-1 border-zinc-200"
-                  required
                   data-testid="item-quantity-input"
                   placeholder="Cantidad disponible"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="price" className="text-sm font-medium text-zinc-900">Precio (CLP) *</Label>
-                <div className="relative mt-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
-                  <Input
-                    id="price"
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.price}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^\d]/g, '');
-                      if (value) {
-                        const formatted = new Intl.NumberFormat('es-CL').format(parseInt(value));
-                        setFormData({ ...formData, price: formatted });
-                      } else {
-                        setFormData({ ...formData, price: '' });
-                      }
-                    }}
-                    placeholder="25.000"
-                    className="pl-7 border-zinc-200"
-                    required
-                    data-testid="item-price-input"
-                  />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="purchase-price" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Precio de compra (CLP)</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
+                    <Input id="purchase-price" type="text" inputMode="numeric" value={formData.purchase_price}
+                      onChange={(e) => setFormData({ ...formData, purchase_price: formatPriceInput(e.target.value) })}
+                      placeholder="15.000" className="pl-7 border-zinc-200" data-testid="item-purchase-price-input" />
+                  </div>
                 </div>
-                <p className="text-xs text-zinc-500 mt-1">Ejemplo: 25.000</p>
+                <div>
+                  <Label htmlFor="price" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Precio final (CLP)</Label>
+                  <div className="relative mt-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">$</span>
+                    <Input id="price" type="text" inputMode="numeric" value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: formatPriceInput(e.target.value) })}
+                      placeholder="25.000" className="pl-7 border-zinc-200" data-testid="item-price-input" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Descripción</Label>
+                <Textarea id="description" value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  maxLength={1000} placeholder="Características o detalles del artículo"
+                  className="mt-1 border-zinc-200" data-testid="item-description-input" />
               </div>
 
               <div>
@@ -282,20 +287,7 @@ const Inventory = () => {
                   />
                   <span className="text-xs text-zinc-500 min-w-[80px] text-right">Excelente (10)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {parseInt(formData.condition) <= 3 && (
-                    <Badge className="bg-red-100 text-red-800 border-red-200">Malo</Badge>
-                  )}
-                  {parseInt(formData.condition) >= 4 && parseInt(formData.condition) <= 6 && (
-                    <Badge className="bg-orange-100 text-orange-800 border-orange-200">Regular</Badge>
-                  )}
-                  {parseInt(formData.condition) >= 7 && parseInt(formData.condition) <= 8 && (
-                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">Bueno</Badge>
-                  )}
-                  {parseInt(formData.condition) >= 9 && (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Excelente</Badge>
-                  )}
-                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{conditionLabel(Number(formData.condition))}</p>
               </div>
 
               <div>
@@ -362,9 +354,9 @@ const Inventory = () => {
               <TableHead className="font-semibold text-zinc-900">Stock</TableHead>
               <TableHead className="font-semibold text-zinc-900">Estado</TableHead>
               <TableHead className="font-semibold text-zinc-900">Fotos</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Precio</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Compra</TableHead>
+              <TableHead className="font-semibold text-zinc-900">Precio final</TableHead>
               <TableHead className="font-semibold text-zinc-900">Ubicación</TableHead>
-              <TableHead className="font-semibold text-zinc-900">Inventario</TableHead>
               <TableHead className="font-semibold text-zinc-900">Disponibilidad</TableHead>
               <TableHead className="font-semibold text-zinc-900 text-right">Acciones</TableHead>
             </TableRow>
@@ -378,41 +370,26 @@ const Inventory = () => {
               </TableRow>
             ) : (
               items.map((item) => {
-                const isLowStock = item.quantity === 1; // Solo mostrar "Stock Bajo" cuando queda 1
-                const isOutOfStock = item.quantity === 0; // Sin stock
+                const isOutOfStock = item.quantity === 0;
                 return (
                   <TableRow 
                     key={item.id} 
-                    className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors ${
-                      isOutOfStock ? 'bg-red-50/50 dark:bg-red-950/30' : isLowStock ? 'bg-orange-50/50 dark:bg-orange-950/30' : ''
-                    }`}
+                    className="hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors"
                     data-testid={`inventory-row-${item.code}`}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         <Package size={16} className="text-zinc-400" />
-                        {item.name}
+                        <div>
+                          <span>{item.name}</span>
+                          {item.description && <p className="max-w-xs truncate text-xs font-normal text-zinc-500 dark:text-zinc-400" title={item.description}>{item.description}</p>}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{item.code}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
                     <TableCell>
-                      <span className={isOutOfStock ? 'text-red-700 font-bold' : isLowStock ? 'text-orange-600 font-semibold' : ''}>
-                        {item.quantity}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{item.condition || 10}/10</span>
-                        {item.condition >= 9 ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs">Excelente</Badge>
-                        ) : item.condition >= 7 ? (
-                          <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">Bueno</Badge>
-                        ) : item.condition >= 4 ? (
-                          <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-xs">Regular</Badge>
-                        ) : (
-                          <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">Malo</Badge>
-                        )}
-                      </div>
+                      <span className="text-sm">{item.condition ?? 10}/10 · {conditionLabel(item.condition ?? 10)}</span>
                     </TableCell>
                     <TableCell>
                       {item.photos && item.photos.length > 0 ? (
@@ -433,49 +410,19 @@ const Inventory = () => {
                         <span className="text-xs text-zinc-400 italic">Sin fotos</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">{formatCLP(item.price)}</TableCell>
+                    <TableCell>{item.purchase_price == null ? '—' : formatCLP(item.purchase_price)}</TableCell>
+                    <TableCell className="font-medium">{item.price == null ? '—' : formatCLP(item.price)}</TableCell>
                     <TableCell>{item.location || '-'}</TableCell>
                     <TableCell>
                       {isOutOfStock ? (
-                        <Badge className="bg-red-100 text-red-800 border-red-200 border font-medium" data-testid="out-of-stock-badge">
-                          <XCircle size={12} className="mr-1" />
-                          Sin Stock
-                        </Badge>
-                      ) : isLowStock ? (
-                        <Badge className="bg-orange-100 text-orange-800 border-orange-200 border font-medium" data-testid="low-stock-badge">
-                          <AlertTriangle size={12} className="mr-1" />
-                          Stock Bajo (1)
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 border font-medium">
-                          <CheckCircle2 size={12} className="mr-1" />
-                          Stock OK
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {isOutOfStock ? (
-                        <div className="flex items-center gap-2 text-zinc-400" title="No disponible - Sin stock">
-                          <XCircle size={16} className="text-zinc-400" />
-                          <span className="text-sm font-medium">No Disponible</span>
-                        </div>
+                        <span className="text-sm text-zinc-500" title="Sin unidades disponibles">Sin unidades</span>
                       ) : (
                         <button
                           onClick={() => handleToggleAvailability(item)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                          className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
                           data-testid={`toggle-availability-${item.code}`}
                         >
-                          {item.available !== undefined && item.available ? (
-                            <>
-                              <CheckCircle2 size={16} className="text-emerald-600" />
-                              <span className="text-sm font-medium text-emerald-700">Disponible</span>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle size={16} className="text-red-600" />
-                              <span className="text-sm font-medium text-red-700">No Disponible</span>
-                            </>
-                          )}
+                          {item.available !== false ? 'Disponible' : 'No disponible'}
                         </button>
                       )}
                     </TableCell>
@@ -515,6 +462,7 @@ const Inventory = () => {
             <DialogTitle className="text-xl font-semibold">
               Fotos de {selectedItemPhotos.name}
             </DialogTitle>
+            <DialogDescription>Imágenes guardadas para este artículo.</DialogDescription>
           </DialogHeader>
           
           {selectedItemPhotos.photos.length > 0 ? (

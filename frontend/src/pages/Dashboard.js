@@ -121,16 +121,16 @@ const Dashboard = () => {
         </Card>
 
         {user?.role === 'admin' && (
-        <Card className="bg-white border border-zinc-200 shadow-sm" data-testid="stat-card-low-stock">
+        <Card className="bg-white border border-zinc-200 shadow-sm" data-testid="stat-card-inventory">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Package className="text-red-600" size={24} strokeWidth={1.5} />
-              <p className="text-xs uppercase tracking-wider text-zinc-500">Stock</p>
+              <Package className="text-zinc-600" size={24} strokeWidth={1.5} />
+              <p className="text-xs uppercase tracking-wider text-zinc-500">Inventario</p>
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold tracking-tight text-zinc-900">{stats?.low_stock_items || 0}</p>
-            <p className="text-sm text-zinc-600 mt-1">Bajo Stock</p>
+            <p className="text-3xl font-bold tracking-tight text-zinc-900">{stats?.inventory_items_count || 0}</p>
+            <p className="text-sm text-zinc-600 mt-1">Artículos</p>
           </CardContent>
         </Card>
         )}
