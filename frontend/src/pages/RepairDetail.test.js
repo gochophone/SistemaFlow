@@ -57,13 +57,15 @@ test('el técnico solo edita detalles del servicio de una orden asignada', async
     customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
     device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla',
     diagnosis: '', budget_estimate: 20000,
+    budget_items: [{ issue: 'Pantalla', amount: 20000, cost_price: 4000 }],
   };
-  axios.get.mockResolvedValue({ data: repair });
+  axios.get.mockImplementation((url) => Promise.resolve({ data: url.includes('/api/team/technicians') ? [] : repair }));
   axios.patch.mockImplementation((url, changes) => Promise.resolve({ data: { ...repair, ...changes } }));
   await act(async () => root.render(<RepairDetail />));
   expect(document.querySelector('[data-testid="repair-customer-profile-link"]')).toBeNull();
   expect(document.querySelector('[data-testid="delete-repair-button"]')).toBeNull();
   expect(document.querySelector('[data-testid="print-delivery-button"]')).toBeNull();
+  expect(document.body.textContent).not.toContain('Precio costo');
   await act(async () => document.querySelector('[data-testid="edit-repair-button"]').click());
   expect(document.querySelector('#technician-diagnosis')).not.toBeNull();
   expect(document.querySelector('[data-testid="edit-repair-amount-0"]')).toBeNull();
@@ -79,6 +81,20 @@ test('el técnico solo edita detalles del servicio de una orden asignada', async
   expect(payload).not.toHaveProperty('budget_estimate');
   expect(payload).not.toHaveProperty('customer_id');
   expect(payload).not.toHaveProperty('assigned_technician_id');
+});
+
+test('el administrador ve el costo interno al consultar y editar la orden', async () => {
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'in_repair',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla',
+    budget_estimate: 20000, budget_items: [{ issue: 'Pantalla', amount: 20000, cost_price: 4000 }],
+  };
+  axios.get.mockImplementation((url) => Promise.resolve({ data: url.includes('/api/team/technicians') ? [] : repair }));
+  await act(async () => root.render(<RepairDetail />));
+  expect(document.body.textContent).toContain('Precio costo (privado): $4.000');
+  await act(async () => document.querySelector('[data-testid="edit-repair-button"]').click());
+  expect(document.querySelector('[data-testid="edit-repair-cost-0"]').value).toBe('4.000');
 });
 
 test('una orden completada queda de solo lectura para el técnico', async () => {

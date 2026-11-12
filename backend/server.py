@@ -267,6 +267,7 @@ class RepairNoteVisibility(BaseModel):
 class RepairBudgetItem(BaseModel):
     issue: str = Field(min_length=1, max_length=120)
     amount: int = Field(ge=0, le=1_000_000_000)
+    cost_price: Optional[int] = Field(default=None, ge=0, le=1_000_000_000)
 
     @field_validator("issue")
     @classmethod
@@ -279,6 +280,16 @@ def repair_budget_total(items: List[RepairBudgetItem]) -> int:
     if len(keys) != len(set(keys)):
         raise ValueError("Cada falla puede aparecer una sola vez en el presupuesto")
     return sum(item.amount for item in items)
+
+
+def repair_for_user(data: dict, current_user: dict) -> dict:
+    """Keep internal item costs out of responses sent to technicians."""
+    if current_user.get("role") == "admin" or not data.get("budget_items"):
+        return data
+    return {
+        **data,
+        "budget_items": [{**item, "cost_price": None} for item in data["budget_items"]],
+    }
 
 
 class Repair(BaseModel):
@@ -961,7 +972,7 @@ async def get_repairs(
             r['completed_date'] = datetime.fromisoformat(r['completed_date'])
         if r.get('delivered_date') and isinstance(r['delivered_date'], str):
             r['delivered_date'] = datetime.fromisoformat(r['delivered_date'])
-    return repairs
+    return [repair_for_user(repair, current_user) for repair in repairs]
 
 @api_router.get("/repairs/{repair_id}", response_model=Repair)
 async def get_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
@@ -982,7 +993,7 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
     if repair.get('delivered_date') and isinstance(repair['delivered_date'], str):
         repair['delivered_date'] = datetime.fromisoformat(repair['delivered_date'])
     
-    return Repair(**repair)
+    return Repair(**repair_for_user(repair, current_user))
 
 @api_router.patch("/repairs/{repair_id}", response_model=Repair)
 async def update_repair(repair_id: str, repair_update: RepairUpdate, current_user: dict = Depends(get_current_user)):
@@ -1141,7 +1152,7 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
                 logger.error(f"Failed to send email notification: {str(e)}")
                 # Don't fail the request if email fails
     
-    return Repair(**updated)
+    return Repair(**repair_for_user(updated, current_user))
 
 @api_router.post("/repairs/{repair_id}/notes", response_model=Repair)
 async def add_repair_note(repair_id: str, note: RepairNoteCreate, current_user: dict = Depends(get_current_user)):

@@ -154,7 +154,7 @@ const RepairDetail = () => {
         budget_estimate: response.data.budget_estimate ?? '',
         budget_items: response.data.budget_items?.length
           ? response.data.budget_items.map((item, index) => ({ ...item, draftId: `saved-${index}` }))
-          : [{ issue: response.data.reported_issue, amount: response.data.budget_estimate ?? '' }],
+          : [{ issue: response.data.reported_issue, cost_price: '', amount: response.data.budget_estimate ?? '' }],
         vat_included: response.data.vat_included || false,
         notes: response.data.notes || '',
         notes_private: response.data.notes_private || false,
@@ -197,7 +197,8 @@ const RepairDetail = () => {
       toast.error('Selecciona o escribe la falla reportada.');
       return;
     }
-    const budgetDraft = updateData.budget_items.length === 1 && updateData.budget_items[0].amount === ''
+    const budgetDraft = updateData.budget_items.length === 1 && updateData.budget_items[0].amount === '' &&
+      (updateData.budget_items[0].cost_price === '' || updateData.budget_items[0].cost_price == null)
       ? [] : updateData.budget_items;
     const budget = prepareBudgetItems(budgetDraft);
     if (budget.error) {
@@ -1132,7 +1133,9 @@ const RepairDetail = () => {
               <CardContent className="space-y-2">
                 {repair.budget_items?.map((item, index) => (
                   <p key={`${item.issue}-${index}`} className="flex justify-between gap-3 border-b border-zinc-100 pb-2 text-sm text-zinc-700 dark:border-zinc-800 dark:text-zinc-300">
-                    <span>{item.issue}</span><strong>{formatCLP(item.amount)}</strong>
+                    <span>{item.issue}{!isTechnician && item.cost_price != null &&
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">Precio costo (privado): {formatCLP(item.cost_price)}</span>}</span>
+                    <strong>{formatCLP(item.amount)}</strong>
                   </p>
                 ))}
                 {repair.vat_included && <>
@@ -1142,7 +1145,7 @@ const RepairDetail = () => {
                 <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100" data-testid="budget-estimate">
                   {formatCLP(budget.total)}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">{repair.vat_included ? 'Total con IVA · Pesos Chilenos (CLP)' : 'Pesos Chilenos (CLP)'}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{repair.vat_included ? 'Precio final con IVA · Pesos Chilenos (CLP)' : 'Precio final · Pesos Chilenos (CLP)'}</p>
               </CardContent>
             </Card>
           )}

@@ -211,7 +211,7 @@ const NewRepair = () => {
     diagnosis: '',
     assigned_technician_id: '',
     budget_estimate: '',
-    budget_items: [{ issue: '', amount: '' }],
+    budget_items: [{ issue: '', cost_price: '', amount: '' }],
     vat_included: false,
     notes: '',
     notes_private: false,
@@ -313,7 +313,8 @@ const NewRepair = () => {
       toast.error('Selecciona o escribe la falla reportada.');
       return;
     }
-    const budgetDraft = formData.budget_items.length === 1 && formData.budget_items[0].amount === ''
+    const budgetDraft = formData.budget_items.length === 1 && formData.budget_items[0].amount === '' &&
+      (formData.budget_items[0].cost_price === '' || formData.budget_items[0].cost_price == null)
       ? [] : formData.budget_items;
     const budget = prepareBudgetItems(budgetDraft);
     if (budget.error) {

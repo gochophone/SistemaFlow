@@ -32,7 +32,9 @@ test('suma valores por falla, calcula IVA y permite quitar una falla', async () 
   try {
     await act(async () => root.render(<Harness />));
     expect(container.querySelectorAll('select[aria-label="Falla reportada *"]')).toHaveLength(1);
+    expect(container.querySelector('label[for="test-repair-amount-0"]').textContent).toBe('Precio final (CLP)');
     await act(async () => enterText(container.querySelector('[data-testid="test-repair-amount-0"]'), '100.000'));
+    await act(async () => enterText(container.querySelector('[data-testid="test-repair-cost-0"]'), '40.000'));
     await act(async () => container.querySelector('[data-testid="test-repair-add-budget-item"]').click());
     await act(async () => {
       const select = container.querySelector('select[aria-label="Falla adicional"]');
@@ -42,7 +44,7 @@ test('suma valores por falla, calcula IVA y permite quitar una falla', async () 
     await act(async () => enterText(container.querySelector('[data-testid="test-repair-amount-1"]'), '25.000'));
     expect(container.querySelector('[data-testid="test-repair-budget-total"]').textContent).toContain('125.000');
     expect(prepareBudgetItems(state.items)).toEqual({ items: [
-      { issue: 'Pantalla', amount: 100000 }, { issue: 'Flex carga', amount: 25000 },
+      { issue: 'Pantalla', amount: 100000, cost_price: 40000 }, { issue: 'Flex carga', amount: 25000 },
     ], amount: 125000 });
 
     await act(async () => container.querySelector('[data-testid="test-repair-vat-switch"]').click());
@@ -54,4 +56,11 @@ test('suma valores por falla, calcula IVA y permite quitar una falla', async () 
     await act(async () => root.unmount());
     container.remove();
   }
+});
+
+test('rechaza un costo inválido sin cambiar el precio final', () => {
+  expect(prepareBudgetItems([{ issue: 'Pantalla', amount: 100000, cost_price: -1 }]).error)
+    .toMatch(/precio de costo/);
+  expect(prepareBudgetItems([{ issue: 'Pantalla', amount: '', cost_price: 40000 }]).error)
+    .toMatch(/precio final/);
 });

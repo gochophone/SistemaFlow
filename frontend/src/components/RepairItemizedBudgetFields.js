@@ -27,17 +27,18 @@ const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) 
   return (
     <div className="space-y-4" data-testid={`${idPrefix}-itemized-budget`}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Valor por falla</h3>
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Precios por falla</h3>
         <Button type="button" variant="outline" size="sm"
-          onClick={() => changeItems([...rows, { issue: '', amount: '', draftId: Math.random().toString(36).slice(2) }])}
+          onClick={() => changeItems([...rows, { issue: '', cost_price: '', amount: '', draftId: Math.random().toString(36).slice(2) }])}
           disabled={!rows[0]?.issue?.trim() || rows.length >= MAX_REPAIR_BUDGET_ITEMS}
           data-testid={`${idPrefix}-add-budget-item`}>
           <Plus size={15} className="mr-1" /> Agregar falla
         </Button>
       </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">El precio de costo es opcional y privado para administradores. No aparece en el PDF del cliente.</p>
 
       {rows.map((item, index) => (
-        <div key={index === 0 ? 'primary' : item.draftId} className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-end"
+        <div key={index === 0 ? 'primary' : item.draftId} className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950 md:grid-cols-[minmax(0,1fr)_9rem_9rem_auto] md:items-end"
           data-testid={`${idPrefix}-budget-item-${index}`}>
           <RepairIssueSelector
             idPrefix={index === 0 ? 'reported-issue' : `${idPrefix}-issue-${index}`}
@@ -45,7 +46,14 @@ const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) 
             showFrequent={index === 0}
             value={item.issue} onChange={(issue) => changeItem(index, { issue })} />
           <div>
-            <Label htmlFor={`${idPrefix}-amount-${index}`} className="text-sm text-zinc-900 dark:text-zinc-100">Valor (CLP)</Label>
+            <Label htmlFor={`${idPrefix}-cost-${index}`} className="text-sm text-zinc-900 dark:text-zinc-100">Precio costo (CLP)</Label>
+            <Input id={`${idPrefix}-cost-${index}`} inputMode="numeric" className="mt-1 dark:bg-zinc-900 dark:text-zinc-100"
+              value={item.cost_price === '' || item.cost_price === null || item.cost_price === undefined ? '' : numberFormat.format(item.cost_price)}
+              onChange={(event) => changeItem(index, { cost_price: parseBudgetInput(event.target.value) ?? '' })}
+              placeholder="Opcional" data-testid={`${idPrefix}-cost-${index}`} />
+          </div>
+          <div>
+            <Label htmlFor={`${idPrefix}-amount-${index}`} className="text-sm text-zinc-900 dark:text-zinc-100">Precio final (CLP)</Label>
             <Input id={`${idPrefix}-amount-${index}`} inputMode="numeric" className="mt-1 dark:bg-zinc-900 dark:text-zinc-100"
               value={item.amount === '' || item.amount === null || item.amount === undefined ? '' : numberFormat.format(item.amount)}
               onChange={(event) => changeItem(index, { amount: parseBudgetInput(event.target.value) ?? '' })}
@@ -57,7 +65,7 @@ const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) 
               data-testid={`${idPrefix}-remove-budget-item-${index}`}>
               <Trash2 size={16} />
             </Button>
-          ) : <span className="hidden w-10 sm:block" />}
+          ) : <span className="hidden w-10 md:block" />}
         </div>
       ))}
 
@@ -77,7 +85,7 @@ const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) 
                 onChange={rows.length === 1 ? changeNet : undefined}
                 readOnly={rows.length !== 1}
                 data-testid={`${idPrefix}-net-input`} />
-              {rows.length > 1 && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Modifica los valores de las fallas para cambiar el neto.</p>}
+              {rows.length > 1 && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Modifica los precios finales de las fallas para cambiar el neto.</p>}
             </div>
             <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-900 dark:bg-blue-950">
               <p className="text-xs font-medium text-blue-700 dark:text-blue-300">IVA (19%)</p>
@@ -88,7 +96,7 @@ const RepairItemizedBudgetFields = ({ idPrefix, items, vatIncluded, onChange }) 
           </div>
         )}
         <p className="mt-4 flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 text-base font-semibold text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-          <span>Valor total{vatIncluded ? ' con IVA' : ''}</span>
+          <span>Precio final total{vatIncluded ? ' con IVA' : ''}</span>
           <span data-testid={`${idPrefix}-budget-total`}>{breakdown ? formatCLP(breakdown.total) : '—'}</span>
         </p>
       </div>

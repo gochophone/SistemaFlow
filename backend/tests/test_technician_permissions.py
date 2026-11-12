@@ -109,6 +109,18 @@ def test_work_and_history_are_filtered_by_technician_and_state(store):
     assert "completed" in store.query["status"]["$in"]
 
 
+def test_item_cost_is_private_in_all_technician_repair_responses(store):
+    store.doc["budget_items"] = [{"issue": "Pantalla", "amount": 10000, "cost_price": 4000}]
+    admin = {"id": "admin-1", "tenant_id": TENANT, "name": "Dueño", "role": "admin"}
+    assert asyncio.run(server.get_repair("repair-1", admin)).budget_items[0].cost_price == 4000
+    assert asyncio.run(server.get_repair("repair-1", TECH)).budget_items[0].cost_price is None
+    assert asyncio.run(server.get_repairs(scope="work", current_user=TECH))[0]["budget_items"][0]["cost_price"] is None
+    changed = asyncio.run(server.update_repair(
+        "repair-1", server.RepairUpdate(diagnosis="Revisado"), TECH))
+    assert changed.budget_items[0].cost_price is None
+    assert store.doc["budget_items"][0]["cost_price"] == 4000
+
+
 def test_technician_can_edit_service_but_not_price_or_completed_order(store):
     changed = asyncio.run(server.update_repair(
         "repair-1", server.RepairUpdate(diagnosis="Cambio de pantalla"), TECH))
