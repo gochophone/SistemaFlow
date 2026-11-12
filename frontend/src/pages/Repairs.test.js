@@ -6,12 +6,13 @@ import Repairs from './Repairs';
 
 const mockNavigate = jest.fn();
 let mockSearchQuery = '';
+let mockUser = { role: 'admin' };
 jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useSearchParams: () => [new URLSearchParams(mockSearchQuery)],
 }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ getAuthHeader: () => ({ Authorization: 'Bearer test-token' }) }),
+  useAuth: () => ({ user: mockUser, getAuthHeader: () => ({ Authorization: 'Bearer test-token' }) }),
 }));
 jest.mock('axios');
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -46,6 +47,7 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockSearchQuery = '';
+  mockUser = { role: 'admin' };
   axios.get.mockResolvedValue({ data: [repair] });
   axios.patch.mockImplementation((url, changes) => Promise.resolve({ data: { ...repair, ...changes } }));
   jest.spyOn(window, 'confirm').mockReturnValue(true);
@@ -53,6 +55,22 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
 });
+
+test.each([['work', 'Órdenes de trabajo'], ['history', 'Historial de órdenes']])(
+  'el técnico ve %s sin controles administrativos', async (scope, title) => {
+    mockUser = { role: 'technician' };
+    await act(async () => root.render(<Repairs scope={scope} />));
+    expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/api/repairs'), {
+      headers: { Authorization: 'Bearer test-token' }, params: { scope },
+    });
+    expect(container.textContent).toContain(title);
+    expect(container.querySelector('[data-testid="new-repair-button"]')).toBeNull();
+    expect(container.querySelector('[data-testid="quick-status-REP-TEST"]')).toBeNull();
+    expect(container.querySelector('[data-testid="filter-unpaid"]')).toBeNull();
+    await act(async () => container.querySelector('[data-testid="repair-row-REP-TEST"]').click());
+    expect(mockNavigate).toHaveBeenCalledWith('/repairs/repair-1');
+  },
+);
 
 afterEach(async () => {
   await act(async () => root.unmount());

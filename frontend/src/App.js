@@ -23,7 +23,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import '@/App.css';
 
 const SubscriptionGate = ({ children }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [state, setState] = useState('loading');
@@ -40,15 +40,20 @@ const SubscriptionGate = ({ children }) => {
     if (!billingPage) check();
     const timer = billingPage ? null : setInterval(check, 60000);
     const interceptor = axios.interceptors.response.use(response => response, error => {
-      if (error.response?.status === 402 && !billingPage) navigate('/billing', { replace: true });
+      if (error.response?.status === 402 && !billingPage) {
+        if (user?.role === 'admin') navigate('/billing', { replace: true });
+        else setState('expired');
+      }
       return Promise.reject(error);
     });
     return () => { live = false; clearInterval(timer); axios.interceptors.response.eject(interceptor); };
-  }, [token, location.pathname, billingPage, navigate]);
+  }, [token, location.pathname, billingPage, navigate, user?.role]);
   if (billingPage) return children;
   if (state === 'loading') return null;
   if (state === 'error') return <div className="p-8">No se pudo verificar el acceso. <button onClick={() => window.location.reload()}>Reintentar</button></div>;
-  if (state === 'expired') return <Navigate to="/billing" replace />;
+  if (state === 'expired') return user?.role === 'admin'
+    ? <Navigate to="/billing" replace />
+    : <div className="p-8">La suscripción está vencida. Pide al administrador que la renueve.</div>;
   return children;
 };
 
@@ -86,7 +91,17 @@ const ProtectedRoute = ({ children }) => {
 
 const AdminRoute = ({ children }) => {
   const { user } = useAuth();
-  return user?.role === "admin" ? children : <Navigate to="/" replace />;
+  return user?.role === "admin" ? children : <Navigate to="/work-orders" replace />;
+};
+
+const TechnicianRoute = ({ children }) => {
+  const { user } = useAuth();
+  return user?.role === "technician" ? children : <Navigate to="/" replace />;
+};
+
+const HomeRoute = () => {
+  const { user } = useAuth();
+  return user?.role === 'technician' ? <Navigate to="/work-orders" replace /> : <Dashboard />;
 };
 
 function App() {
@@ -97,20 +112,22 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/public/:ticketNumber" element={<PublicRepairView />} />
-          <Route path="/print-label/:id" element={<ProtectedRoute><PrintLabel /></ProtectedRoute>} />
+          <Route path="/print-label/:id" element={<ProtectedRoute><AdminRoute><PrintLabel /></AdminRoute></ProtectedRoute>} />
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
           }>
-            <Route path="billing" element={<Billing />} />
-            <Route index element={<Dashboard />} />
-            <Route path="repairs" element={<Repairs />} />
-            <Route path="repairs/new" element={<NewRepair />} />
+            <Route path="billing" element={<AdminRoute><Billing /></AdminRoute>} />
+            <Route index element={<HomeRoute />} />
+            <Route path="work-orders" element={<TechnicianRoute><Repairs scope="work" /></TechnicianRoute>} />
+            <Route path="work-history" element={<TechnicianRoute><Repairs scope="history" /></TechnicianRoute>} />
+            <Route path="repairs" element={<AdminRoute><Repairs /></AdminRoute>} />
+            <Route path="repairs/new" element={<AdminRoute><NewRepair /></AdminRoute>} />
             <Route path="repairs/:id" element={<RepairDetail />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="customers/:id" element={<CustomerDetail />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="customers" element={<AdminRoute><Customers /></AdminRoute>} />
+            <Route path="customers/:id" element={<AdminRoute><CustomerDetail /></AdminRoute>} />
+            <Route path="settings" element={<AdminRoute><Settings /></AdminRoute>} />
             <Route path="inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
             <Route path="sales" element={<AdminRoute><Sales /></AdminRoute>} />
             <Route path="team" element={<AdminRoute><Team /></AdminRoute>} />

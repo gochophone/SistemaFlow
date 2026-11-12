@@ -44,8 +44,9 @@ const confirmTerminalStatus = (status) => {
   return window.confirm(`¿Confirmas cambiar la orden a ${label}? Después de aceptar no podrás modificar nuevamente su estado.`);
 };
 
-const Repairs = () => {
-  const { getAuthHeader } = useAuth();
+const Repairs = ({ scope }) => {
+  const { user, getAuthHeader } = useAuth();
+  const isTechnician = user?.role === 'technician';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('search');
@@ -64,7 +65,7 @@ const Repairs = () => {
     const headers = getAuthHeader();
     Promise.all([
       axios.get(`${API}/api/repairs`, {
-        headers, ...(customerFilter ? { params: { customer_id: customerFilter } } : {}),
+        headers, params: { ...(customerFilter ? { customer_id: customerFilter } : {}), ...(scope ? { scope } : {}) },
       }),
       customerFilter
         ? axios.get(`${API}/api/customers/${encodeURIComponent(customerFilter)}`, { headers }).catch(() => null)
@@ -80,7 +81,7 @@ const Repairs = () => {
     });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerFilter]);
+  }, [customerFilter, scope]);
 
   const unpaidCount = repairs.filter(isUnpaidDelivered).length;
   const normalizedSearch = (searchQuery || '').trim().toLowerCase();
@@ -181,20 +182,20 @@ const Repairs = () => {
     <div className="space-y-6" data-testid="repairs-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Reparaciones</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{scope === 'work' ? 'Órdenes de trabajo' : scope === 'history' ? 'Historial de órdenes' : 'Reparaciones'}</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1 uppercase tracking-wider">
             {filteredRepairs.length} {filteredRepairs.length === 1 ? 'orden' : 'órdenes'}
             {searchQuery && ` - Buscando: "${searchQuery}"`}
           </p>
         </div>
-        <Button
+        {!isTechnician && <Button
           onClick={() => navigate('/repairs/new')}
           className="bg-blue-600 text-white hover:bg-blue-700 font-medium"
           data-testid="new-repair-button"
         >
           <Plus size={18} className="mr-2" />
           Nueva Reparación
-        </Button>
+        </Button>}
       </div>
 
       {customerFilter && (
@@ -204,7 +205,7 @@ const Repairs = () => {
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
+      {!isTechnician && <div className="flex gap-2 flex-wrap">
         <Button
           variant={statusFilter === 'all' ? 'default' : 'outline'}
           onClick={() => setStatusFilter('all')}
@@ -239,7 +240,7 @@ const Repairs = () => {
             </Button>
           );
         })}
-      </div>
+      </div>}
 
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-sm overflow-hidden">
         <Table>
@@ -258,7 +259,7 @@ const Repairs = () => {
             {filteredRepairs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-12 text-zinc-500 dark:text-zinc-400">
-                  {normalizedSearch ? 'No se encontraron resultados' : statusFilter === 'unpaid' ? 'No hay órdenes entregadas pendientes de pago' : customerFilter ? 'Este cliente aún no tiene reparaciones registradas' : 'No hay reparaciones registradas'}
+                  {normalizedSearch ? 'No se encontraron resultados' : scope === 'work' ? 'No tienes órdenes de trabajo pendientes' : scope === 'history' ? 'Todavía no tienes órdenes terminadas' : statusFilter === 'unpaid' ? 'No hay órdenes entregadas pendientes de pago' : customerFilter ? 'Este cliente aún no tiene reparaciones registradas' : 'No hay reparaciones registradas'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -276,7 +277,7 @@ const Repairs = () => {
                   {/* The portalled status menu also bubbles clicks through this cell. */}
                   <TableCell onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center gap-2">
-                      <Select
+                      {isTechnician ? <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${STATUS_CONFIG[repair.status]?.color || ''}`}>{STATUS_CONFIG[repair.status]?.label || repair.status}</span> : <Select
                         value={repair.status}
                         onValueChange={(status) => handleStatusChange(repair, status)}
                         disabled={savingStatusId === repair.id || TERMINAL_STATUSES.has(repair.status)}
@@ -302,8 +303,8 @@ const Repairs = () => {
                             </React.Fragment>
                           ))}
                         </SelectContent>
-                      </Select>
-                      {repair.status === 'delivered' && (
+                      </Select>}
+                      {!isTechnician && repair.status === 'delivered' && (
                         <div
                           className="flex items-center gap-2"
                           onClick={(event) => event.stopPropagation()}
@@ -352,11 +353,11 @@ const Repairs = () => {
           </TableBody>
         </Table>
       </div>
-      <PaymentConfirmationDialog
+      {!isTechnician && <PaymentConfirmationDialog
         change={pendingPayment}
         onCancel={() => setPendingPayment(null)}
         onConfirm={confirmPaymentChange}
-      />
+      />}
     </div>
   );
 };

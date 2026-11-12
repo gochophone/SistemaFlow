@@ -66,6 +66,7 @@ const RepairDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, getAuthHeader } = useAuth();
+  const isTechnician = user?.role === 'technician';
   const [repair, setRepair] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -104,9 +105,9 @@ const RepairDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (editDialogOpen) fetchTechnicians();
+    if (editDialogOpen && !isTechnician) fetchTechnicians();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editDialogOpen]);
+  }, [editDialogOpen, isTechnician]);
 
   useEffect(() => () => {
     if (deliveryPreview?.url) window.URL.revokeObjectURL?.(deliveryPreview.url);
@@ -120,8 +121,9 @@ const RepairDetail = () => {
       const { data } = await axios.get(`${API}/api/team/technicians`, { headers: getAuthHeader() });
       setTechnicians(data);
       setUpdateData((current) => {
-        if (!current.assigned_technician || data.some((technician) => technician.name === current.assigned_technician)) return current;
-        return { ...current, assigned_technician: '' };
+        if (current.assigned_technician_id) return current;
+        const matches = data.filter((technician) => technician.name === current.assigned_technician);
+        return matches.length === 1 ? { ...current, assigned_technician_id: matches[0].id } : current;
       });
     } catch (error) {
       toast.error(error.response?.data?.detail || 'No se pudo cargar la lista de técnicos');
@@ -136,7 +138,7 @@ const RepairDetail = () => {
     try {
       const { data } = await axios.post(`${API}/api/team`, { ...newTechnician, role: 'technician' }, { headers: getAuthHeader() });
       setTechnicians((current) => [...current, { id: data.id, name: data.name }].sort((a, b) => a.name.localeCompare(b.name, 'es')));
-      setUpdateData((current) => ({ ...current, assigned_technician: data.name }));
+      setUpdateData((current) => ({ ...current, assigned_technician: data.name, assigned_technician_id: data.id }));
       setNewTechnician({ name: '', email: '', password: '' });
       setShowCreateTechnician(false);
       toast.success('Técnico creado y seleccionado');
@@ -165,6 +167,7 @@ const RepairDetail = () => {
         notes: response.data.notes || '',
         notes_private: response.data.notes_private || false,
         assigned_technician: response.data.assigned_technician || '',
+        assigned_technician_id: response.data.assigned_technician_id || '',
       });
     } catch (error) {
       toast.error('Error al cargar la orden');
@@ -175,6 +178,29 @@ const RepairDetail = () => {
   };
 
   const handleUpdate = async () => {
+    if (isTechnician) {
+      if (!updateData.reported_issue?.trim()) {
+        toast.error('Escribe la falla reportada.');
+        return;
+      }
+      setUpdating(true);
+      try {
+        const { data } = await axios.patch(`${API}/api/repairs/${id}`, {
+          reported_issue: updateData.reported_issue.trim(),
+          diagnosis: updateData.diagnosis,
+          notes: updateData.notes,
+          notes_private: updateData.notes_private,
+        }, { headers: getAuthHeader() });
+        setRepair(data);
+        setEditDialogOpen(false);
+        toast.success('Detalles del servicio guardados');
+      } catch (error) {
+        toast.error(error.response?.data?.detail || 'No se pudo actualizar la orden');
+      } finally {
+        setUpdating(false);
+      }
+      return;
+    }
     if (!updateData.budget_items[0]?.issue?.trim()) {
       toast.error('Selecciona o escribe la falla reportada.');
       return;
@@ -195,6 +221,11 @@ const RepairDetail = () => {
         budget_estimate: budget.amount,
       };
       if (payload.reported_issue === repair.reported_issue) delete payload.reported_issue;
+      if (payload.assigned_technician_id === (repair.assigned_technician_id || '') &&
+          payload.assigned_technician === (repair.assigned_technician || '')) {
+        delete payload.assigned_technician_id;
+        delete payload.assigned_technician;
+      }
       
       await axios.patch(`${API}/api/repairs/${id}`, payload, {
         headers: getAuthHeader()
@@ -252,7 +283,9 @@ const RepairDetail = () => {
       toast.error(`El estado ${STATUS_CONFIG[repair.status].label} es definitivo y está bloqueado.`);
       return;
     }
-    if (!confirmTerminalStatus(status)) return;
+    if (isTechnician && status === 'completed') {
+      if (!window.confirm('¿Marcar esta orden como completada? Pasará a tu historial y ya no podrás modificarla.')) return;
+    } else if (!confirmTerminalStatus(status)) return;
     setUpdating(true);
     try {
       const { data } = await axios.patch(`${API}/api/repairs/${id}`, { status }, {
@@ -538,13 +571,15 @@ const RepairDetail = () => {
   }
 
   const budget = budgetBreakdown(repair.budget_estimate, repair.vat_included);
+  const technicianLocked = isTechnician && ['completed', 'delivered', 'not_repaired'].includes(repair.status);
+  const backPath = isTechnician ? (technicianLocked ? '/work-history' : '/work-orders') : '/repairs';
 
   return (
     <div className="max-w-5xl" data-testid="repair-detail-page">
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate('/repairs')}
+          onClick={() => navigate(backPath)}
           className="mb-4"
           data-testid="back-button"
         >
@@ -559,7 +594,7 @@ const RepairDetail = () => {
             <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">Orden de Reparación</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
+            {!isTechnician && <Button
               variant="outline"
               onClick={() => isNativeApp() ? navigate(`/print-label/${repair.id}`) : window.open(`/print-label/${repair.id}`, '_blank')}
               data-testid="print-label-button"
@@ -567,9 +602,9 @@ const RepairDetail = () => {
             >
               <Printer size={18} className="mr-2" />
               Imprimir etiqueta
-            </Button>
+            </Button>}
             
-            {repair.status === 'delivered' && <>
+            {!isTechnician && repair.status === 'delivered' && <>
               <Button variant="outline" onClick={openDeliveryPreview} disabled={openingDelivery} className="border-green-600 text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-950/40" data-testid="print-delivery-button">
                 <FileText size={18} className="mr-2" />{openingDelivery ? 'Abriendo PDF...' : 'Ver PDF de entrega'}
               </Button>
@@ -583,16 +618,39 @@ const RepairDetail = () => {
             
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" data-testid="edit-repair-button">
+                <Button variant="outline" disabled={technicianLocked} data-testid="edit-repair-button">
                   <Edit size={18} className="mr-2" />
-                  Editar
+                  {isTechnician ? 'Editar servicio' : 'Editar'}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Actualizar Orden</DialogTitle>
+                  <DialogDescription>
+                    {isTechnician ? 'Actualiza los detalles del servicio. El cliente y el precio solo los puede modificar un administrador.' : 'Actualiza los datos de la orden.'}
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
+                  {isTechnician ? <>
+                    <div><Label htmlFor="technician-issue">Falla reportada</Label>
+                      <Input id="technician-issue" value={updateData.reported_issue || ''}
+                        onChange={(event) => setUpdateData((current) => ({ ...current, reported_issue: event.target.value }))} />
+                    </div>
+                    <div><Label htmlFor="technician-diagnosis">Diagnóstico</Label>
+                      <Textarea id="technician-diagnosis" value={updateData.diagnosis || ''}
+                        onChange={(event) => setUpdateData((current) => ({ ...current, diagnosis: event.target.value }))} />
+                    </div>
+                    <div><Label htmlFor="technician-notes">Notas del servicio</Label>
+                      <Textarea id="technician-notes" value={updateData.notes || ''}
+                        onChange={(event) => setUpdateData((current) => ({ ...current, notes: event.target.value }))} />
+                      <div className="mt-2 flex items-center gap-2"><Switch id="technician-notes-private"
+                        checked={!!updateData.notes_private}
+                        onCheckedChange={(checked) => setUpdateData((current) => ({ ...current, notes_private: checked }))} />
+                        <Label htmlFor="technician-notes-private">Nota privada: no aparece en el PDF</Label></div>
+                    </div>
+                    <div className="flex gap-2"><Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleUpdate} disabled={updating}>Guardar servicio</Button></div>
+                  </> : <>
                   <div>
                     <Label className="text-sm font-medium text-zinc-900">Estado</Label>
                     <Select
@@ -620,8 +678,8 @@ const RepairDetail = () => {
                   <div>
                     <Label className="text-sm font-medium text-zinc-900">Técnico Asignado</Label>
                     <Select
-                      value={updateData.assigned_technician || '__none__'}
-                      onValueChange={(value) => setUpdateData({ ...updateData, assigned_technician: value === '__none__' ? '' : value })}
+                      value={updateData.assigned_technician_id || '__none__'}
+                      onValueChange={(value) => setUpdateData({ ...updateData, assigned_technician_id: value === '__none__' ? '' : value, assigned_technician: '' })}
                       disabled={techniciansLoading}
                     >
                       <SelectTrigger className="mt-1" data-testid="update-technician-select">
@@ -630,7 +688,7 @@ const RepairDetail = () => {
                       <SelectContent>
                         <SelectItem value="__none__">Sin técnico asignado</SelectItem>
                         {technicians.map((technician) => (
-                          <SelectItem key={technician.id} value={technician.name}>{technician.name}</SelectItem>
+                          <SelectItem key={technician.id} value={technician.id}>{technician.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -704,22 +762,23 @@ const RepairDetail = () => {
                       {updating ? 'Guardando...' : 'Guardar Cambios'}
                     </Button>
                   </div>
+                  </>}
                 </div>
               </DialogContent>
             </Dialog>
 
-            <Button 
+            {!isTechnician && <Button
               variant="destructive" 
               onClick={handleDelete}
               data-testid="delete-repair-button"
             >
               <Trash2 size={18} />
-            </Button>
+            </Button>}
           </div>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30" data-testid="repair-tracking-actions">
+      {!isTechnician && <div className="mb-6 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30" data-testid="repair-tracking-actions">
         <div>
           <p className="font-semibold text-blue-950 dark:text-blue-100">Seguimiento del cliente</p>
           {trackingUrl ? (
@@ -736,7 +795,7 @@ const RepairDetail = () => {
             <MessageCircle size={16} className="mr-2" />{sharingTracking ? 'Preparando…' : 'Enviar seguimiento al cliente'}
           </Button>
         </div>
-      </div>
+      </div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -752,12 +811,12 @@ const RepairDetail = () => {
                 <div>
                   <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Cliente</p>
                   <p data-testid="customer-name">
-                    <button type="button" onClick={() => navigate(`/customers/${encodeURIComponent(repair.customer_id)}`)}
+                    {isTechnician ? <span className="text-base font-medium">{repair.customer_name}</span> : <button type="button" onClick={() => navigate(`/customers/${encodeURIComponent(repair.customer_id)}`)}
                       className="text-left text-base font-medium text-blue-700 underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"
                       aria-label={`Ver ficha e historial de ${repair.customer_name}`}
                       data-testid="repair-customer-profile-link">
                       {repair.customer_name}
-                    </button>
+                    </button>}
                   </p>
                 </div>
               </div>
@@ -795,7 +854,7 @@ const RepairDetail = () => {
             </CardContent>
           </Card>
 
-          {(!TERMINAL_STATUSES.has(repair.status) || (repair.device_photos && repair.device_photos.length > 0)) && (
+          {((!TERMINAL_STATUSES.has(repair.status) && !technicianLocked) || (repair.device_photos && repair.device_photos.length > 0)) && (
             <Card className="bg-white border border-zinc-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl font-medium">
@@ -804,7 +863,7 @@ const RepairDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {!TERMINAL_STATUSES.has(repair.status) ? (
+                {!TERMINAL_STATUSES.has(repair.status) && !technicianLocked ? (
                   <DevicePhotos
                     photos={repair.device_photos || []}
                     onChange={handlePhotosChange}
@@ -877,7 +936,7 @@ const RepairDetail = () => {
                     </Badge>
                   </div>
                   <p className="whitespace-pre-wrap break-words text-sm text-zinc-900 dark:text-zinc-100">{repair.notes}</p>
-                  <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setEditDialogOpen(true)}>Editar nota o privacidad</Button>
+                  {!technicianLocked && <Button type="button" variant="link" className="mt-1 h-auto px-0 text-xs" onClick={() => setEditDialogOpen(true)}>Editar nota o privacidad</Button>}
                 </div>
               )}
               {(repair.note_entries || []).map((note) => (
@@ -889,14 +948,14 @@ const RepairDetail = () => {
                       </Badge>
                       <span className="text-xs text-zinc-500 dark:text-zinc-400">{note.created_by} · {formatDate(note.created_at)}</span>
                     </div>
-                    <Button type="button" variant="outline" size="sm" disabled={!!changingNoteId} onClick={() => handleNoteVisibility(note)} data-testid={`toggle-note-${note.id}`}>
+                    {!technicianLocked && <Button type="button" variant="outline" size="sm" disabled={!!changingNoteId} onClick={() => handleNoteVisibility(note)} data-testid={`toggle-note-${note.id}`}>
                       {note.is_private ? 'Incluir en PDF' : 'Hacer privada'}
-                    </Button>
+                    </Button>}
                   </div>
                   <p className="whitespace-pre-wrap break-words text-sm text-zinc-900 dark:text-zinc-100">{note.text}</p>
                 </div>
               ))}
-              <form onSubmit={handleAddNote} className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+              {!technicianLocked && <form onSubmit={handleAddNote} className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                 <Label htmlFor="new-repair-note" className="dark:text-zinc-100">Agregar nota</Label>
                 <Textarea id="new-repair-note" value={newNote} onChange={(event) => setNewNote(event.target.value)} maxLength={500} placeholder="Escribe una nota para esta orden..." data-testid="new-repair-note" />
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -908,7 +967,7 @@ const RepairDetail = () => {
                     {savingNote ? 'Guardando...' : 'Guardar nota'}
                   </Button>
                 </div>
-              </form>
+              </form>}
             </CardContent>
           </Card>
 
@@ -983,7 +1042,7 @@ const RepairDetail = () => {
               <Select
                 value={repair.status}
                 onValueChange={handleQuickStatusChange}
-                disabled={updating || TERMINAL_STATUSES.has(repair.status)}
+                disabled={updating || TERMINAL_STATUSES.has(repair.status) || technicianLocked}
               >
                 <SelectTrigger
                   className={`w-full border font-medium text-base ${STATUS_CONFIG[repair.status]?.color}`}
@@ -993,7 +1052,7 @@ const RepairDetail = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(STATUS_CONFIG).map(([value, config]) => (
+                  {Object.entries(STATUS_CONFIG).filter(([value]) => !isTechnician || ['received', 'diagnosis', 'in_repair', 'completed'].includes(value)).map(([value, config]) => (
                     <React.Fragment key={value}>
                       <SelectItem
                         value={value}
@@ -1005,11 +1064,11 @@ const RepairDetail = () => {
                 </SelectContent>
               </Select>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                {TERMINAL_STATUSES.has(repair.status)
+                {technicianLocked || TERMINAL_STATUSES.has(repair.status)
                   ? 'Estado final confirmado. Ya no se puede modificar.'
-                  : 'Selecciona un estado para guardarlo inmediatamente.'}
+                  : isTechnician ? 'Al marcar Completado, esta orden pasará al historial y ya no podrás modificarla.' : 'Selecciona un estado para guardarlo inmediatamente.'}
               </p>
-              {repair.status === 'delivered' && (
+              {!isTechnician && repair.status === 'delivered' && (
                 <div className="mt-5 space-y-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                   <div className="flex items-center justify-between gap-3">
                     <div>

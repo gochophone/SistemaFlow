@@ -149,6 +149,7 @@ const NewRepair = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [repairCounts, setRepairCounts] = useState({});
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerSelectorOpen, setCustomerSelectorOpen] = useState(false);
@@ -208,6 +209,7 @@ const NewRepair = () => {
     device_serial: '',
     reported_issue: '',
     diagnosis: '',
+    assigned_technician_id: '',
     budget_estimate: '',
     budget_items: [{ issue: '', amount: '' }],
     vat_included: false,
@@ -221,6 +223,9 @@ const NewRepair = () => {
 
   useEffect(() => {
     fetchCustomers();
+    axios.get(`${API}/api/team/technicians`, { headers: getAuthHeader() })
+      .then(({ data }) => setTechnicians(data))
+      .catch(() => toast.error('No se pudo cargar la lista de técnicos'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -716,6 +721,21 @@ const NewRepair = () => {
                 budget_estimate: budgetItemsTotal(items), vat_included: vatIncluded,
               }))}
             />
+
+            <div>
+              <Label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Técnico asignado</Label>
+              <Select value={formData.assigned_technician_id || '__none__'}
+                onValueChange={(value) => updateField('assigned_technician_id', value === '__none__' ? '' : value)}>
+                <SelectTrigger className="mt-1" data-testid="new-repair-technician-select">
+                  <SelectValue placeholder="Selecciona un técnico" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sin técnico asignado</SelectItem>
+                  {technicians.map((technician) => <SelectItem key={technician.id} value={technician.id}>{technician.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {technicians.length === 0 && <p className="mt-1 text-xs text-zinc-500">Crea técnicos en Equipo de trabajo para asignarles órdenes.</p>}
+            </div>
 
             <div>
               <Label htmlFor="notes" className="text-sm font-medium text-zinc-900">Notas Adicionales</Label>

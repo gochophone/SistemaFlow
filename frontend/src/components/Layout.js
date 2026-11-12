@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Wrench, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
+import { LayoutDashboard, Wrench, History, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
 import { SearchField } from '@/components/ui/search-field';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,7 @@ const Layout = () => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
-  const menuItems = [
+  const adminMenuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
@@ -44,6 +44,10 @@ const Layout = () => {
     { path: '/billing', icon: CreditCard, label: 'Suscripción', testId: 'nav-billing' },
     { path: '/settings', icon: Settings, label: 'Configuración', testId: 'nav-settings' },
   ];
+  const menuItems = user?.role === 'technician' ? [
+    { path: '/work-orders', icon: Wrench, label: 'Órdenes de trabajo', testId: 'nav-work-orders' },
+    { path: '/work-history', icon: History, label: 'Historial de órdenes', testId: 'nav-work-history' },
+  ] : adminMenuItems;
 
   const handleLogout = () => {
     logout();
@@ -53,7 +57,7 @@ const Layout = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/repairs?search=${encodeURIComponent(searchQuery)}`);
+      navigate(`${user?.role === 'technician' ? '/work-orders' : '/repairs'}?search=${encodeURIComponent(searchQuery)}`);
     }
   };
 
@@ -143,7 +147,7 @@ const Layout = () => {
               />
             </form>
 
-            <Button
+            {user?.role === 'admin' && <Button
               onClick={() => navigate('/repairs/new')}
               className="bg-blue-600 text-white hover:bg-blue-700 font-medium rounded-md"
               data-testid="new-repair-button-header"
@@ -151,7 +155,7 @@ const Layout = () => {
               <Plus size={18} className="mr-2" />
               <span className="hidden sm:inline">Nueva Reparación</span>
               <span className="sm:hidden">Nueva</span>
-            </Button>
+            </Button>}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

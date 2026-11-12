@@ -297,6 +297,7 @@ class Repair(BaseModel):
     diagnosis: Optional[str] = None
     status: str = "received"
     assigned_technician: Optional[str] = None
+    assigned_technician_id: Optional[str] = None
     budget_estimate: Optional[float] = None
     budget_items: List[RepairBudgetItem] = Field(default_factory=list)
     vat_included: bool = False
@@ -333,6 +334,7 @@ class RepairCreate(BaseModel):
     reported_issue: str
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
+    assigned_technician_id: Optional[str] = None
     budget_estimate: Optional[float] = None
     budget_items: List[RepairBudgetItem] = Field(default_factory=list, max_length=15)
     vat_included: bool = False
@@ -356,6 +358,7 @@ class RepairUpdate(BaseModel):
     reported_issue: Optional[str] = None
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
+    assigned_technician_id: Optional[str] = None
     budget_estimate: Optional[float] = None
     budget_items: Optional[List[RepairBudgetItem]] = Field(default=None, max_length=15)
     vat_included: Optional[bool] = None
@@ -641,7 +644,7 @@ async def get_team(current_user: dict = Depends(require_admin)):
     return [public_user(user) for user in users]
 
 @api_router.get("/team/technicians")
-async def get_active_technicians(current_user: dict = Depends(get_current_user)):
+async def get_active_technicians(current_user: dict = Depends(require_admin)):
     """Return the active technicians that can be assigned to an order."""
     users = await control_db.users.find(
         {"tenant_id": current_user["tenant_id"], "role": "technician", "active": True},
@@ -765,7 +768,7 @@ async def import_gestioo_repairs(file: UploadFile = File(...), current_user: dic
     return {"message": "Importación de reparaciones terminada", "created_repairs": created_repairs, "created_customers": created_customers, "skipped": skipped, "errors": errors[:20]}
 
 @api_router.post("/customers", response_model=Customer)
-async def create_customer(customer: CustomerCreate, current_user: dict = Depends(get_current_user)):
+async def create_customer(customer: CustomerCreate, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customer_obj = Customer(**customer.model_dump(), tenant_id=tenant_id)
@@ -776,7 +779,7 @@ async def create_customer(customer: CustomerCreate, current_user: dict = Depends
     return customer_obj
 
 @api_router.get("/customers", response_model=List[Customer])
-async def get_customers(current_user: dict = Depends(get_current_user)):
+async def get_customers(current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customers = await db.customers.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(1000)
@@ -786,7 +789,7 @@ async def get_customers(current_user: dict = Depends(get_current_user)):
     return customers
 
 @api_router.get("/customers/{customer_id}", response_model=Customer)
-async def get_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
+async def get_customer(customer_id: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     customer = await db.customers.find_one({"id": customer_id, "tenant_id": tenant_id}, {"_id": 0})
@@ -797,7 +800,7 @@ async def get_customer(customer_id: str, current_user: dict = Depends(get_curren
     return Customer(**customer)
 
 @api_router.put("/customers/{customer_id}", response_model=Customer)
-async def update_customer(customer_id: str, customer_update: CustomerCreate, current_user: dict = Depends(get_current_user)):
+async def update_customer(customer_id: str, customer_update: CustomerCreate, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     update_data = customer_update.model_dump()
@@ -815,7 +818,7 @@ async def update_customer(customer_id: str, customer_update: CustomerCreate, cur
     return Customer(**updated)
 
 @api_router.delete("/customers/{customer_id}")
-async def delete_customer(customer_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_customer(customer_id: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     result = await db.customers.delete_one({"id": customer_id, "tenant_id": tenant_id})
@@ -823,8 +826,50 @@ async def delete_customer(customer_id: str, current_user: dict = Depends(get_cur
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return {"message": "Cliente eliminado"}
 
+async def resolve_repair_technician(tenant_id: str, technician_id: Optional[str], name: Optional[str]):
+    """Resolve an active account member, never an arbitrary name from a request."""
+    if not (technician_id or name):
+        return None
+    query = {"tenant_id": tenant_id, "role": "technician", "active": True}
+    if technician_id:
+        query["id"] = technician_id
+        technician = await control_db.users.find_one(query, {"_id": 0, "id": 1, "name": 1})
+    else:
+        query["name"] = name.strip()
+        matches = await control_db.users.find(query, {"_id": 0, "id": 1, "name": 1}).to_list(2)
+        technician = matches[0] if len(matches) == 1 else None
+    if not technician:
+        raise HTTPException(status_code=400, detail="Selecciona un técnico activo del Equipo de trabajo")
+    return technician
+
+
+async def technician_assignment_query(current_user: dict):
+    assignments = [{"assigned_technician_id": current_user["id"]}]
+    # Older orders stored only a name. Accept it only when that name identifies
+    # exactly one technician in the account, to avoid leaking another user's work.
+    count = await control_db.users.count_documents({
+        "tenant_id": current_user["tenant_id"], "role": "technician", "name": current_user["name"]
+    })
+    if count == 1:
+        assignments.append({"assigned_technician_id": {"$in": [None, ""]},
+                            "assigned_technician": current_user["name"]})
+    return {"$or": assignments}
+
+
+async def can_access_repair(current_user: dict, repair: dict) -> bool:
+    if current_user.get("role") != "technician":
+        return True
+    if repair.get("assigned_technician_id"):
+        return repair["assigned_technician_id"] == current_user["id"]
+    if repair.get("assigned_technician") != current_user["name"]:
+        return False
+    return await control_db.users.count_documents({
+        "tenant_id": current_user["tenant_id"], "role": "technician", "name": current_user["name"]
+    }) == 1
+
+
 @api_router.post("/repairs", response_model=Repair)
-async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_current_user)):
+async def create_repair(repair: RepairCreate, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     
@@ -832,11 +877,14 @@ async def create_repair(repair: RepairCreate, current_user: dict = Depends(get_c
     if not customer:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     repair.customer_name = customer["name"]
+    technician = await resolve_repair_technician(tenant_id, repair.assigned_technician_id, repair.assigned_technician)
     # Allocate an account-local ticket atomically
     counter = await db.counters.find_one_and_update({"_id": "repair_number"}, {"$inc": {"value": 1}}, upsert=True, return_document=ReturnDocument.AFTER)
     ticket_number = f"REP-{counter['value']:05d}"
     
     repair_dict = repair.model_dump()
+    repair_dict['assigned_technician'] = technician['name'] if technician else None
+    repair_dict['assigned_technician_id'] = technician['id'] if technician else None
     repair_dict['ticket_number'] = ticket_number
     repair_dict['tenant_id'] = tenant_id
     repair_obj = Repair(**repair_dict)
@@ -883,13 +931,23 @@ async def select_repair_issue(selection: RepairIssueSelection, current_user: dic
 async def get_repairs(
     status: Optional[str] = None,
     customer_id: Optional[str] = None,
+    scope: Optional[Literal["work", "history"]] = None,
     current_user: dict = Depends(get_current_user),
 ):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     query = {"tenant_id": tenant_id}
+    if current_user.get('role') == 'technician':
+        query.update(await technician_assignment_query(current_user))
+        if scope == 'history':
+            query['status'] = {"$in": ["completed", "delivered", "not_repaired"]}
+        else:
+            query['status'] = {"$nin": ["completed", "delivered", "not_repaired"]}
+        if customer_id:
+            raise HTTPException(status_code=403, detail="No tienes acceso al historial del cliente")
     if status:
-        query['status'] = status
+        if current_user.get('role') != 'technician':
+            query['status'] = status
     if customer_id:
         query['customer_id'] = customer_id
     
@@ -911,6 +969,8 @@ async def get_repair(repair_id: str, current_user: dict = Depends(get_current_us
     tenant_id = current_user['tenant_id']
     repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not repair:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if not await can_access_repair(current_user, repair):
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
     if isinstance(repair.get('received_date'), str):
@@ -946,19 +1006,31 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     current_repair = await db.repairs.find_one({"id": repair_id, "tenant_id": tenant_id}, {"_id": 0})
     if not current_repair:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if not await can_access_repair(current_user, current_repair):
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
 
-    if "assigned_technician" in update_data:
-        assigned_technician = (update_data.get("assigned_technician") or "").strip()
-        if assigned_technician and assigned_technician != (current_repair.get("assigned_technician") or "").strip():
-            technician = await control_db.users.find_one({
-                "tenant_id": tenant_id,
-                "role": "technician",
-                "active": True,
-                "name": assigned_technician,
-            }, {"_id": 1})
-            if not technician:
-                raise HTTPException(status_code=400, detail="Selecciona un técnico activo del Equipo de trabajo")
-        update_data["assigned_technician"] = assigned_technician or None
+    if current_user.get('role') == 'technician':
+        if current_repair.get('status') in {'completed', 'delivered', 'not_repaired'}:
+            raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
+        allowed = {'reported_issue', 'diagnosis', 'notes', 'notes_private', 'device_photos', 'status'}
+        if set(repair_update.model_fields_set) - allowed:
+            raise HTTPException(status_code=403, detail="El técnico solo puede editar detalles del servicio y fotos")
+        if update_data.get('status') not in (None, 'received', 'diagnosis', 'in_repair', 'completed'):
+            raise HTTPException(status_code=403, detail="El técnico solo puede marcar la reparación como completada")
+        if 'reported_issue' in update_data and current_repair.get('budget_items'):
+            items = [dict(item) for item in current_repair['budget_items']]
+            items[0]['issue'] = update_data['reported_issue']
+            try:
+                repair_budget_total([RepairBudgetItem(**item) for item in items])
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error))
+            update_data['budget_items'] = items  # Preserve every amount exactly.
+
+    if {'assigned_technician', 'assigned_technician_id'} & set(repair_update.model_fields_set):
+        technician = await resolve_repair_technician(
+            tenant_id, repair_update.assigned_technician_id, repair_update.assigned_technician)
+        update_data['assigned_technician'] = technician['name'] if technician else None
+        update_data['assigned_technician_id'] = technician['id'] if technician else None
     
     old_status = current_repair.get('status')
     new_status = update_data.get('status', old_status)
@@ -1018,11 +1090,18 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         update_data['estimated_delivery'] = update_data['estimated_delivery'].isoformat()
     
     update_filter = {"id": repair_id, "tenant_id": tenant_id}
+    if current_user.get('role') == 'technician':
+        update_filter.update(await technician_assignment_query(current_user))
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
     if 'device_photos' in update_data:
         update_filter['status'] = {'$nin': ['delivered', 'not_repaired']}
+        if current_user.get('role') == 'technician':
+            update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
     result = await db.repairs.update_one(update_filter, {"$set": update_data})
     
     if result.matched_count == 0:
+        if current_user.get('role') == 'technician':
+            raise HTTPException(status_code=409, detail='La orden ya no está disponible para modificar')
         if 'device_photos' in update_data:
             raise HTTPException(status_code=409, detail='La reparación ya no está abierta para modificar fotos')
         raise HTTPException(status_code=404, detail="Orden no encontrada")
@@ -1070,14 +1149,21 @@ async def add_repair_note(repair_id: str, note: RepairNoteCreate, current_user: 
     if not text:
         raise HTTPException(status_code=400, detail="Escribe una nota antes de guardarla")
     db = await tenant_database(current_user["tenant_id"])
+    repair = await get_repair(repair_id, current_user)
+    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired'}:
+        raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
     now = datetime.now(timezone.utc)
     entry = RepairNote(
         id=str(uuid.uuid4()), text=text, is_private=note.is_private,
         created_at=now, created_by=current_user.get("name") or "Equipo de trabajo",
     ).model_dump()
     entry["created_at"] = now.isoformat()
+    update_filter = {"id": repair_id, "tenant_id": current_user["tenant_id"]}
+    if current_user.get('role') == 'technician':
+        update_filter.update(await technician_assignment_query(current_user))
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
     result = await db.repairs.update_one(
-        {"id": repair_id, "tenant_id": current_user["tenant_id"]},
+        update_filter,
         {"$push": {"note_entries": entry}, "$set": {"updated_at": now.isoformat()}},
     )
     if result.matched_count == 0:
@@ -1091,8 +1177,15 @@ async def set_repair_note_visibility(
     current_user: dict = Depends(get_current_user),
 ):
     db = await tenant_database(current_user["tenant_id"])
+    repair = await get_repair(repair_id, current_user)
+    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired'}:
+        raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
+    update_filter = {"id": repair_id, "tenant_id": current_user["tenant_id"], "note_entries.id": note_id}
+    if current_user.get('role') == 'technician':
+        update_filter.update(await technician_assignment_query(current_user))
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
     result = await db.repairs.update_one(
-        {"id": repair_id, "tenant_id": current_user["tenant_id"], "note_entries.id": note_id},
+        update_filter,
         {"$set": {"note_entries.$.is_private": visibility.is_private,
                   "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
@@ -1101,7 +1194,7 @@ async def set_repair_note_visibility(
     return await get_repair(repair_id, current_user)
 
 @api_router.delete("/repairs/{repair_id}")
-async def delete_repair(repair_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_repair(repair_id: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     result = await db.repairs.delete_one({"id": repair_id, "tenant_id": tenant_id})
@@ -1110,7 +1203,7 @@ async def delete_repair(repair_id: str, current_user: dict = Depends(get_current
     return {"message": "Orden eliminada"}
 
 @api_router.get("/repairs/{repair_id}/delivery-pdf")
-async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depends(get_current_user)):
+async def generate_repair_delivery_pdf(repair_id: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     """Generate and download delivery order PDF"""
     tenant_id = current_user['tenant_id']
@@ -1378,7 +1471,7 @@ async def generate_sale_pdf(sale_id: str, current_user: dict = Depends(require_a
     )
 
 @api_router.get("/dashboard/stats", response_model=DashboardStats)
-async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+async def get_dashboard_stats(current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     tenant_id = current_user['tenant_id']
     
@@ -1432,7 +1525,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     )
 
 @api_router.get("/search")
-async def global_search(q: str, current_user: dict = Depends(get_current_user)):
+async def global_search(q: str, current_user: dict = Depends(require_admin)):
     db = await tenant_database(current_user["tenant_id"])
     results = {
         "repairs": [],
@@ -1486,7 +1579,7 @@ async def generate_cloudinary_signature(
     if folder not in ALLOWED_FOLDERS:
         raise HTTPException(status_code=400, detail="Invalid folder path")
     
-    if folder in ("inventory", "sales") and current_user["role"] != "admin":
+    if folder != "repairs" and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo administradores")
     folder = f"{current_user['tenant_id']}/{folder}"
     timestamp = int(time.time())

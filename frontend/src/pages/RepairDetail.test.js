@@ -4,6 +4,7 @@ import axios from 'axios';
 import RepairDetail from './RepairDetail';
 
 const mockNavigate = jest.fn();
+let mockUser = { role: 'admin' };
 jest.mock('axios');
 jest.mock('@/utils/nativePdf', () => ({
   isNativeApp: () => false,
@@ -16,7 +17,7 @@ jest.mock('react-router-dom', () => ({
   useParams: () => ({ id: 'repair-1' }), useNavigate: () => mockNavigate,
 }), { virtual: true });
 jest.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: { role: 'admin' }, getAuthHeader: () => ({ Authorization: 'Bearer test' }) }),
+  useAuth: () => ({ user: mockUser, getAuthHeader: () => ({ Authorization: 'Bearer test' }) }),
 }));
 jest.mock('@/components/PatternLock', () => () => null);
 jest.mock('@/components/DevicePhotos', () => () => null);
@@ -32,6 +33,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUser = { role: 'admin' };
   axios.get.mockImplementation((url) => {
     if (url.endsWith('/api/repairs/repair-1/delivery-pdf')) {
       return Promise.resolve({ data: new Blob(['%PDF-test']) });
@@ -46,6 +48,51 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+});
+
+test('el técnico solo edita detalles del servicio de una orden asignada', async () => {
+  mockUser = { role: 'technician' };
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'in_repair',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla',
+    diagnosis: '', budget_estimate: 20000,
+  };
+  axios.get.mockResolvedValue({ data: repair });
+  axios.patch.mockImplementation((url, changes) => Promise.resolve({ data: { ...repair, ...changes } }));
+  await act(async () => root.render(<RepairDetail />));
+  expect(document.querySelector('[data-testid="repair-customer-profile-link"]')).toBeNull();
+  expect(document.querySelector('[data-testid="delete-repair-button"]')).toBeNull();
+  expect(document.querySelector('[data-testid="print-delivery-button"]')).toBeNull();
+  await act(async () => document.querySelector('[data-testid="edit-repair-button"]').click());
+  expect(document.querySelector('#technician-diagnosis')).not.toBeNull();
+  expect(document.querySelector('[data-testid="edit-repair-amount-0"]')).toBeNull();
+  const diagnosis = document.querySelector('#technician-diagnosis');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(diagnosis, 'Cambio de pantalla');
+    diagnosis.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => Array.from(document.querySelectorAll('button')).find((button) => button.textContent === 'Guardar servicio').click());
+  expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1'),
+    expect.objectContaining({ diagnosis: 'Cambio de pantalla' }), expect.any(Object));
+  const payload = axios.patch.mock.calls[0][1];
+  expect(payload).not.toHaveProperty('budget_estimate');
+  expect(payload).not.toHaveProperty('customer_id');
+  expect(payload).not.toHaveProperty('assigned_technician_id');
+});
+
+test('una orden completada queda de solo lectura para el técnico', async () => {
+  mockUser = { role: 'technician' };
+  axios.get.mockResolvedValue({ data: {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'completed',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla',
+  } });
+  await act(async () => root.render(<RepairDetail />));
+  expect(document.querySelector('[data-testid="edit-repair-button"]').disabled).toBe(true);
+  expect(document.querySelector('[data-testid="quick-status-select"]').disabled).toBe(true);
+  expect(document.querySelector('[data-testid="new-repair-note"]')).toBeNull();
+  expect(document.body.textContent).toContain('Ya no se puede modificar');
 });
 
 afterEach(async () => {
