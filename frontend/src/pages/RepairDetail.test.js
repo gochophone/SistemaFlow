@@ -100,6 +100,21 @@ afterEach(async () => {
   container.remove();
 });
 
+test('una orden antigua muestra En reparación sin reescribir su estado al editar otros datos', async () => {
+  const repair = {
+    id: 'repair-1', ticket_number: 'REP-00001', status: 'received',
+    customer_id: 'customer-1', customer_name: 'Ana', device_brand: 'Apple',
+    device_model: 'iPhone 13', device_photos: [], reported_issue: 'Pantalla',
+  };
+  axios.get.mockImplementation((url) => Promise.resolve({ data: url.includes('/api/team/technicians') ? [] : repair }));
+  axios.patch.mockResolvedValue({ data: repair });
+  await act(async () => root.render(<RepairDetail />));
+  expect(document.querySelector('[data-testid="quick-status-select"]').textContent).toContain('En reparación');
+  await act(async () => document.querySelector('[data-testid="edit-repair-button"]').click());
+  await act(async () => document.querySelector('[data-testid="save-repair-button"]').click());
+  expect(axios.patch.mock.calls[0][1]).not.toHaveProperty('status');
+});
+
 test('confirmar o cancelar el pago funciona dentro de la orden en ambos sentidos', async () => {
   const repair = {
     id: 'repair-1', ticket_number: 'REP-00001', status: 'delivered', paid: false,

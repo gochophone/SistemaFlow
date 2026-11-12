@@ -21,6 +21,18 @@ TECH = {"id": "tech-1", "tenant_id": TENANT, "name": "Alex", "role": "technician
 OTHER = {"id": "tech-2", "tenant_id": TENANT, "name": "Berta", "role": "technician"}
 
 
+def test_new_repair_starts_in_repair_and_legacy_states_cannot_be_selected():
+    repair = server.Repair(
+        tenant_id=TENANT, ticket_number="REP-NEW", customer_id="customer-1",
+        customer_name="Cliente", device_brand="Apple", device_model="iPhone",
+        reported_issue="Pantalla",
+    )
+    assert repair.status == "in_repair"
+    for status in ("received", "diagnosis"):
+        with pytest.raises(ValueError):
+            server.RepairUpdate(status=status)
+
+
 class Users:
     async def count_documents(self, query):
         return 1 if query.get("name") == "Alex" else 0

@@ -84,11 +84,11 @@ def import_status(value):
         return "delivered"
     if any(word in status for word in ("termin", "listo", "reparad", "complet")):
         return "completed"
-    if any(word in status for word in ("proceso", "reparacion", "reparacion")):
-        return "in_progress"
+    if any(word in status for word in ("proceso", "reparacion")):
+        return "in_repair"
     if any(word in status for word in ("cancel", "anulad")):
-        return "cancelled"
-    return "received"
+        return "not_repaired"
+    return "in_repair"
 
 def normalize_serial(value: Optional[str]) -> Optional[str]:
     if value is None:
@@ -295,7 +295,7 @@ class Repair(BaseModel):
     device_serial: Optional[str] = None
     reported_issue: str
     diagnosis: Optional[str] = None
-    status: str = "received"
+    status: str = "in_repair"
     assigned_technician: Optional[str] = None
     assigned_technician_id: Optional[str] = None
     budget_estimate: Optional[float] = None
@@ -354,7 +354,7 @@ class RepairCreate(BaseModel):
         return self
 
 class RepairUpdate(BaseModel):
-    status: Optional[Literal["received", "diagnosis", "in_repair", "completed", "delivered", "not_repaired"]] = None
+    status: Optional[Literal["in_repair", "completed", "delivered", "not_repaired"]] = None
     reported_issue: Optional[str] = None
     diagnosis: Optional[str] = None
     assigned_technician: Optional[str] = None
@@ -940,9 +940,9 @@ async def get_repairs(
     if current_user.get('role') == 'technician':
         query.update(await technician_assignment_query(current_user))
         if scope == 'history':
-            query['status'] = {"$in": ["completed", "delivered", "not_repaired"]}
+            query['status'] = {"$in": ["completed", "delivered", "not_repaired", "cancelled"]}
         else:
-            query['status'] = {"$nin": ["completed", "delivered", "not_repaired"]}
+            query['status'] = {"$nin": ["completed", "delivered", "not_repaired", "cancelled"]}
         if customer_id:
             raise HTTPException(status_code=403, detail="No tienes acceso al historial del cliente")
     if status:
@@ -1010,13 +1010,13 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
         raise HTTPException(status_code=404, detail="Orden no encontrada")
 
     if current_user.get('role') == 'technician':
-        if current_repair.get('status') in {'completed', 'delivered', 'not_repaired'}:
+        if current_repair.get('status') in {'completed', 'delivered', 'not_repaired', 'cancelled'}:
             raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
         allowed = {'reported_issue', 'diagnosis', 'notes', 'notes_private', 'device_photos', 'status'}
         if set(repair_update.model_fields_set) - allowed:
             raise HTTPException(status_code=403, detail="El técnico solo puede editar detalles del servicio y fotos")
-        if update_data.get('status') not in (None, 'received', 'diagnosis', 'in_repair', 'completed'):
-            raise HTTPException(status_code=403, detail="El técnico solo puede marcar la reparación como completada")
+        if update_data.get('status') not in (None, 'in_repair', 'completed'):
+            raise HTTPException(status_code=403, detail="El técnico solo puede marcar la reparación como reparada")
         if 'reported_issue' in update_data and current_repair.get('budget_items'):
             items = [dict(item) for item in current_repair['budget_items']]
             items[0]['issue'] = update_data['reported_issue']
@@ -1036,7 +1036,7 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     new_status = update_data.get('status', old_status)
 
     if 'device_photos' in update_data:
-        if old_status in {'delivered', 'not_repaired'}:
+        if old_status in {'delivered', 'not_repaired', 'cancelled'}:
             raise HTTPException(status_code=409, detail='Las fotos solo se pueden modificar mientras la reparación esté abierta')
         photos = update_data['device_photos']
         if len(photos) > 5 or len(set(photos)) != len(photos):
@@ -1073,7 +1073,7 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     if 'paid' in update_data:
         update_data['paid_at'] = datetime.now(timezone.utc).isoformat() if update_data['paid'] else None
 
-    terminal_statuses = {'delivered': 'Entregado', 'not_repaired': 'Sin reparación'}
+    terminal_statuses = {'delivered': 'Entregado', 'not_repaired': 'Sin reparación', 'cancelled': 'Sin reparación'}
     if old_status in terminal_statuses and new_status != old_status:
         raise HTTPException(
             status_code=409,
@@ -1092,11 +1092,11 @@ async def update_repair(repair_id: str, repair_update: RepairUpdate, current_use
     update_filter = {"id": repair_id, "tenant_id": tenant_id}
     if current_user.get('role') == 'technician':
         update_filter.update(await technician_assignment_query(current_user))
-        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired', 'cancelled']}
     if 'device_photos' in update_data:
-        update_filter['status'] = {'$nin': ['delivered', 'not_repaired']}
+        update_filter['status'] = {'$nin': ['delivered', 'not_repaired', 'cancelled']}
         if current_user.get('role') == 'technician':
-            update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
+            update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired', 'cancelled']}
     result = await db.repairs.update_one(update_filter, {"$set": update_data})
     
     if result.matched_count == 0:
@@ -1150,7 +1150,7 @@ async def add_repair_note(repair_id: str, note: RepairNoteCreate, current_user: 
         raise HTTPException(status_code=400, detail="Escribe una nota antes de guardarla")
     db = await tenant_database(current_user["tenant_id"])
     repair = await get_repair(repair_id, current_user)
-    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired'}:
+    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired', 'cancelled'}:
         raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
     now = datetime.now(timezone.utc)
     entry = RepairNote(
@@ -1161,7 +1161,7 @@ async def add_repair_note(repair_id: str, note: RepairNoteCreate, current_user: 
     update_filter = {"id": repair_id, "tenant_id": current_user["tenant_id"]}
     if current_user.get('role') == 'technician':
         update_filter.update(await technician_assignment_query(current_user))
-        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired', 'cancelled']}
     result = await db.repairs.update_one(
         update_filter,
         {"$push": {"note_entries": entry}, "$set": {"updated_at": now.isoformat()}},
@@ -1178,12 +1178,12 @@ async def set_repair_note_visibility(
 ):
     db = await tenant_database(current_user["tenant_id"])
     repair = await get_repair(repair_id, current_user)
-    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired'}:
+    if current_user.get('role') == 'technician' and repair.status in {'completed', 'delivered', 'not_repaired', 'cancelled'}:
         raise HTTPException(status_code=409, detail="La orden terminada ya no se puede modificar")
     update_filter = {"id": repair_id, "tenant_id": current_user["tenant_id"], "note_entries.id": note_id}
     if current_user.get('role') == 'technician':
         update_filter.update(await technician_assignment_query(current_user))
-        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired']}
+        update_filter['status'] = {'$nin': ['completed', 'delivered', 'not_repaired', 'cancelled']}
     result = await db.repairs.update_one(
         update_filter,
         {"$set": {"note_entries.$.is_private": visibility.is_private,

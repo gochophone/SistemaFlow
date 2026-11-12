@@ -98,10 +98,10 @@ const chooseStatus = async (label) => {
 
 test('choosing a state in the portalled menu saves it without opening the order', async () => {
   await renderRepairs();
-  await chooseStatus('Diagnóstico');
+  await chooseStatus('Reparado');
   expect(axios.patch).toHaveBeenCalledWith(expect.stringContaining('/api/repairs/repair-1'),
-    { status: 'diagnosis' }, { headers: { Authorization: 'Bearer test-token' } });
-  expect(trigger().textContent).toContain('Diagnóstico');
+    { status: 'completed' }, { headers: { Authorization: 'Bearer test-token' } });
+  expect(trigger().textContent).toContain('Reparado');
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
@@ -136,8 +136,8 @@ test('shows an empty history and a way back to all repairs', async () => {
 test('a failed update restores the previous status and stays in the list', async () => {
   axios.patch.mockRejectedValue({ response: { data: { detail: 'No se pudo guardar' } } });
   await renderRepairs();
-  await chooseStatus('Diagnóstico');
-  expect(trigger().textContent).toContain('Recibido');
+  await chooseStatus('Reparado');
+  expect(trigger().textContent).toContain('En reparación');
   expect(toast.error).toHaveBeenCalledWith('No se pudo guardar');
   expect(mockNavigate).not.toHaveBeenCalled();
 });
@@ -148,7 +148,7 @@ test.each(['Entregado', 'Sin reparación'])('cancelling %s leaves the order unch
   await chooseStatus(label);
   expect(window.confirm).toHaveBeenCalled();
   expect(axios.patch).not.toHaveBeenCalled();
-  expect(trigger().textContent).toContain('Recibido');
+  expect(trigger().textContent).toContain('En reparación');
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
@@ -177,22 +177,31 @@ test('Sin reparación is first and separated from the remaining states, with Ent
   await openStatusMenu();
   const options = Array.from(document.querySelectorAll('[role="option"]'));
   expect(options.map((option) => option.textContent)).toEqual([
-    'Sin reparación', 'Recibido', 'Diagnóstico', 'En Reparación', 'Completado', 'Entregado',
+    'Sin reparación', 'En reparación', 'Reparado', 'Entregado',
   ]);
   expect(options[0].nextElementSibling.getAttribute('aria-hidden')).toBe('true');
   expect(options[0].nextElementSibling.nextElementSibling).toBe(options[1]);
+});
+
+test('solo muestra los cuatro accesos rápidos solicitados', async () => {
+  await renderRepairs();
+  expect(Array.from(container.querySelectorAll('[data-testid^="filter-"]')).map((button) => button.getAttribute('data-testid'))).toEqual([
+    'filter-all', 'filter-unpaid', 'filter-completed', 'filter-not_repaired',
+  ]);
+  expect(container.querySelector('[data-testid="filter-all"]').textContent).toContain('Todas las órdenes');
+  expect(container.querySelector('[data-testid="filter-completed"]').textContent).toContain('Reparado');
 });
 
 test('keyboard selection saves in the list without navigation', async () => {
   await renderRepairs();
   await openStatusMenu();
   const option = Array.from(document.querySelectorAll('[role="option"]'))
-    .find((item) => item.textContent === 'En Reparación');
+    .find((item) => item.textContent === 'Reparado');
   await act(async () => {
     option.focus();
     option.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   });
-  expect(trigger().textContent).toContain('En Reparación');
+  expect(trigger().textContent).toContain('Reparado');
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 

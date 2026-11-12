@@ -4,25 +4,15 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Wrench, Clock, CheckCircle, Package, TrendingUp } from 'lucide-react';
+import { REPAIR_STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_COLORS = {
-  received: '#F59E0B',
-  diagnosis: '#8B5CF6',
   in_repair: '#2563EB',
   completed: '#0891B2',
   delivered: '#059669',
   not_repaired: '#DC2626',
-};
-
-const STATUS_LABELS = {
-  received: 'Recibido',
-  diagnosis: 'Diagnóstico',
-  in_repair: 'En Reparación',
-  completed: 'Completado',
-  delivered: 'Entregado',
-  not_repaired: 'Sin reparación',
 };
 
 const Dashboard = () => {
@@ -54,8 +44,13 @@ const Dashboard = () => {
     );
   }
 
-  const statusPieData = Object.entries(stats?.repairs_by_status || {}).map(([status, count]) => ({
-    name: STATUS_LABELS[status] || status,
+  const statusCounts = Object.entries(stats?.repairs_by_status || {}).reduce((counts, [status, count]) => {
+    const visibleStatus = visibleRepairStatus(status);
+    counts[visibleStatus] = (counts[visibleStatus] || 0) + count;
+    return counts;
+  }, {});
+  const statusPieData = Object.entries(statusCounts).map(([status, count]) => ({
+    name: REPAIR_STATUS_CONFIG[status]?.label || status,
     value: count,
     color: STATUS_COLORS[status] || '#94A3B8'
   }));
@@ -103,7 +98,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tracking-tight text-zinc-900">{stats?.completed_today || 0}</p>
-            <p className="text-sm text-zinc-600 mt-1">Completadas</p>
+            <p className="text-sm text-zinc-600 mt-1">Reparadas</p>
           </CardContent>
         </Card>
 

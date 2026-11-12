@@ -36,19 +36,11 @@ import { budgetBreakdown } from '@/utils/repairBudget';
 import { budgetItemsTotal, prepareBudgetItems } from '@/utils/repairBudgetItems';
 import { cacheNativePdf, isNativeApp, openNativePdf, shareNativePdf } from '@/utils/nativePdf';
 import { publicSiteUrl } from '@/utils/publicSiteUrl';
+import { REPAIR_STATUS_CONFIG as STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const STATUS_CONFIG = {
-  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
-  received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
-  delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
-};
-
-const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
+const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired', 'cancelled']);
 
 const confirmTerminalStatus = (status) => {
   if (!TERMINAL_STATUSES.has(status)) return true;
@@ -156,7 +148,7 @@ const RepairDetail = () => {
       });
       setRepair(response.data);
       setUpdateData({
-        status: response.data.status,
+        status: visibleRepairStatus(response.data.status),
         reported_issue: response.data.reported_issue,
         diagnosis: response.data.diagnosis || '',
         budget_estimate: response.data.budget_estimate ?? '',
@@ -212,7 +204,7 @@ const RepairDetail = () => {
       toast.error(budget.error);
       return;
     }
-    if (updateData.status !== repair.status && !confirmTerminalStatus(updateData.status)) return;
+    if (updateData.status !== visibleRepairStatus(repair.status) && !confirmTerminalStatus(updateData.status)) return;
     setUpdating(true);
     try {
       const payload = {
@@ -220,6 +212,7 @@ const RepairDetail = () => {
         budget_items: budget.items,
         budget_estimate: budget.amount,
       };
+      if (payload.status === visibleRepairStatus(repair.status)) delete payload.status;
       if (payload.reported_issue === repair.reported_issue) delete payload.reported_issue;
       if (payload.assigned_technician_id === (repair.assigned_technician_id || '') &&
           payload.assigned_technician === (repair.assigned_technician || '')) {
@@ -280,11 +273,11 @@ const RepairDetail = () => {
   const handleQuickStatusChange = async (status) => {
     if (status === repair.status || updating) return;
     if (TERMINAL_STATUSES.has(repair.status)) {
-      toast.error(`El estado ${STATUS_CONFIG[repair.status].label} es definitivo y está bloqueado.`);
+      toast.error(`El estado ${STATUS_CONFIG[visibleRepairStatus(repair.status)].label} es definitivo y está bloqueado.`);
       return;
     }
     if (isTechnician && status === 'completed') {
-      if (!window.confirm('¿Marcar esta orden como completada? Pasará a tu historial y ya no podrás modificarla.')) return;
+      if (!window.confirm('¿Marcar esta orden como reparada? Pasará a tu historial y ya no podrás modificarla.')) return;
     } else if (!confirmTerminalStatus(status)) return;
     setUpdating(true);
     try {
@@ -571,7 +564,7 @@ const RepairDetail = () => {
   }
 
   const budget = budgetBreakdown(repair.budget_estimate, repair.vat_included);
-  const technicianLocked = isTechnician && ['completed', 'delivered', 'not_repaired'].includes(repair.status);
+  const technicianLocked = isTechnician && ['completed', 'delivered', 'not_repaired', 'cancelled'].includes(repair.status);
   const backPath = isTechnician ? (technicianLocked ? '/work-history' : '/work-orders') : '/repairs';
 
   return (
@@ -1040,19 +1033,19 @@ const RepairDetail = () => {
             </CardHeader>
             <CardContent>
               <Select
-                value={repair.status}
+                value={visibleRepairStatus(repair.status)}
                 onValueChange={handleQuickStatusChange}
                 disabled={updating || TERMINAL_STATUSES.has(repair.status) || technicianLocked}
               >
                 <SelectTrigger
-                  className={`w-full border font-medium text-base ${STATUS_CONFIG[repair.status]?.color}`}
+                  className={`w-full border font-medium text-base ${STATUS_CONFIG[visibleRepairStatus(repair.status)]?.color}`}
                   data-testid="quick-status-select"
                   aria-label="Cambiar estado de la reparación"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(STATUS_CONFIG).filter(([value]) => !isTechnician || ['received', 'diagnosis', 'in_repair', 'completed'].includes(value)).map(([value, config]) => (
+                  {Object.entries(STATUS_CONFIG).filter(([value]) => !isTechnician || ['in_repair', 'completed'].includes(value)).map(([value, config]) => (
                     <React.Fragment key={value}>
                       <SelectItem
                         value={value}
@@ -1066,7 +1059,7 @@ const RepairDetail = () => {
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                 {technicianLocked || TERMINAL_STATUSES.has(repair.status)
                   ? 'Estado final confirmado. Ya no se puede modificar.'
-                  : isTechnician ? 'Al marcar Completado, esta orden pasará al historial y ya no podrás modificarla.' : 'Selecciona un estado para guardarlo inmediatamente.'}
+                  : isTechnician ? 'Al marcar Reparado, esta orden pasará al historial y ya no podrás modificarla.' : 'Selecciona un estado para guardarlo inmediatamente.'}
               </p>
               {!isTechnician && repair.status === 'delivered' && (
                 <div className="mt-5 space-y-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
@@ -1174,7 +1167,7 @@ const RepairDetail = () => {
               )}
               {repair.completed_date && (
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fecha de Completado</p>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fecha de reparación</p>
                   <p className="text-sm text-zinc-900">{formatDate(repair.completed_date)}</p>
                 </div>
               )}

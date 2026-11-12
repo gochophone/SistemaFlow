@@ -23,19 +23,11 @@ import {
 } from '@/components/ui/table';
 import { Plus, Eye, CircleDollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { REPAIR_STATUS_CONFIG as STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const STATUS_CONFIG = {
-  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
-  received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
-  delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
-};
-
-const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired']);
+const TERMINAL_STATUSES = new Set(['delivered', 'not_repaired', 'cancelled']);
 const isUnpaidDelivered = (repair) => repair.status === 'delivered' && !repair.paid;
 
 const confirmTerminalStatus = (status) => {
@@ -88,7 +80,7 @@ const Repairs = ({ scope }) => {
   const filteredRepairs = repairs.filter((repair) => {
     const matchesFilter = statusFilter === 'unpaid'
       ? isUnpaidDelivered(repair)
-      : statusFilter === 'all' || repair.status === statusFilter;
+      : statusFilter === 'all' || visibleRepairStatus(repair.status) === statusFilter;
     const matchesSearch = !normalizedSearch || [
       repair.ticket_number, repair.device_imei, repair.customer_name,
       repair.device_brand, repair.device_model,
@@ -119,7 +111,7 @@ const Repairs = ({ scope }) => {
   const handleStatusChange = async (repair, status) => {
     if (status === repair.status || savingStatusId === repair.id) return;
     if (TERMINAL_STATUSES.has(repair.status)) {
-      toast.error(`El estado ${STATUS_CONFIG[repair.status].label} es definitivo y está bloqueado.`);
+      toast.error(`El estado ${STATUS_CONFIG[visibleRepairStatus(repair.status)].label} es definitivo y está bloqueado.`);
       return;
     }
     if (!confirmTerminalStatus(status)) return;
@@ -213,7 +205,7 @@ const Repairs = ({ scope }) => {
           data-testid="filter-all"
           aria-pressed={statusFilter === 'all'}
         >
-          Todas ({repairs.length})
+          Todas las órdenes ({repairs.length})
         </Button>
         <Button
           variant={statusFilter === 'unpaid' ? 'default' : 'outline'}
@@ -225,8 +217,9 @@ const Repairs = ({ scope }) => {
           <CircleDollarSign size={16} className="mr-2" />
           Entregadas sin pagar ({unpaidCount})
         </Button>
-        {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-          const count = repairs.filter(r => r.status === status).length;
+        {['completed', 'not_repaired'].map((status) => {
+          const config = STATUS_CONFIG[status];
+          const count = repairs.filter(r => visibleRepairStatus(r.status) === status).length;
           return (
             <Button
               key={status}
@@ -277,13 +270,13 @@ const Repairs = ({ scope }) => {
                   {/* The portalled status menu also bubbles clicks through this cell. */}
                   <TableCell onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center gap-2">
-                      {isTechnician ? <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${STATUS_CONFIG[repair.status]?.color || ''}`}>{STATUS_CONFIG[repair.status]?.label || repair.status}</span> : <Select
-                        value={repair.status}
+                      {isTechnician ? <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${STATUS_CONFIG[visibleRepairStatus(repair.status)]?.color || ''}`}>{STATUS_CONFIG[visibleRepairStatus(repair.status)]?.label || repair.status}</span> : <Select
+                        value={visibleRepairStatus(repair.status)}
                         onValueChange={(status) => handleStatusChange(repair, status)}
                         disabled={savingStatusId === repair.id || TERMINAL_STATUSES.has(repair.status)}
                       >
                         <SelectTrigger
-                          className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[repair.status]?.color}`}
+                          className={`h-8 w-[150px] border font-medium ${STATUS_CONFIG[visibleRepairStatus(repair.status)]?.color}`}
                           onClick={(event) => event.stopPropagation()}
                           onPointerDown={(event) => event.stopPropagation()}
                           data-testid={`quick-status-${repair.ticket_number}`}

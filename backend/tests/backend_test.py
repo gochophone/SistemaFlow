@@ -121,16 +121,16 @@ class TestRepairs:
         data = r.json()
         rid = data["id"]
         assert data["ticket_number"].startswith("REP-")
-        assert data["status"] == "received"
+        assert data["status"] == "in_repair"
 
         # List
         r = requests.get(f"{API}/repairs", headers=auth_headers, timeout=30)
         assert r.status_code == 200
 
         # Filter by status
-        r = requests.get(f"{API}/repairs?status=received", headers=auth_headers, timeout=30)
+        r = requests.get(f"{API}/repairs?status=in_repair", headers=auth_headers, timeout=30)
         assert r.status_code == 200
-        assert all(rep["status"] == "received" for rep in r.json())
+        assert all(rep["status"] == "in_repair" for rep in r.json())
 
         # Update status -> completed (should set completed_date)
         r = requests.patch(f"{API}/repairs/{rid}", json={"status": "completed", "diagnosis": "Reemplazo"}, headers=auth_headers, timeout=30)

@@ -27,6 +27,8 @@ test('muestra el nombre registrado de la empresa en el seguimiento público', as
     await act(async () => root.render(<PublicRepairView />));
     expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/public/repair/token-de-prueba'));
     expect(container.textContent).toContain('Para más información, contacta directamente con Servicios GP SpA');
+    expect(container.textContent).toContain('En reparación');
+    expect(container.textContent).not.toContain('Recibido');
     expect(container.textContent).not.toContain('ServiceTech');
   } finally {
     await act(async () => root.unmount());

@@ -87,7 +87,7 @@ def create_repair_ready_email_html(customer_name: str, ticket_number: str, devic
                                 <table role="presentation" style="margin: 30px 0;">
                                     <tr>
                                         <td style="padding: 12px 24px; background-color: #D1FAE5; border: 1px solid #6EE7B7; border-radius: 6px;">
-                                            <span style="color: #047857; font-size: 14px; font-weight: 600;">✓ Estado: Completado - Listo para Retirar</span>
+                                            <span style="color: #047857; font-size: 14px; font-weight: 600;">✓ Estado: Reparado - Listo para Retirar</span>
                                         </td>
                                     </tr>
                                 </table>

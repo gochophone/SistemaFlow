@@ -9,12 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cleanRUT, formatRUT, validateRUT } from '@/utils/rut';
+import { REPAIR_STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const STATUS_LABELS = {
-  received: 'Recibido', diagnosis: 'Diagnóstico', in_repair: 'En reparación',
-  completed: 'Completado', delivered: 'Entregado', not_repaired: 'Sin reparación',
-};
 
 const formatDate = (value) => value
   ? new Date(value).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -155,7 +152,7 @@ const CustomerDetail = () => {
                 <Smartphone size={21} className="shrink-0 text-blue-600 dark:text-blue-400" />
                 <span className="min-w-0 flex-1 space-y-1">
                   <span className="block font-semibold text-zinc-900 dark:text-zinc-100">{repair.device_brand} {repair.device_model}</span>
-                  <span className="block text-sm text-zinc-600 dark:text-zinc-300">{repair.ticket_number} · {formatDate(repair.received_date)} · {STATUS_LABELS[repair.status] || repair.status}</span>
+                  <span className="block text-sm text-zinc-600 dark:text-zinc-300">{repair.ticket_number} · {formatDate(repair.received_date)} · {REPAIR_STATUS_CONFIG[visibleRepairStatus(repair.status)]?.label || repair.status}</span>
                   {(repair.device_imei || repair.device_serial) && <span className="block break-all text-xs text-zinc-500 dark:text-zinc-400">{repair.device_imei && `IMEI: ${repair.device_imei}`}{repair.device_imei && repair.device_serial && ' · '}{repair.device_serial && `Serie: ${repair.device_serial}`}</span>}
                   {repair.reported_issue && <span className="block text-sm text-zinc-600 dark:text-zinc-300">Falla: {repair.reported_issue}</span>}
                 </span>

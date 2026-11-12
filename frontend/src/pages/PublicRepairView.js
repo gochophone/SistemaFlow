@@ -4,17 +4,9 @@ import axios from 'axios';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wrench, Calendar, Smartphone, FileText } from 'lucide-react';
+import { REPAIR_STATUS_CONFIG as STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-
-const STATUS_CONFIG = {
-  received: { label: 'Recibido', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-  diagnosis: { label: 'Diagnóstico', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  in_repair: { label: 'En Reparación', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  completed: { label: 'Completado', color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
-  delivered: { label: 'Entregado', color: 'bg-green-100 text-green-800 border-green-200' },
-  not_repaired: { label: 'Sin reparación', color: 'bg-red-100 text-red-800 border-red-200' },
-};
 
 const PublicRepairView = () => {
   const { ticketNumber } = useParams();
@@ -99,8 +91,8 @@ const PublicRepairView = () => {
                 {repair.ticket_number}
               </h2>
             </div>
-            <Badge className={`${STATUS_CONFIG[repair.status]?.color} border font-medium text-lg px-4 py-2`}>
-              {STATUS_CONFIG[repair.status]?.label || repair.status}
+            <Badge className={`${STATUS_CONFIG[visibleRepairStatus(repair.status)]?.color} border font-medium text-lg px-4 py-2`}>
+              {STATUS_CONFIG[visibleRepairStatus(repair.status)]?.label || repair.status}
             </Badge>
           </div>
 
@@ -163,7 +155,7 @@ const PublicRepairView = () => {
               )}
               {repair.completed_date && (
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fecha de Completado</p>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500 mb-1">Fecha de reparación</p>
                   <p className="text-base font-medium text-zinc-900">{formatDate(repair.completed_date)}</p>
                 </div>
               )}
