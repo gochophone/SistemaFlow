@@ -30,6 +30,9 @@ const csvCell = (value) => {
   return `"${safe.replace(/"/g, '""')}"`;
 };
 
+const shortDate = (value) => value.split('-').reverse().join('/');
+const reportPeriod = (report) => `${shortDate(report.start)} al ${shortDate(report.end)}`;
+
 const downloadCsv = (report) => {
   const lines = [
     ['Reporte de reparaciones', `${report.start} al ${report.end}`],
@@ -37,10 +40,10 @@ const downloadCsv = (report) => {
     ['Reparados', report.summary.repaired],
     ['Sin reparación', report.summary.not_repaired],
     ['Entregados en el período', report.summary.delivered],
-    ['Valor final de trabajos', report.summary.final_value],
+    [`Monto de trabajos terminados (${reportPeriod(report)})`, report.summary.final_value],
     ['Costos registrados', report.summary.recorded_cost],
     ['Pagos recibidos', report.summary.paid_count],
-    ['Total cobrado', report.summary.collected],
+    [`Monto cobrado (${reportPeriod(report)})`, report.summary.collected],
     [],
     ['Fecha de término', 'Orden', 'Cliente', 'Equipo', 'Trabajo', 'Técnico', 'Estado', 'Precio final', 'Costo registrado'],
     ...report.rows.map((row) => [row.finished_date, row.ticket_number, row.customer_name,
@@ -57,10 +60,11 @@ const downloadCsv = (report) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const ReportCard = ({ label, value }) => (
+const ReportCard = ({ label, value, detail }) => (
   <div className="report-card rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
     <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{label}</p>
     <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{value}</p>
+    {detail && <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">{detail}</p>}
   </div>
 );
 
@@ -163,13 +167,15 @@ export default function Reports() {
         <ReportCard label="Reparados" value={report.summary.repaired} />
         <ReportCard label="Sin reparación" value={report.summary.not_repaired} />
         <ReportCard label="Entregados en el período" value={report.summary.delivered} />
-        <ReportCard label="Valor final de trabajos" value={formatCLP(report.summary.final_value)} />
+        <ReportCard label="Monto total de trabajos terminados" value={formatCLP(report.summary.final_value)}
+          detail={`${reportPeriod(report)} · según fecha de término`} />
         <ReportCard label="Costos registrados" value={formatCLP(report.summary.recorded_cost)} />
         <ReportCard label="Pagos recibidos" value={report.summary.paid_count} />
-        <ReportCard label="Total cobrado" value={formatCLP(report.summary.collected)} />
+        <ReportCard label="Monto cobrado" value={formatCLP(report.summary.collected)}
+          detail={`${reportPeriod(report)} · según fecha de pago`} />
       </div>
 
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">El valor final corresponde a los trabajos terminados en el período; el total cobrado corresponde a pagos registrados en el período, aunque la reparación haya terminado antes. Los costos solo incluyen precios de costo ingresados.</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">El monto cobrado puede incluir reparaciones de meses anteriores. Los costos solo incluyen precios de costo ingresados.</p>
 
       {report.daily.length > 0 && <section className="report-card rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
         <h3 className="mb-4 text-lg font-semibold">Trabajos terminados por día</h3>
