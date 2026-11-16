@@ -522,6 +522,7 @@ async def initialize_identity_indexes():
     # Existing businesses receive their trial once at rollout, never on each login.
     async for tenant in control_db.tenants.find({'ready': True}):
         await billing.subscription(control_db, tenant['_id'])
+    await billing.exempt_primary_owner(control_db)
 
 async def with_company_name(user):
     owner = await control_db.users.find_one(

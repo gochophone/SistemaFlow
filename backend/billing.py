@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ConfigDict
 from pymongo import ReturnDocument
 
+PRIMARY_EXEMPT_OWNER_EMAIL = 'gochophone@gmail.com'
+
 
 def now():
     return datetime.now(timezone.utc)
@@ -31,8 +33,23 @@ async def subscription(db, tenant_id):
         upsert=True, return_document=ReturnDocument.AFTER)
 
 
+async def exempt_primary_owner(db):
+    """Persist the owner's complimentary plan on their business, not on each login."""
+    owner = await db.users.find_one(
+        {'email': PRIMARY_EXEMPT_OWNER_EMAIL, 'is_owner': True},
+        {'tenant_id': 1, '_id': 0},
+    )
+    if not owner:
+        return False
+    await subscription(db, owner['tenant_id'])
+    await db.subscriptions.update_one(
+        {'_id': owner['tenant_id']}, {'$set': {'exempt': True}},
+    )
+    return True
+
+
 def active(doc):
-    return not doc.get('suspended', False) and datetime.fromisoformat(doc['expires_at']) > now()
+    return not doc.get('suspended', False) and (doc.get('exempt', False) or datetime.fromisoformat(doc['expires_at']) > now())
 
 
 class PaymentReport(BaseModel):
@@ -75,6 +92,7 @@ def router(db, authenticate):
         bank = await db.billing_settings.find_one({'_id': 'bank'}, {'_id': 0})
         return {'active': active(doc), 'expires_at': doc['expires_at'], 'amount': 10000,
                 'currency': 'CLP', 'is_manager': is_manager(user),
+                'exempt': doc.get('exempt', False),
                 'suspended': doc.get('suspended', False),
                 'pending': doc['pending'], 'history': doc['history'][-12:],
                 'bank': bank if user.get('is_owner') else None}
@@ -83,11 +101,13 @@ def router(db, authenticate):
     async def report(data: PaymentReport, user=Depends(authenticate)):
         if not user.get('is_owner'):
             raise HTTPException(403, 'Solo el propietario puede informar pagos')
+        doc = await subscription(db, user['tenant_id'])
+        if doc.get('exempt', False):
+            raise HTTPException(409, 'Este negocio está exento de suscripción y no necesita informar pagos')
         if not data.reference.strip():
             raise HTTPException(422, 'Indica una referencia de transferencia')
         if not await db.billing_settings.find_one({'_id': 'bank'}):
             raise HTTPException(409, 'Los datos de transferencia aún no están configurados')
-        await subscription(db, user['tenant_id'])
         pending = {'id': uuid.uuid4().hex, 'reference': data.reference.strip(),
                    'reported_at': now().isoformat(), 'reported_by': user['id']}
         result = await db.subscriptions.update_one({'_id': user['tenant_id'], 'pending': None},
@@ -106,6 +126,7 @@ def router(db, authenticate):
                           'registered_at': owner.get('created_at'),
                           'trial_started_at': doc['trial_started_at'],
                           'expires_at': doc['expires_at'],
+                          'exempt': doc.get('exempt', False),
                           'active': active(doc), 'pending': doc['pending'],
                           'suspended': doc.get('suspended', False),
                           'can_suspend': owner['tenant_id'] != user['tenant_id'] and not is_manager(owner),
@@ -141,6 +162,8 @@ def router(db, authenticate):
         doc = await db.subscriptions.find_one({'_id': tenant_id})
         if not doc:
             raise HTTPException(404, 'Negocio no encontrado')
+        if doc.get('exempt', False):
+            raise HTTPException(409, 'Este negocio está exento de suscripción y no requiere renovación')
         if any(item['id'] == request_id for item in doc['history']):
             return {'message': 'Este pago ya fue revisado'}
         if not doc['pending'] or doc['pending']['id'] != request_id:

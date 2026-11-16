@@ -40,8 +40,8 @@ export default function Billing() {
     <h1 className="flex items-center gap-3 text-2xl font-bold"><CreditCard className="text-blue-600" aria-hidden="true" />Suscripción</h1>
     {error && <p role="alert" className="rounded bg-red-50 p-4 text-red-800">{error}</p>}
     {status && <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-6 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
-      <p className={status.active ? 'font-semibold text-green-600' : 'font-semibold text-red-600'}>{status.suspended ? 'Acceso suspendido' : status.active ? 'Acceso activo' : 'Suscripción vencida'}</p>
-      <p>Vencimiento: {date(status.expires_at)}</p>
+      <p className={status.active ? 'font-semibold text-green-600' : 'font-semibold text-red-600'}>{status.suspended ? 'Acceso suspendido' : status.exempt ? 'Cuenta exenta de suscripción' : status.active ? 'Acceso activo' : 'Suscripción vencida'}</p>
+      <p>{status.exempt ? 'Sin vencimiento ni pagos mensuales' : `Vencimiento: ${date(status.expires_at)}`}</p>
       {!status.active && <p>Contacta al responsable de tu negocio para consultar tu acceso.</p>}
     </section>}
   </div>;
@@ -51,14 +51,14 @@ export default function Billing() {
     {message && <p role="status" className="p-4 bg-green-50 text-green-800 rounded">{message}</p>}
     {status && <>
       <section className="bg-white rounded-lg p-6 space-y-3 border">
-        <h2 className="text-xl font-semibold">$10.000 CLP / mes por negocio</h2>
-        <p>Incluye al propietario, administradores y técnicos. Un mes gratis al crear el negocio.</p>
-        <p className={status.active ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>{status.suspended ? 'Acceso suspendido' : status.active ? 'Acceso activo' : 'Suscripción vencida'}</p>
-        <p>Vencimiento: {date(status.expires_at)}</p>
+        <h2 className="text-xl font-semibold">{status.exempt ? 'Cuenta principal exenta de suscripción' : '$10.000 CLP / mes por negocio'}</h2>
+        <p>{status.exempt ? 'Este negocio, incluidos sus administradores y técnicos, no requiere pagos mensuales.' : 'Incluye al propietario, administradores y técnicos. Un mes gratis al crear el negocio.'}</p>
+        <p className={status.active ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}>{status.suspended ? 'Acceso suspendido' : status.exempt ? 'Acceso activo sin vencimiento' : status.active ? 'Acceso activo' : 'Suscripción vencida'}</p>
+        {!status.exempt && <p>Vencimiento: {date(status.expires_at)}</p>}
         {!status.active && <p>{status.suspended ? 'Tu negocio está suspendido. Contacta al responsable de Ifixflow; un pago no retira esta suspensión.' : 'Tus datos se conservan. El acceso al sistema se restablece al confirmar el pago.'}</p>}
         {!user.is_owner && <p>Contacta al propietario de tu negocio para renovar.</p>}
       </section>
-      {user.is_owner && <section className="bg-white rounded-lg p-6 border space-y-4">
+      {user.is_owner && !status.exempt && <section className="bg-white rounded-lg p-6 border space-y-4">
         <h2 className="font-semibold text-xl">Renovar por transferencia</h2>
         {status.bank ? <><dl className="space-y-2">{Object.entries(fields).map(([key, label]) => <div key={key}><dt className="text-sm text-zinc-500">{label}</dt><dd>{status.bank[key]}</dd></div>)}</dl>
           <p>Transfiere $10.000 CLP. Indica como referencia tu correo de acceso. Cada pago confirmado añade un mes desde el vencimiento o desde la confirmación si ya venció.</p>
@@ -81,7 +81,8 @@ export default function Billing() {
             <h3 className="font-semibold">{account.company}</h3><p>{account.owner_name} · {account.email}</p>
             <p>Fecha de registro: {date(account.registered_at)}</p>
             <p>Inicio de prueba: {date(account.trial_started_at)}</p>
-            <p>{account.suspended ? 'Suspendido' : account.active ? 'Activo' : 'Vencido'} · hasta {date(account.expires_at)}</p>
+            <p>{account.suspended ? 'Suspendido' : account.exempt ? 'Exento de suscripción · sin vencimiento' : account.active ? 'Activo' : 'Vencido'}</p>
+            {!account.exempt && <p>Vencimiento: {date(account.expires_at)}</p>}
             {account.can_suspend ? <div className="bg-zinc-50 rounded p-3 space-y-3">
               <label className="block">Motivo del cambio de acceso<Input maxLength={200} value={accessReasons[account.tenant_id] || ''} onChange={e => setAccessReasons({ ...accessReasons, [account.tenant_id]: e.target.value })} /></label>
               <Button variant="outline" disabled={busy || (accessReasons[account.tenant_id] || '').trim().length < 3} onClick={() => {
@@ -89,7 +90,7 @@ export default function Billing() {
               }}>{account.suspended ? 'Reactivar negocio' : 'Revocar acceso del negocio'}</Button>
               {account.access_change && <p className="text-sm">Último cambio: {date(account.access_change.changed_at)} · {account.access_change.reason}</p>}
             </div> : <p className="text-sm text-zinc-500">Cuenta principal de cobros protegida</p>}
-            {account.pending ? <><p>Referencia: {account.pending.reference}</p><p>Informado: {date(account.pending.reported_at)}</p>
+            {account.exempt ? <p className="text-zinc-500">No requiere cobros ni renovación</p> : account.pending ? <><p>Referencia: {account.pending.reference}</p><p>Informado: {date(account.pending.reported_at)}</p>
               <label className="block">Nota de revisión<Input minLength={3} maxLength={200} value={notes[account.tenant_id] || ''} onChange={e => setNotes({ ...notes, [account.tenant_id]: e.target.value })} /></label>
               <div className="flex gap-3 flex-wrap">{[true, false].map(approve => <Button key={String(approve)} variant={approve ? 'default' : 'outline'} disabled={busy || (notes[account.tenant_id] || '').trim().length < 3} onClick={() => {
                 if (window.confirm(approve ? `¿Confirmas haber recibido $10.000 CLP de ${account.email}? Se añadirá un mes de acceso.` : '¿Rechazar esta solicitud sin renovar el acceso?')) action(() => axios.post(`${API}/admin/${account.tenant_id}/${account.pending.id}`, { approve, note: notes[account.tenant_id] }, config));
