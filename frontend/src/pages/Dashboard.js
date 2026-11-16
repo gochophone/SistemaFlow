@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Wrench, Clock, CheckCircle, Package, TrendingUp } from 'lucide-react';
+import { Wrench, Clock, CheckCircle, Package, TrendingUp, BarChart3 } from 'lucide-react';
 import { REPAIR_STATUS_CONFIG, visibleRepairStatus } from '@/utils/repairStatus';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -17,6 +19,7 @@ const STATUS_COLORS = {
 
 const Dashboard = () => {
   const { user, getAuthHeader } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,9 +60,12 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8" data-testid="dashboard-page">
-      <div>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900">Dashboard</h1>
-        <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider">Visión general del servicio</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Dashboard</h1>
+          <p className="text-sm text-zinc-600 mt-1 uppercase tracking-wider dark:text-zinc-400">Visión general del servicio</p>
+        </div>
+        {user?.role === 'admin' && <Button type="button" onClick={() => navigate('/reports')} data-testid="dashboard-reports-button"><BarChart3 size={18} className="mr-2" />Generar reporte</Button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">

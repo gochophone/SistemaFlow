@@ -7,6 +7,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import Repairs from '@/pages/Repairs';
+import Reports from '@/pages/Reports';
 import RepairDetail from '@/pages/RepairDetail';
 import NewRepair from '@/pages/NewRepair';
 import Customers from '@/pages/Customers';
@@ -123,6 +124,7 @@ function App() {
             <Route path="work-orders" element={<TechnicianRoute><Repairs scope="work" /></TechnicianRoute>} />
             <Route path="work-history" element={<TechnicianRoute><Repairs scope="history" /></TechnicianRoute>} />
             <Route path="repairs" element={<AdminRoute><Repairs /></AdminRoute>} />
+            <Route path="reports" element={<AdminRoute><Reports /></AdminRoute>} />
             <Route path="repairs/new" element={<AdminRoute><NewRepair /></AdminRoute>} />
             <Route path="repairs/:id" element={<RepairDetail />} />
             <Route path="customers" element={<AdminRoute><Customers /></AdminRoute>} />

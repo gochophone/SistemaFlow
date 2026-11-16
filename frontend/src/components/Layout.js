@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Wrench, History, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings } from 'lucide-react';
+import { LayoutDashboard, Wrench, History, Users, Package, ShoppingBag, LogOut, Menu, X, Plus, CreditCard, Settings, BarChart3 } from 'lucide-react';
 import { SearchField } from '@/components/ui/search-field';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +35,7 @@ const Layout = () => {
   const adminMenuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
     { path: '/repairs', icon: Wrench, label: 'Reparaciones', testId: 'nav-repairs' },
+    ...(user?.role === 'admin' ? [{ path: '/reports', icon: BarChart3, label: 'Reportes', testId: 'nav-reports' }] : []),
     { path: '/customers', icon: Users, label: 'Clientes', testId: 'nav-customers' },
     ...(user?.role === 'admin' ? [
       { path: '/inventory', icon: Package, label: 'Inventario', testId: 'nav-inventory' },

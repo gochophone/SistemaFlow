@@ -28,6 +28,7 @@ import cloudinary.utils
 from email_service import send_repair_ready_notification
 from pdf_generator import generate_delivery_pdf, generate_sale_delivery_pdf
 from repair_issues import build_issue_catalog, issue_key, normalized_issue_name
+from repair_reports import build_repair_report
 import billing
 import auth_codes
 
@@ -1535,6 +1536,40 @@ async def get_dashboard_stats(current_user: dict = Depends(require_admin)):
         repairs_by_status=repairs_by_status,
         weekly_repairs=weekly_repairs
     )
+
+
+@api_router.get("/reports/repairs")
+async def get_repair_report(
+    start: date = Query(...),
+    end: date = Query(...),
+    technician_id: Optional[str] = None,
+    current_user: dict = Depends(require_admin),
+):
+    if end < start or (end - start).days > 366:
+        raise HTTPException(status_code=422, detail="Elige un rango de fechas válido de hasta 366 días")
+    tenant_id = current_user["tenant_id"]
+    technician = None
+    if technician_id:
+        technician = await control_db.users.find_one(
+            {"tenant_id": tenant_id, "id": technician_id, "role": "technician"},
+            {"_id": 0, "id": 1, "name": 1},
+        )
+        if not technician:
+            raise HTTPException(status_code=404, detail="Técnico no encontrado en tu negocio")
+        count = await control_db.users.count_documents({
+            "tenant_id": tenant_id, "role": "technician", "name": technician["name"],
+        })
+        technician["match_legacy_name"] = count == 1
+
+    db = await tenant_database(tenant_id)
+    fields = {"_id": 0, "id": 1, "ticket_number": 1, "customer_name": 1,
+              "device_brand": 1, "device_model": 1, "status": 1,
+              "reported_issue": 1,
+              "assigned_technician": 1, "assigned_technician_id": 1,
+              "budget_estimate": 1, "budget_items": 1, "completed_date": 1,
+              "delivered_date": 1, "updated_at": 1, "paid": 1, "paid_at": 1}
+    repairs = await db.repairs.find({"tenant_id": tenant_id}, fields).to_list(length=None)
+    return build_repair_report(repairs, start, end, technician)
 
 @api_router.get("/search")
 async def global_search(q: str, current_user: dict = Depends(require_admin)):
