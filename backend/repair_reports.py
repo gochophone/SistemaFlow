@@ -65,6 +65,12 @@ def build_repair_report(repairs, start: date, end: date, technician=None):
     daily = defaultdict(int)
     by_technician = {}
     by_issue = {}
+    technician_ids_by_name = defaultdict(set)
+    for repair in repairs:
+        name = repair.get("assigned_technician")
+        technician_id = repair.get("assigned_technician_id")
+        if name and technician_id:
+            technician_ids_by_name[name].add(technician_id)
 
     for repair in repairs:
         if not matches_technician(repair, technician):
@@ -99,8 +105,11 @@ def build_repair_report(repairs, start: date, end: date, technician=None):
             issue_group = by_issue.setdefault(group_key, {"name": issue, "count": 0})
             issue_group["count"] += 1
 
-        technician_id = repair.get("assigned_technician_id") or repair.get("assigned_technician") or "unassigned"
         technician_name = repair.get("assigned_technician") or "Sin asignar"
+        technician_id = repair.get("assigned_technician_id")
+        if not technician_id and len(technician_ids_by_name[technician_name]) == 1:
+            technician_id = next(iter(technician_ids_by_name[technician_name]))
+        technician_id = technician_id or technician_name
         group = by_technician.setdefault(technician_id, {"id": technician_id, "name": technician_name, "finished": 0, "final_value": 0})
         group["finished"] += 1
         group["final_value"] += value

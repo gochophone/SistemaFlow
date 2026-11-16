@@ -65,6 +65,15 @@ def test_technician_filter_includes_only_matching_work_and_payments():
     assert [row["ticket_number"] for row in result["rows"]] == ["REP-1"]
 
 
+def test_legacy_name_only_work_joins_the_matching_technician_group():
+    repairs = fixture_repairs()[:-1]
+    repairs.append({"id": "legacy", "status": "completed", "assigned_technician": "Alex",
+                    "completed_date": "2026-11-03T12:00:00+00:00", "budget_estimate": 3000})
+    result = build_repair_report(repairs, date(2026, 11, 1), date(2026, 11, 30))
+    assert {item["id"]: item["finished"] for item in result["by_technician"]}["tech-1"] == 2
+    assert len([item for item in result["by_technician"] if item["name"] == "Alex"]) == 1
+
+
 class FakeRepairs:
     def __init__(self):
         self.query = None
