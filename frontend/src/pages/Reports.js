@@ -35,19 +35,22 @@ const reportPeriod = (report) => `${shortDate(report.start)} al ${shortDate(repo
 
 const downloadCsv = (report) => {
   const lines = [
-    ['Reporte de reparaciones', `${report.start} al ${report.end}`],
-    ['Trabajos terminados', report.summary.finished],
-    ['Reparados', report.summary.repaired],
-    ['Sin reparación', report.summary.not_repaired],
-    ['Entregados en el período', report.summary.delivered],
-    [`Monto de trabajos terminados (${reportPeriod(report)})`, report.summary.final_value],
-    ['Costos registrados', report.summary.recorded_cost],
-    ['Pagos recibidos', report.summary.paid_count],
-    [`Monto cobrado (${reportPeriod(report)})`, report.summary.collected],
+    ['Reporte de reparaciones', reportPeriod(report)],
+    [],
+    ['TRABAJOS TERMINADOS', reportPeriod(report)],
     [],
     ['Fecha de término', 'Orden', 'Cliente', 'Equipo', 'Trabajo', 'Técnico', 'Estado', 'Precio final', 'Costo registrado'],
     ...report.rows.map((row) => [row.finished_date, row.ticket_number, row.customer_name,
       row.device, row.work, row.technician, row.status, row.value, row.cost]),
+    ['VALOR TOTAL DE TRABAJOS', '', '', '', '', '', '', report.summary.final_value, ''],
+    ['COSTOS REGISTRADOS', '', '', '', '', '', '', '', report.summary.recorded_cost],
+    [],
+    ['PAGOS REGISTRADOS', reportPeriod(report)],
+    [],
+    ['Fecha de pago', 'Orden', 'Cliente', 'Equipo', 'Técnico', 'Fecha de término', 'Monto cobrado'],
+    ...(report.payment_rows || []).map((row) => [row.paid_date, row.ticket_number, row.customer_name,
+      row.device, row.technician, row.finished_date || '', row.value]),
+    ['TOTAL COBRADO', '', '', '', '', '', report.summary.collected],
   ];
   const blob = new Blob([`\uFEFF${lines.map((line) => line.map(csvCell).join(';')).join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -162,20 +165,70 @@ export default function Reports() {
         </div>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="report-card rounded-xl border border-blue-200 border-l-4 border-l-blue-600 bg-blue-50 p-5 dark:border-blue-900 dark:border-l-blue-400 dark:bg-blue-950/40">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-blue-800 dark:text-blue-200">Trabajos terminados</h3>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{report.summary.finished} órdenes terminadas del {reportPeriod(report)}</p>
+          <p className="mt-5 text-sm font-medium">Valor total de estas órdenes</p>
+          <p className="mt-1 text-3xl font-bold">{formatCLP(report.summary.final_value)}</p>
+          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">Suma de los precios finales en la tabla de trabajos.</p>
+        </section>
+        <section className="report-card rounded-xl border border-emerald-200 border-l-4 border-l-emerald-600 bg-emerald-50 p-5 dark:border-emerald-900 dark:border-l-emerald-400 dark:bg-emerald-950/40">
+          <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">Pagos registrados</h3>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{report.summary.paid_count} órdenes pagadas del {reportPeriod(report)}</p>
+          <p className="mt-5 text-sm font-medium">Total cobrado en esas fechas</p>
+          <p className="mt-1 text-3xl font-bold">{formatCLP(report.summary.collected)}</p>
+          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">Suma de la tabla de pagos; puede incluir trabajos de meses anteriores.</p>
+        </section>
+      </div>
+
+      <section className="report-card report-table-card rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+        <h3 className="mb-1 text-lg font-semibold">Trabajos terminados ({report.rows.length})</h3>
+        <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">Órdenes terminadas entre el {reportPeriod(report)}. Su total es la suma de la columna «Precio final».</p>
+        {report.rows.length === 0 ? <p className="text-sm text-zinc-500 dark:text-zinc-400">No hay trabajos terminados con estos filtros.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm">
+          <thead><tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"><th className="py-2 pr-3">Fecha de término</th><th className="py-2 pr-3">Orden</th><th className="py-2 pr-3">Cliente / equipo</th><th className="py-2 pr-3">Trabajo</th><th className="py-2 pr-3">Técnico</th><th className="py-2 pr-3">Estado</th><th className="py-2 text-right">Precio final</th><th className="py-2 text-right">Costo registrado</th></tr></thead>
+          <tbody>{report.rows.map((row) => <tr key={row.id || row.ticket_number} className="border-b border-zinc-100 dark:border-zinc-800">
+            <td className="py-3 pr-3 whitespace-nowrap">{shortDate(row.finished_date)}</td>
+            <td className="py-3 pr-3"><button type="button" onClick={() => navigate(`/repairs/${row.id}`)} className="report-order-link font-medium text-blue-600 hover:underline dark:text-blue-400">{row.ticket_number}</button></td>
+            <td className="py-3 pr-3">{row.customer_name}<span className="block text-xs text-zinc-500 dark:text-zinc-400">{row.device}</span></td>
+            <td className="py-3 pr-3">{row.work}</td>
+            <td className="py-3 pr-3">{row.technician}</td><td className="py-3 pr-3">{row.status}</td>
+            <td className="py-3 text-right whitespace-nowrap">{formatCLP(row.value)}</td><td className="py-3 text-right whitespace-nowrap">{row.cost ? formatCLP(row.cost) : '—'}</td>
+          </tr>)}</tbody>
+          <tfoot><tr className="border-t-2 border-blue-500 bg-blue-50 font-bold dark:bg-blue-950/50">
+            <td colSpan={6} className="px-2 py-3">VALOR TOTAL DE TRABAJOS</td>
+            <td className="px-2 py-3 text-right whitespace-nowrap">{formatCLP(report.summary.final_value)}</td>
+            <td />
+          </tr></tfoot>
+        </table></div>}
+      </section>
+
+      <section className="report-card report-table-card rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+        <h3 className="mb-1 text-lg font-semibold">Pagos registrados ({report.summary.paid_count})</h3>
+        <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">Órdenes marcadas como pagadas entre el {reportPeriod(report)}, aunque el trabajo se haya terminado antes.</p>
+        {(report.payment_rows || []).length === 0 ? <p className="text-sm text-zinc-500 dark:text-zinc-400">No hay pagos registrados con estos filtros.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
+          <thead><tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"><th className="py-2 pr-3">Fecha de pago</th><th className="py-2 pr-3">Orden</th><th className="py-2 pr-3">Cliente / equipo</th><th className="py-2 pr-3">Técnico</th><th className="py-2 pr-3">Fecha de término</th><th className="py-2 text-right">Monto cobrado</th></tr></thead>
+          <tbody>{(report.payment_rows || []).map((row) => <tr key={row.id || row.ticket_number} className="border-b border-zinc-100 dark:border-zinc-800">
+            <td className="py-3 pr-3 whitespace-nowrap">{shortDate(row.paid_date)}</td>
+            <td className="py-3 pr-3"><button type="button" onClick={() => navigate(`/repairs/${row.id}`)} className="report-order-link font-medium text-blue-600 hover:underline dark:text-blue-400">{row.ticket_number}</button></td>
+            <td className="py-3 pr-3">{row.customer_name}<span className="block text-xs text-zinc-500 dark:text-zinc-400">{row.device}</span></td>
+            <td className="py-3 pr-3">{row.technician}</td>
+            <td className="py-3 pr-3 whitespace-nowrap">{row.finished_date ? shortDate(row.finished_date) : '—'}</td>
+            <td className="py-3 text-right whitespace-nowrap">{formatCLP(row.value)}</td>
+          </tr>)}</tbody>
+          <tfoot><tr className="border-t-2 border-emerald-500 bg-emerald-50 font-bold dark:bg-emerald-950/50">
+            <td colSpan={5} className="px-2 py-3">TOTAL COBRADO</td>
+            <td className="px-2 py-3 text-right whitespace-nowrap">{formatCLP(report.summary.collected)}</td>
+          </tr></tfoot>
+        </table></div>}
+      </section>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ReportCard label="Trabajos terminados" value={report.summary.finished} />
         <ReportCard label="Reparados" value={report.summary.repaired} />
         <ReportCard label="Sin reparación" value={report.summary.not_repaired} />
         <ReportCard label="Entregados en el período" value={report.summary.delivered} />
-        <ReportCard label="Monto total de trabajos terminados" value={formatCLP(report.summary.final_value)}
-          detail={`${reportPeriod(report)} · según fecha de término`} />
-        <ReportCard label="Costos registrados" value={formatCLP(report.summary.recorded_cost)} />
-        <ReportCard label="Pagos recibidos" value={report.summary.paid_count} />
-        <ReportCard label="Monto cobrado" value={formatCLP(report.summary.collected)}
-          detail={`${reportPeriod(report)} · según fecha de pago`} />
+        <ReportCard label="Costos ingresados" value={formatCLP(report.summary.recorded_cost)} detail="Solo costos que se registraron en las órdenes terminadas." />
       </div>
-
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">El monto cobrado puede incluir reparaciones de meses anteriores. Los costos solo incluyen precios de costo ingresados.</p>
 
       {report.daily.length > 0 && <section className="report-card rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
         <h3 className="mb-4 text-lg font-semibold">Trabajos terminados por día</h3>
@@ -207,20 +260,6 @@ export default function Reports() {
         </div>
       </section>}
 
-      <section className="report-card rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
-        <h3 className="mb-3 text-lg font-semibold">Detalle de trabajos terminados ({report.rows.length})</h3>
-        {report.rows.length === 0 ? <p className="text-sm text-zinc-500 dark:text-zinc-400">No hay trabajos terminados con estos filtros.</p> : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm">
-          <thead><tr className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"><th className="py-2 pr-3">Fecha</th><th className="py-2 pr-3">Orden</th><th className="py-2 pr-3">Cliente / equipo</th><th className="py-2 pr-3">Trabajo</th><th className="py-2 pr-3">Técnico</th><th className="py-2 pr-3">Estado</th><th className="py-2 text-right">Precio final</th><th className="py-2 text-right">Costo</th></tr></thead>
-          <tbody>{report.rows.map((row) => <tr key={row.id || row.ticket_number} className="border-b border-zinc-100 dark:border-zinc-800">
-            <td className="py-3 pr-3 whitespace-nowrap">{row.finished_date}</td>
-            <td className="py-3 pr-3"><button type="button" onClick={() => navigate(`/repairs/${row.id}`)} className="report-order-link font-medium text-blue-600 hover:underline dark:text-blue-400">{row.ticket_number}</button></td>
-            <td className="py-3 pr-3">{row.customer_name}<span className="block text-xs text-zinc-500 dark:text-zinc-400">{row.device}</span></td>
-            <td className="py-3 pr-3">{row.work}</td>
-            <td className="py-3 pr-3">{row.technician}</td><td className="py-3 pr-3">{row.status}</td>
-            <td className="py-3 text-right whitespace-nowrap">{formatCLP(row.value)}</td><td className="py-3 text-right whitespace-nowrap">{formatCLP(row.cost)}</td>
-          </tr>)}</tbody>
-        </table></div>}
-      </section>
     </div>}
   </div>;
 }

@@ -13,5 +13,7 @@
     box-shadow: none !important;
   }
   .report-page .report-card { border-color: #ccc !important; break-inside: avoid; }
+  .report-page .report-table-card { break-inside: auto !important; }
+  .report-page .report-table-card tr { break-inside: avoid; }
   .report-page .report-order-link { text-decoration: none !important; }
 }

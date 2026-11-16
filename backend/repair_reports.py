@@ -62,6 +62,7 @@ def build_repair_report(repairs, start: date, end: date, technician=None):
         "final_value": 0, "recorded_cost": 0, "paid_count": 0, "collected": 0,
     }
     rows = []
+    payment_rows = []
     daily = defaultdict(int)
     by_technician = {}
     by_issue = {}
@@ -86,6 +87,14 @@ def build_repair_report(repairs, start: date, end: date, technician=None):
         if paid and start <= paid <= end:
             summary["paid_count"] += 1
             summary["collected"] += value
+            payment_rows.append({
+                "id": repair.get("id"), "ticket_number": repair.get("ticket_number") or "—",
+                "customer_name": repair.get("customer_name") or "—",
+                "device": " ".join(filter(None, [repair.get("device_brand"), repair.get("device_model")])) or "—",
+                "technician": repair.get("assigned_technician") or "Sin asignar",
+                "paid_date": paid.isoformat(), "finished_date": finished.isoformat() if finished else None,
+                "value": value,
+            })
         if not finished or not start <= finished <= end:
             continue
 
@@ -124,10 +133,11 @@ def build_repair_report(repairs, start: date, end: date, technician=None):
         })
 
     rows.sort(key=lambda item: (item["finished_date"], item["ticket_number"]), reverse=True)
+    payment_rows.sort(key=lambda item: (item["paid_date"], item["ticket_number"]), reverse=True)
     return {
         "start": start.isoformat(), "end": end.isoformat(), "summary": summary,
         "daily": [{"date": day, "count": count} for day, count in sorted(daily.items())],
         "by_technician": sorted(by_technician.values(), key=lambda item: (-item["finished"], item["name"])),
         "by_issue": sorted(by_issue.values(), key=lambda item: (-item["count"], item["name"])),
-        "rows": rows,
+        "rows": rows, "payment_rows": payment_rows,
     }

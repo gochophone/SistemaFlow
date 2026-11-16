@@ -28,6 +28,9 @@ const report = {
   rows: [{ id: 'repair-1', ticket_number: 'REP-00001', customer_name: 'Cliente Uno',
     device: 'Apple iPhone 13', work: 'Pantalla', technician: 'Ana Técnica', status: 'Reparado',
     finished_date: '2026-11-02', value: 20000, cost: 5000 }],
+  payment_rows: [{ id: 'repair-2', ticket_number: 'REP-00002', customer_name: 'Cliente Dos',
+    device: 'Apple iPhone 12', technician: 'Ana Técnica', paid_date: '2026-11-08',
+    finished_date: '2026-10-30', value: 10000 }],
 };
 
 beforeAll(() => { global.IS_REACT_ACT_ENVIRONMENT = true; });
@@ -60,6 +63,9 @@ test('genera un reporte mensual por técnico con resumen y acceso al detalle', a
   });
   expect(container.querySelector('[data-testid="generated-report"]')).not.toBeNull();
   expect(container.textContent).toContain('Trabajos terminados');
+  expect(container.textContent).toContain('VALOR TOTAL DE TRABAJOS');
+  expect(container.textContent).toContain('TOTAL COBRADO');
+  expect(container.textContent).toContain('Cliente Dos');
   expect(container.textContent).toContain('Cliente Uno');
   await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'REP-00001').click());
   expect(mockNavigate).toHaveBeenCalledWith('/repairs/repair-1');

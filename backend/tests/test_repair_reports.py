@@ -54,6 +54,11 @@ def test_monthly_work_delivery_and_collections_are_separate_events():
     assert result["daily"] == [{"date": "2026-11-02", "count": 1}, {"date": "2026-11-10", "count": 1}]
     assert result["by_issue"] == [{"name": "No enciende", "count": 1}, {"name": "Pantalla", "count": 1}]
     assert result["rows"][1]["work"] == "Pantalla"
+    assert [(row["ticket_number"], row["paid_date"], row["value"]) for row in result["payment_rows"]] == [
+        ("REP-5", "2026-11-07", 10000),
+    ]
+    assert sum(row["value"] for row in result["payment_rows"]) == result["summary"]["collected"]
+    assert sum(row["value"] for row in result["rows"]) == result["summary"]["final_value"]
 
 
 def test_technician_filter_includes_only_matching_work_and_payments():
@@ -63,6 +68,7 @@ def test_technician_filter_includes_only_matching_work_and_payments():
     assert result["summary"]["delivered"] == 2
     assert result["summary"]["collected"] == 10000
     assert [row["ticket_number"] for row in result["rows"]] == ["REP-1"]
+    assert [row["ticket_number"] for row in result["payment_rows"]] == ["REP-5"]
 
 
 def test_legacy_name_only_work_joins_the_matching_technician_group():
@@ -147,5 +153,6 @@ def test_report_http_route_returns_real_summary_for_admin(reports_store):
         assert response.status_code == 200
         assert response.json()["summary"]["finished"] == 2
         assert "REP-PRIVATE" not in [row["ticket_number"] for row in response.json()["rows"]]
+        assert "REP-PRIVATE" not in [row["ticket_number"] for row in response.json()["payment_rows"]]
     finally:
         server.app.dependency_overrides.pop(server.get_current_user, None)
