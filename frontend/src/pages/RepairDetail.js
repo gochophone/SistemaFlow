@@ -312,7 +312,7 @@ const RepairDetail = () => {
 
   const handlePaidChange = (checked) => {
     if (checked === Boolean(repair?.paid) || savingPayment) return;
-    setPendingPayment({ ticketNumber: repair.ticket_number, paid: checked });
+    setPendingPayment({ repair, ticketNumber: repair.ticket_number, paid: checked });
   };
 
   const confirmPaymentChange = () => {

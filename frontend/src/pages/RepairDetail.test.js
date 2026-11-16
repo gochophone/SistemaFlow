@@ -143,6 +143,8 @@ test('confirmar o cancelar el pago funciona dentro de la orden en ambos sentidos
 
   await act(async () => document.querySelector('[data-testid="paid-switch"]').click());
   expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('REP-00001');
+  expect(document.querySelector('[data-testid="payment-confirmation-customer"]').textContent).toBe('Ana');
+  expect(document.querySelector('[data-testid="payment-confirmation-device"]').textContent).toBe('Apple iPhone 13');
   expect(axios.patch).not.toHaveBeenCalled();
   await act(async () => document.querySelector('[data-testid="cancel-payment-change"]').click());
   expect(axios.patch).not.toHaveBeenCalled();

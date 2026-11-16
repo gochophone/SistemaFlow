@@ -238,6 +238,20 @@ test('search and the unpaid shortcut both restrict results', async () => {
   expect(visibleTickets()).toEqual(['REP-TEST']);
 });
 
+test('el aviso de pago muestra el cliente y equipo de la orden seleccionada', async () => {
+  axios.get.mockResolvedValue({ data: [
+    deliveredUnpaid,
+    { ...deliveredUnpaid, id: 'repair-2', ticket_number: 'REP-OTRA',
+      customer_name: 'María Soto', device_brand: 'Samsung', device_model: 'Galaxy S23' },
+  ] });
+  await renderRepairs();
+  await act(async () => container.querySelector('[data-testid="quick-payment-REP-OTRA"]').click());
+  expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('REP-OTRA');
+  expect(document.querySelector('[data-testid="payment-confirmation-customer"]').textContent).toBe('María Soto');
+  expect(document.querySelector('[data-testid="payment-confirmation-device"]').textContent).toBe('Samsung Galaxy S23');
+  expect(axios.patch).not.toHaveBeenCalled();
+});
+
 test.each(['success', 'failure'])('marking a filtered order paid updates the list and handles %s', async (outcome) => {
   let resolvePayment;
   let rejectPayment;
@@ -250,6 +264,8 @@ test.each(['success', 'failure'])('marking a filtered order paid updates the lis
   await act(async () => unpaidButton().click());
   await act(async () => container.querySelector('[data-testid="quick-payment-REP-TEST"]').click());
   expect(document.querySelector('[data-testid="payment-confirmation-dialog"]').textContent).toContain('REP-TEST');
+  expect(document.querySelector('[data-testid="payment-confirmation-customer"]').textContent).toBe('Cliente de prueba');
+  expect(document.querySelector('[data-testid="payment-confirmation-device"]').textContent).toBe('Apple iPhone X');
   expect(axios.patch).not.toHaveBeenCalled();
   expect(unpaidButton().textContent).toContain('(1)');
   await act(async () => document.querySelector('[data-testid="confirm-payment-change"]').click());
